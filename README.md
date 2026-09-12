@@ -1,3 +1,13 @@
+# Mogwai
+
+## Dated concept notes
+
+- [2026-09-11 — User-Controlled Interactive Frame](README-2026-09-11.md)
+
+The dated notes preserve the evolution of Mogwai's architecture. The 2026-09-11 note defines Mogwai as the interactive frame for user-controlled media resolution, including YouTube/IPFS decomposition and its relationship to Dark Star, CertLedger, and Chisel.
+
+---
+
 ********************************************************
 ETHDENVER 2025 Update!!!!!!!!!!
 
