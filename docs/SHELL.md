@@ -35,6 +35,25 @@ The command refuses to overwrite an existing destination or follow symbolic
 links. If the parent directory includes whitespace, rename that directory
 separately first. Use `--dry-run` when you need to inspect changes.
 
+### Per-directory audit log
+
+Every successful rename or CRLF-to-LF conversion appends one entry to
+`.log.txt` in the same directory as the file. Entries contain UTC time,
+`m.file.fix`, the action, original basename and new basename. Bash `%q`
+escaping preserves the original name (including spaces and embedded newlines)
+while keeping each event on one physical line.
+
+```text
+2026-10-12T21:15:00Z    m.file.fix    rename    Screen\\ Shot.png    Screen-Shot.png
+```
+
+Actions are `rename`, `crlf`, or `rename+crlf`. The log is hidden, plain
+text, and append-only for normal use. No entry is created for `--dry-run`,
+an unchanged file, or a failed operation. The log itself is protected from
+renaming, and an existing `.log.txt` symlink is rejected. An audit-write
+failure after a successful file update is reported as an error rather than
+silently ignored. Mogwai does not need Daisy, FileProxy, or a service to log.
+
 **Integrity warning:** rewriting CRLF in a text file changes its hash.
 Do not run the converter on a finalized, signed, or ledger-hashed source
 document without intending to create a new canonical artifact. The command
