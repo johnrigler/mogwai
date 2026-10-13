@@ -122,7 +122,7 @@ m.file.fix --dry-run 'nested/Some File.txt' >/dev/null
 m.file.fix 'nested/Some File.txt' >/dev/null
 [[ -f nested/Some-File.txt && -f nested/.log.txt ]]
 [[ $(wc -l < nested/.log.txt) -eq 1 ]]
-grep -Fq -- 'Some\\ File.txt' nested/.log.txt
+grep -Fq -- 'Some\ File.txt' nested/.log.txt
 # Refuse a planted .log.txt symlink before changing a file.
 mkdir -p hostile
 printf 'outside' > outside.log
