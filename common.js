@@ -1,4 +1,4 @@
-document.title = 'Secret Beach Solutions'
+document.title = 'Mogwai'
 
 // is-selected
 
@@ -20,7 +20,7 @@ var setFooter = `
 	    <pre>
 
 	    John Rigler <a href=https://linkedin.com/in/jrigler><img src="/icon/linkedin.svg"></a>
-	    Collective Ledgers, LLC
+	    Mogwai
 	    john@protonmail.com
 	    682-666-0614
 	    </pre>
@@ -28,7 +28,7 @@ var setFooter = `
 	    </div>
           </li>
           <li class="p-inline-list__item">
-            &copy; 2025 Secret Beach Solutions 
+            Mogwai · tools and publications 
           </li>
         </ul>
         <span class="u-off-screen">
@@ -42,7 +42,7 @@ var setFooter = `
 
 function setLocationHref ( page ) {
 	console.log(page)
-	location.href = "https://secretbeachsolutions.com/cl/" + page;
+	location.href = page && page.charAt(0) === "#" ? page : new URL(page || "./", document.baseURI).href;
 }
 
 function loadPage ( page ) {
@@ -69,8 +69,8 @@ homeImage.onclick = function () { setLocationHref("") }; // was vf/
 //blockchainMenu.onclick = function () { location.href = "https://secretbeachsolutions.com/vanillaframework/" };
 // example.onclick = function () { setLocationHref("https://secretbeachsolutions.com/vanillaframework/examples/") } ;
 //services.onclick = function () { setLocationHref("vanillaframework/services/") };
-about.onclick = function () { setLocationHref("about/") }; // was vf/about/
-ledgers.onclick = function () { setLocationHref("ledgers/") };
+document.getElementById("about").onclick = function () { document.getElementById("aboutButton").click(); };
+document.getElementById("ledgers").onclick = function () { document.getElementById("faqButton").click(); };
 
 if(page == '')page = 'index.html';
 

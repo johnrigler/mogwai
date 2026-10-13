@@ -1,0 +1,68 @@
+{
+  "title": "Mogwai and SB Shell",
+  "blocks": [
+    {
+      "type": "hero",
+      "title": "Mogwai / SB Shell",
+      "lead": "Pages with narrative structure, independently stored fragments and tables sourced from separate data files.",
+      "actions": [
+        {
+          "label": "CertLedger example",
+          "href": "certledger.json"
+        },
+        {
+          "label": "Original homepage",
+          "href": "../index.html"
+        }
+      ]
+    },
+    {
+      "type": "markdown",
+      "heading": "Narrative structure",
+      "src": "pieces/approach.md"
+    },
+    {
+      "type": "table",
+      "heading": "Page elements",
+      "src": "data/elements.json",
+      "columns": [
+        {
+          "key": "component",
+          "label": "Element"
+        },
+        {
+          "key": "source",
+          "label": "Stored as"
+        },
+        {
+          "key": "purpose",
+          "label": "Presentation"
+        }
+      ]
+    },
+    {
+      "type": "cards",
+      "heading": "Other ways to read",
+      "items": [
+        {
+          "title": "CertLedger",
+          "text": "The same layout can tell a legal/documentary story.",
+          "href": "certledger.json",
+          "label": "View page"
+        },
+        {
+          "title": "Implementation",
+          "text": "The rendering format and source convention.",
+          "href": "../docs/PUBLICATIONS.md",
+          "label": "Read docs"
+        }
+      ]
+    },
+    {
+      "type": "directory",
+      "heading": "Source files",
+      "src": "../publication-files.txt",
+      "prefix": "publications/"
+    }
+  ]
+}

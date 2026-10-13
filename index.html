@@ -8,14 +8,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="icon" href="logo.png" type="image/x-icon" />
 
-    <script defer src="common.js?HIPSEED513422232"></script>
-    <script src="../lib/ethers-6.13.5.umd.min.js"></script>
-    <script src='../lib/davidshimjs-qrcodejs-04f46c6/qrcode.min.js'></script>
-    <script src='../lib/html5-qrcode/minified/html5-qrcode.min.js'></script>
-    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.js"></script>
-    <script src="../lib/qrRead.js"></script>
-    <script src="../lib/freeTalk.js"></script>
-    <script src="../lib/utils.js"></script>
+    <script defer src="common.js?42B"></script>
+
+
+
+
+
+
+
 
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
@@ -52,6 +52,7 @@
                     <button class="js-menu-button p-navigation__link" id="docsButton">Docs</button>
                    <button class="js-menu-button p-navigation__link" id="servicesButton">Services</button>
                    <button class="js-menu-button p-navigation__link"  id="aboutButton">About</button>
+<a class="p-navigation__link" href="publication.html?page=publications/overview.json">Publications 42.B</a>
 
 
       </div>
@@ -82,16 +83,14 @@ fetch(m.addr + ".json").then( x => x.json() ).then( x => m.abi = x )
 <script src="docs.js?1234"></script>
 <script src="services.js?134213"></script>
 <script src="about.js?12332163123"></script>
-<script src="../utils.js"></script>
+
 <script> 
 
 	const urlSearchParams = new URLSearchParams(window.location.search);
-	m.priv = urlSearchParams.get("priv")
+	// Private-key query parameters are not used by this homepage.
 	m.address = urlSearchParams.get("address")
 
-	console.log(m.priv)
-
-	if(urlSearchParams.get("address").length == 42)
+	if(m.address && m.address.length === 42)
     alert("You did it!!! This is your Web3 homepage and wallet.")
 
 
