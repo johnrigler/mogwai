@@ -1,5 +1,19 @@
 # Mogwai
 
+## Shell tools: m.file.fix and m.pick
+
+The latest [Mogwai Bash library](scripts/mogwai.bash) implements
+`m.file.fix` (safe Unix-friendly filename/CRLF normalization) and
+`m.pick` (select exactly one stdin line using Vim's x marker).
+Read [the command guide](docs/SHELL.md) for examples, data-integrity
+limits, and Daisy snapshot commands.
+
+```bash
+source scripts/mogwai.bash
+bash tests/test-mogwai.bash
+```
+
+
 ## Dated concept notes
 
 - [2026-09-11 — User-Controlled Interactive Frame](README-2026-09-11.md)
