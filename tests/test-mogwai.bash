@@ -47,7 +47,7 @@ fi
 
 cat > editor-ok <<'SH'
 #!/usr/bin/env bash
-sed 's/^  The second  choice with spaces$/x The second  choice with spaces/' "$1" > "$1.edit"
+sed 's/^  \(\[000002\] \)/x \1/' "$1" > "$1.edit"
 cat "$1.edit" > "$1"
 SH
 chmod +x editor-ok
@@ -66,7 +66,7 @@ if printf '%s\n' one two | MOGWAI_PICK_EDITOR="$work/editor-none" m.pick >/dev/n
 fi
 cat > editor-many <<'SH'
 #!/usr/bin/env bash
-sed 's/^  /x /' "$1" > "$1.edit"
+sed 's/^  \(\[[0-9][0-9][0-9][0-9][0-9][0-9]\] \)/x \1/' "$1" > "$1.edit"
 cat "$1.edit" > "$1"
 SH
 chmod +x editor-many
@@ -74,4 +74,31 @@ if printf '%s\n' one two | MOGWAI_PICK_EDITOR="$work/editor-many" m.pick >/dev/n
     echo "Multiple choices not rejected" >&2
     exit 1
 fi
+
+# Regression: adding an x marker must not become leading spaces in output.
+printf 'shot' > 'Screen Shot 2024-08-17 at 11.13.38 PM.png'
+cat > editor-insert <<'SH'
+#!/usr/bin/env bash
+sed 's/^  \(\[000001\] \)/x  \1/' "$1" > "$1.edit"
+cat "$1.edit" > "$1"
+SH
+chmod +x editor-insert
+result=$(printf '%s\n' 'Screen Shot 2024-08-17 at 11.13.38 PM.png' |
+    MOGWAI_PICK_EDITOR="$work/editor-insert" m.pick | m.file.fix)
+[[ $result == ./Screen-Shot-2024-08-17-at-11.13.38-PM.png ]]
+[[ -f ./Screen-Shot-2024-08-17-at-11.13.38-PM.png ]]
+
+# Lossless NUL mode handles leading spaces and embedded newlines.
+printf 'pixel' > 
+ odd\nfile.png'
+printf '%s\0' 
+./ odd\nfile.png' |
+    MOGWAI_PICK_EDITOR="$work/editor-insert" m.pick -0 | m.file.fix -0 > selected.bin
+python3 - "$work" <<'PY'
+import pathlib, sys
+root=pathlib.Path(sys.argv[1])
+result=(root/'selected.bin').read_bytes()
+assert result.endswith(b'\x00') and b'\n' not in result
+assert (root/'odd-file.png').read_bytes()==b'pixel'
+PY
 printf 'Mogwai shell tests passed.\n'
