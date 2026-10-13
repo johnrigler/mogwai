@@ -80,3 +80,13 @@ https://ipfs.io/ipfs/QmTCpNfG8tH9yEibWHfb5T9vZej5joSn6zMYR8nvQZJSJx/gomez.html
 It is possible to write messages in raw HTML onto this "forever wall" by using Metamask and the Polygon
 crypto.  I don't believe that things written onto this can ever be deleted or censored. This leads to
 a much bigger conversation about gatekeeping, morality, and even the future of social media.
+
+## Read-only public-source watches
+
+The portable Python standard-library `scripts/m.watch.py` adapter polls a
+configured list of public sources, records SHA-256 byte changes and optionally
+archives exact response bytes locally. It does **not** classify arbitrary
+changes as new court filings, contact private infrastructure, edit Daisy,
+or automatically anchor Chisel transactions. See [watch CLI and telemetry limits](docs/WATCHES.md).
+The sample Project Jupiter configuration lives in
+[`daisy_2026/421/04-project-jupiter-watch-sources.json`](https://github.com/johnrigler/daisy_2026/blob/main/421/04-project-jupiter-watch-sources.json).
