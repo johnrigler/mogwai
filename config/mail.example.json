@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "accounts": [
+    {
+      "id": "personal",
+      "host": "imap.example.net",
+      "port": 993,
+      "username": "you@example.net",
+      "passwordEnv": "MOGWAI_MAIL_PASSWORD",
+      "mailbox": "INBOX",
+      "rules": [
+        {
+          "id": "verification",
+          "from": [
+            "sender@agency.example"
+          ],
+          "subjectContains": "",
+          "codeRegex": "(?<!\\d)(\\d{6})(?!\\d)",
+          "action": "clipboard"
+        }
+      ]
+    }
+  ]
+}
