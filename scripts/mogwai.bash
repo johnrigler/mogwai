@@ -5,15 +5,21 @@
 
 _m.file.name ()
 {
-    local name=$1
-    # Newlines cannot be represented by a line-oriented name transform.
-    name=${name// '%s' "$name" |
+    local name=$1 nl cr tab
+    printf -v nl '\n'
+    printf -v cr '\r'
+    printf -v tab '\t'
+    name=${name//$nl/-}
+    name=${name//$cr/-}
+    name=${name//$tab/-}
+    LC_ALL=C printf '%s' "$name" |
         LC_ALL=C sed -E 's/[[:space:]]+/-/g; s/[^A-Za-z0-9._-]+/-/g; s/-+/-/g; s/-+\././g; s/\.-+/./g; s/^[._-]+//; s/[._-]+$//'
 }
 
 _m.file.one ()
 {
-    local original=$1 dry_run=$2 output_null=$3 from dir base fixed target temp='' cr=
+    local original=$1 dry_run=$2 output_null=$3 from dir base fixed target temp='' cr
+    printf -v cr '\r'
     # Convert a leading-dash argument to an unambiguous relative path.
     from=$original
     [[ $from != -* ]] || from="./$from"
