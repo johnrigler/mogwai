@@ -98,4 +98,40 @@ IFS= read -r -d '' picked < selected.bin
 [[ $picked == './odd-file.png' ]]
 [[ $(wc -c < selected.bin) -eq 15 ]]
 [[ $(cat './odd-file.png') == pixel ]]
+# Every successful change is audited in .log.txt without changing stdout.
+[[ -f .log.txt && $(wc -l < .log.txt) -eq 4 ]]
+old=$(printf '%q' '-My Report (Final).TXT')
+new=$(printf '%q' 'My-Report-Final.TXT')
+grep -Fq -- "$old"$'\t'"$new" .log.txt
+grep -Fq $'\tm.file.fix\trename+crlf\t' .log.txt
+grep -Fq $'\tm.file.fix\trename\t' .log.txt
+# Repeating an already normalized path is a no-op and creates no new entry.
+m.file.fix './odd-file.png' >/dev/null
+[[ $(wc -l < .log.txt) -eq 4 ]]
+# The hidden audit log is reserved and cannot be silently renamed.
+if m.file.fix ./.log.txt >/dev/null 2>&1; then
+    echo "Audit log was renamed" >&2
+    exit 1
+fi
+[[ -f .log.txt && $(wc -l < .log.txt) -eq 4 ]]
+# Each directory gets its own audit log; previews don't create one.
+mkdir -p nested
+printf 'inside' > 'nested/Some File.txt'
+m.file.fix --dry-run 'nested/Some File.txt' >/dev/null
+[[ ! -e nested/.log.txt ]]
+m.file.fix 'nested/Some File.txt' >/dev/null
+[[ -f nested/Some-File.txt && -f nested/.log.txt ]]
+[[ $(wc -l < nested/.log.txt) -eq 1 ]]
+grep -Fq -- 'Some\\ File.txt' nested/.log.txt
+# Refuse a planted .log.txt symlink before changing a file.
+mkdir -p hostile
+printf 'outside' > outside.log
+ln -s ../outside.log hostile/.log.txt
+printf 'test' > 'hostile/Has Space.txt'
+if m.file.fix 'hostile/Has Space.txt' >/dev/null 2>&1; then
+    echo "Audit log symlink was followed" >&2
+    exit 1
+fi
+[[ -f 'hostile/Has Space.txt' && ! -e 'hostile/Has-Space.txt' ]]
+[[ $(cat outside.log) == outside ]]
 printf 'Mogwai shell tests passed.\n'
