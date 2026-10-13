@@ -41,44 +41,62 @@ document without intending to create a new canonical artifact. The command
 also changes paths, so update any references that previously used old names.
 PDF bytes are not rewritten.
 
-Only ordinary, newline-delimited path input is supported. File names
-containing embedded newlines require another workflow. The command does not
+Use `m.file.fix -0` with `find -print0` to support even paths containing
+embedded newlines. Generated names normalize newline, carriage return,
+and tab to hyphens. The command does not
 silently recurse into directories.
 
 ## m.pick
 
-Reads candidate lines on stdin, writes a temporary menu, and opens your
-`$VISUAL` or `$EDITOR` (default: `vi`).
+The picker now uses numbered rows. It stores each original stdin record
+separately, so the editor's indentation and the `x` marker are **never**
+included in the output filename. If a path exists, the menu also displays
+its filesystem device and inode for context. The row number, rather than
+inode alone, identifies the selected item within the menu.
+
+The original failing pipeline now works for ordinary one-line filenames:
 
 ```bash
-printf '%s\n' 'first choice' 'a file with spaces.pdf' 'third choice' | m.pick
+ls -1 | m.pick | m.file.fix
 ```
 
-The editor shows two leading spaces in front of each item:
+For arbitrary Unix filenames, including embedded newlines, use a NUL-delimited
+pipeline:
+
+```bash
+find . -maxdepth 1 -type f -print0 | m.pick -0 | m.file.fix -0
+```
+
+Each menu row begins with two spaces and a fixed row number:
 
 ```text
-  first choice
-  a file with spaces.pdf
-  third choice
+  [000001] ./first.txt [dev:ino 2049:12345]
+  [000002] ./Screen Shot 2024.png [dev:ino 2049:12346]
 ```
 
-Go to the chosen line and replace **its very first space** with `x`:
+Use Vim `0rx`, or insert `x` at column one, on **one** row. Then save and
+quit with `:wq`. The selected original input record is returned verbatim.
+Changing the filename in the editor is not a rename operation.
 
-```text
-  first choice
-x a file with spaces.pdf
-  third choice
+To run a chosen file through another tool, pipe the selection into that tool.
+For example, a deliberately destructive command is:
+
+```bash
+find . -maxdepth 1 -type f -print0 | m.pick -0 | xargs -0 -r rm -v --
 ```
 
-With Vim: `0rx` (move to column 1, replace the space with x), then
-`:wq`. Mogwai returns **exactly the selected original line**, preserving
-internal and leading spaces. A zero-choice or multiple-choice edit is rejected
-rather than guessing. Editor UI goes to the terminal; stdout is reserved for
-the result so pipelines still work.
+Only run that command when you actually intend to delete the selected file.
+A safer preview is to replace `rm -v` with `ls -li`.
+No delete, rename, or command execution happens inside `m.pick`.
 
-`MOGWAI_PICK_EDITOR` can override the editor, which is also used for
-noninteractive regression tests. The pick function returns text only; it does
-not treat it as a shell command or evaluate it.
+File names containing arbitrary bytes should be obtained through `find
+-print0` rather than parsing human-oriented `ls -l` or `ls -i`
+output. Inode numbers are useful diagnostic identifiers, not permanent
+file names or sufficient protection against races.
+
+The editor uses `$VISUAL`, `$EDITOR`, or `MOGWAI_PICK_EDITOR`.
+Noninteractive tests supply a temporary editor script. `m.pick` writes
+status to stderr so stdout remains pipeline-safe.
 
 ## Daisy interoperability
 
