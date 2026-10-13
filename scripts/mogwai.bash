@@ -97,47 +97,79 @@ m.file.fix ()
     return "$failure"
 }
 
+# Mark a numbered editor row; return the original bytes, not menu whitespace.
+# NUL mode allows lossless paths from find -print0.
 m.pick ()
 {
-    local editor=${MOGWAI_PICK_EDITOR:-${VISUAL:-${EDITOR:-vi}}}
-    local tmp line selected='' marks=0 status=0
-    (( $# == 0 )) || { printf 'usage: lines | m.pick\n' >&2; return 2; }
-    if [[ -t 0 ]]; then
-        printf 'm.pick: provide newline-delimited choices on stdin\n' >&2
-        return 2
+    local null_mode=0 editor=${MOGWAI_PICK_EDITOR:-${VISUAL:-${EDITOR:-vi}}}
+    local tmp item display line details='' id n marks=0 selected='' status=0
+    local -a choices=() shown=()
+    case ${1:-} in
+        -0|--null) null_mode=1; shift ;;
+    esac
+    (( $# == 0 )) || { printf 'usage: lines | m.pick [-0|--null]\n' >&2; return 2; }
+    [[ ! -t 0 ]] || { printf 'm.pick: provide candidates on stdin\n' >&2; return 2; }
+
+    if (( null_mode )); then
+        while IFS= read -r -d '' item; do
+            [[ -n $item ]] && choices+=("$item")
+        done
+    else
+        while IFS= read -r item || [[ -n $item ]]; do
+            [[ -n $item ]] && choices+=("$item")
+        done
     fi
+    ((${#choices[@]})) || { printf 'm.pick: no choices supplied\n' >&2; return 1; }
+
     tmp=$(mktemp "${TMPDIR:-/tmp}/mogwai-pick.XXXXXXXX") || return
-    # The two-space prefix makes selection unambiguous even when a real
-    # option begins with x. Replace the FIRST space with x in the editor.
-    while IFS= read -r line || [[ -n $line ]]; do
-        printf '  %s\n' "$line" >> "$tmp"
+    for ((n=0; n<${#choices[@]}; n++)); do
+        item=${choices[n]}
+        # Display controls visibly; the true path stays in choices.
+        display=${item//$'\n'/\\n}
+        display=${display//$'\r'/\\r}
+        display=${display//$'\t'/\\t}
+        details=''
+        if [[ -e $item || -L $item ]]; then
+            if details=$(stat -c '%d:%i' -- "$item" 2>/dev/null); then
+                details=" [dev:ino $details]"
+            elif details=$(stat -f '%d:%i' -- "$item" 2>/dev/null); then
+                details=" [dev:ino $details]"
+            else details=''; fi
+        fi
+        shown+=("$display$details")
+        printf '  [%06d] %s\n' "$((n+1))" "${shown[n]}" >> "$tmp"
     done
-    if [[ ! -s $tmp ]]; then
-        rm -f "$tmp"
-        printf 'm.pick: no choices on stdin\n' >&2
-        return 1
-    fi
-    printf 'm.pick: replace the first space of ONE line with x, then save and quit.\n' >&2
+
+    printf 'm.pick: mark ONE row with x at column 1, then save and quit.\n' >&2
     if ( : </dev/tty ) 2>/dev/null; then
         "$editor" "$tmp" </dev/tty >/dev/tty || status=$?
     else
         "$editor" "$tmp" || status=$?
     fi
-    if (( status )); then
-        rm -f "$tmp"
-        printf 'm.pick: editor exited with status %s\n' "$status" >&2
+    if ((status)); then
+        rm -f -- "$tmp"
+        printf 'm.pick: editor returned status %s\n' "$status" >&2
         return "$status"
     fi
+
     while IFS= read -r line || [[ -n $line ]]; do
-        if [[ $line == 'x '* ]]; then
+        # Replaced first space: x [ID]; inserted marker: x  [ID].
+        if [[ $line =~ ^x[[:space:]]+\[([0-9]{6})\]\ (.*)$ ]]; then
+            id=$((10#${BASH_REMATCH[1]}))
+            if ((id < 1 || id > ${#choices[@]})) || [[ ${BASH_REMATCH[2]} != "${shown[id-1]}" ]]; then
+                printf 'm.pick: marked row was altered or invalid\n' >&2
+                rm -f -- "$tmp"
+                return 1
+            fi
             ((marks+=1))
-            selected=${line:2}
+            selected=${choices[id-1]}
         fi
     done < "$tmp"
-    rm -f "$tmp"
-    if (( marks != 1 )); then
-        printf 'm.pick: expected exactly one x-marked line; got %s\n' "$marks" >&2
-        return 1
+    rm -f -- "$tmp"
+    ((marks==1)) || { printf 'm.pick: expected one x-marked row, got %s\n' "$marks" >&2; return 1; }
+    if ((null_mode)); then
+        printf '%s\0' "$selected"
+    else
+        printf '%s\n' "$selected"
     fi
-    printf '%s\n' "$selected"
 }
