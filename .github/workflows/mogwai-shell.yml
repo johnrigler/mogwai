@@ -1,0 +1,19 @@
+name: Mogwai shell checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Bash syntax
+        run: |
+          bash -n scripts/mogwai.bash
+          bash -n tests/test-mogwai.bash
+      - name: Test in a clean environment
+        run: |
+          env -i PATH="$PATH" HOME="$HOME" bash --noprofile --norc tests/test-mogwai.bash
