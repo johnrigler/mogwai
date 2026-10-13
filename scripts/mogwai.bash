@@ -40,6 +40,11 @@ _m.file.one ()
         return 1
     fi
     target=$dir/$fixed
+    # .log.txt is a per-directory audit trail, not an ingest candidate.
+    if [[ $base == .log.txt ]]; then
+        printf 'm.file.fix: reserved log file, refusing to rename: %s\n' "$original" >&2
+        return 1
+    fi
     if [[ $target != "$from" && ( -e $target || -L $target ) ]]; then
         printf 'm.file.fix: destination exists, refusing: %s\n' "$target" >&2
         return 1
@@ -60,6 +65,22 @@ _m.file.one ()
         printf 'm.file.fix: %s -> %s%s\n' "$original" "$target" "$([[ $convert == 1 ]] && printf ' [CRLF -> LF]')"
         return 0
     fi
+
+    # Verify the log is appendable before modifying the file. Escape original
+    # names via Bash %q so each record stays a single physical text line.
+    local log_file='' stamp action
+    if [[ $target != "$from" ]] || (( convert )); then
+        log_file=$dir/.log.txt
+        if [[ -L $log_file || ( -e $log_file && ! -f $log_file ) ]]; then
+            printf 'm.file.fix: unsafe log path: %s\n' "$log_file" >&2
+            return 1
+        fi
+        if ! : >> "$log_file"; then
+            printf 'm.file.fix: cannot write audit log: %s\n' "$log_file" >&2
+            return 1
+        fi
+    fi
+
     if (( convert )); then
         temp=$(mktemp "$dir/.mogwai-fix.XXXXXXXX") || return
         if ! cp -p "$from" "$temp"; then rm -f "$temp"; return 1; fi
@@ -77,6 +98,18 @@ _m.file.one ()
     elif [[ $target != "$from" ]]; then
         ln "$from" "$target" || return 1
         rm -f "$from"
+    fi
+    if [[ -n $log_file ]]; then
+        stamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ') || stamp=unknown
+        if (( convert )); then
+            if [[ $target != "$from" ]]; then action=rename+crlf; else action=crlf; fi
+        else
+            action=rename
+        fi
+        if ! printf '%s\tm.file.fix\t%s\t%q\t%q\n' "$stamp" "$action" "$base" "$fixed" >> "$log_file"; then
+            printf 'm.file.fix: file updated but audit write failed: %s\n' "$log_file" >&2
+            return 1
+        fi
     fi
     if (( output_null )); then printf '%s\0' "$target"; else printf '%s\n' "$target"; fi
 }
