@@ -1,5 +1,15 @@
 # Mogwai
 
+## Local email watcher
+
+Mogwai can watch existing IMAP mailboxes and put selected verification codes
+into the Android clipboard from Termux. Configure the static
+[Mail settings generator](mail.html), then run [m.mail.py](scripts/m.mail.py)
+locally; see [setup and security notes](docs/MAIL.md). Credentials stay
+outside this repository. For multiple email aliases or logins, configure
+additional rules/accounts. Outbound SMTP authentication is independent.
+
+
 ## Shell tools: m.file.fix and m.pick
 
 The latest [Mogwai Bash library](scripts/mogwai.bash) implements

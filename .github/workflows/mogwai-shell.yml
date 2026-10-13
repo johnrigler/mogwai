@@ -17,3 +17,6 @@ jobs:
       - name: Test in a clean environment
         run: |
           env -i PATH="$PATH" HOME="$HOME" bash --noprofile --norc tests/test-mogwai.bash
+
+      - name: Test Python watchers
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
