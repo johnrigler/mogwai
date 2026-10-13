@@ -89,16 +89,13 @@ result=$(printf '%s\n' 'Screen Shot 2024-08-17 at 11.13.38 PM.png' |
 [[ -f ./Screen-Shot-2024-08-17-at-11.13.38-PM.png ]]
 
 # Lossless NUL mode handles leading spaces and embedded newlines.
-printf 'pixel' > 
- odd\nfile.png'
-printf '%s\0' 
-./ odd\nfile.png' |
+name=$(printf ' odd\nfile.png_')
+name=${name%_}
+printf 'pixel' > "./$name"
+printf '%s\0' "./$name" |
     MOGWAI_PICK_EDITOR="$work/editor-insert" m.pick -0 | m.file.fix -0 > selected.bin
-python3 - "$work" <<'PY'
-import pathlib, sys
-root=pathlib.Path(sys.argv[1])
-result=(root/'selected.bin').read_bytes()
-assert result.endswith(b'\x00') and b'\n' not in result
-assert (root/'odd-file.png').read_bytes()==b'pixel'
-PY
+IFS= read -r -d '' picked < selected.bin
+[[ $picked == './odd-file.png' ]]
+[[ $(wc -c < selected.bin) -eq 15 ]]
+[[ $(cat './odd-file.png') == pixel ]]
 printf 'Mogwai shell tests passed.\n'
