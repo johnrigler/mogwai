@@ -14,3 +14,8 @@ Read `johnrigler/fileProxy/AGENTS.md`, `johnrigler/daisy`, and `johnrigler/alp` 
 
 ## Future per-ledger catalog idea (not implemented)
 The FileProxy [ledger database roadmap](https://github.com/johnrigler/fileProxy/blob/main/docs/LEDGER-DATABASE-ROADMAP.md) proposes one Git-published SQLite database per blockchain (Bitcoin, Litecoin, Dogecoin, Solana, etc.), located via one or more gatekeeper SQLite registry databases. Mogwai can consume those references later. Do not infer this has been implemented or introduce routing/sync features until actually required.
+
+## Annual archive and Daisy naming
+GitHub is the working stand-in for IPFS for active Daisy ISO-years. An implementation milestone is **December 31, 2026** for actual SQLite -> IPFS archival and combined GitHub/IPFS lookup. ISO 2026 does not close until January 3, 2027, and the 2027 ISO year begins January 4. This is a future feature, not implemented behavior. Read [FileProxy annual archive plan](https://github.com/johnrigler/fileProxy/blob/main/docs/ANNUAL-IPFS-ARCHIVE.md).
+
+Daisy is intentionally named for the Bell Labs *Daisy Bell* computer-singing demonstration, HAL singing it in *2001: A Space Odyssey*, and Daisy as the conceptual **child of ALP** (Anna Livia Plurabelle) from *Finnegans Wake*. The user's goal is for Daisy to communicate with an AI by exposing specific inspectable artifacts. Read [Why Daisy](https://github.com/johnrigler/daisy/blob/main/docs/WHY-DAISY.md) instead of collapsing it into a conventional module.
