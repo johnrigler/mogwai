@@ -11,3 +11,6 @@ Keep the existing user's architecture; don't replace it with generic software sc
 - Anchor references in actual GitHub files/commits, IPFS CIDs, and chain transaction IDs. Never fabricate source records or declare verification without inspecting the cited object.
 
 Read `johnrigler/fileProxy/AGENTS.md`, `johnrigler/daisy`, and `johnrigler/alp` before redesigning these interfaces.
+
+## Future per-ledger catalog idea (not implemented)
+The FileProxy [ledger database roadmap](https://github.com/johnrigler/fileProxy/blob/main/docs/LEDGER-DATABASE-ROADMAP.md) proposes one Git-published SQLite database per blockchain (Bitcoin, Litecoin, Dogecoin, Solana, etc.), located via one or more gatekeeper SQLite registry databases. Mogwai can consume those references later. Do not infer this has been implemented or introduce routing/sync features until actually required.
