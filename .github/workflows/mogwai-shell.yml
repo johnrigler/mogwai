@@ -11,10 +11,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check Bash syntax
+        if: ${{ hashFiles('scripts/mogwai.bash', 'tests/test-mogwai.bash') != '' }}
         run: |
           bash -n scripts/mogwai.bash
           bash -n tests/test-mogwai.bash
       - name: Test in a clean environment
+        if: ${{ hashFiles('scripts/mogwai.bash', 'tests/test-mogwai.bash') != '' }}
         run: |
           env -i PATH="$PATH" HOME="$HOME" bash --noprofile --norc tests/test-mogwai.bash
 
