@@ -19,3 +19,13 @@ The FileProxy [ledger database roadmap](https://github.com/johnrigler/fileProxy/
 GitHub is the working stand-in for IPFS for active Daisy ISO-years. An implementation milestone is **December 31, 2026** for actual SQLite -> IPFS archival and combined GitHub/IPFS lookup. ISO 2026 does not close until January 3, 2027, and the 2027 ISO year begins January 4. This is a future feature, not implemented behavior. Read [FileProxy annual archive plan](https://github.com/johnrigler/fileProxy/blob/main/docs/ANNUAL-IPFS-ARCHIVE.md).
 
 Daisy is intentionally named for the Bell Labs *Daisy Bell* computer-singing demonstration, HAL singing it in *2001: A Space Odyssey*, and Daisy as the conceptual **child of ALP** (Anna Livia Plurabelle) from *Finnegans Wake*. The user's goal is for Daisy to communicate with an AI by exposing specific inspectable artifacts. Read [Why Daisy](https://github.com/johnrigler/daisy/blob/main/docs/WHY-DAISY.md) instead of collapsing it into a conventional module.
+
+## Public annual archives and SB Shell (2026-10-18)
+
+Annual `daisy_YYYY` repositories are intended to be public. The reusable
+[year starter](templates/daisy-year/) belongs in Mogwai and generates an
+empty dated archive with tool references. SB Shell maintains organization,
+numbered units, navigation and print views beyond the ISO WWD coordinate.
+PHP is available on the user's laptop for the SB Shell revival. The legacy
+PHP assembler has not yet been modernized or tested here. Keep private
+source material outside public archives and their retained Git history.

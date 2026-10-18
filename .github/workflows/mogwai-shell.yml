@@ -20,5 +20,11 @@ jobs:
         run: |
           env -i PATH="$PATH" HOME="$HOME" bash --noprofile --norc tests/test-mogwai.bash
 
-      - name: Test Python watchers
+      - name: Check annual Daisy function syntax
+        run: |
+          for source in templates/daisy-year/m.daisy.new-*; do
+            bash -n "$source"
+          done
+
+      - name: Test Python checks
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v

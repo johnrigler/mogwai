@@ -2,6 +2,16 @@
 
 Mogwai supplies small, inspectable tools. Daisy keeps the source records and saved projects; it does not depend on Mogwai to exist.
 
+## Annual Daisy archives
+
+[The annual Daisy starter](templates/daisy-year/) creates a clean local
+`daisy_YYYY` tree with valid ISO `WWD/` directories and references to
+SB Shell, FileProxy, SB Stats, crypto-python, Chisel and CertLedger.
+It is an inspectable `m.daisy.new` Bash function with a content-derived
+Shoctal filename. SB Shell maintains each archive beyond the date structure.
+Annual repositories are intended to be public; existing private material
+and retained history need cleanup before public release.
+
 ## Recast
 
 [Open the Recast source folder](tools/recast/): a static HTML tool for moving one playing video between layouts, adding timed instruction/image panels, and exporting an FFmpeg render package. Audio remains one original stream.
