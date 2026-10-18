@@ -20,7 +20,7 @@ async function fixture({detect=true}={}) {
   w.HTMLMediaElement.prototype.pause=function(){paused=true;this.dispatchEvent(new w.Event('pause'));};
   w.HTMLMediaElement.prototype.play=async function(){paused=false;this.dispatchEvent(new w.Event('play'));};
   w.HTMLMediaElement.prototype.load=function(){loads++;Object.defineProperties(this,{duration:{value:10,configurable:true},videoWidth:{value:480,configurable:true},videoHeight:{value:360,configurable:true}});this.dispatchEvent(new w.Event('loadedmetadata'));};
-  for(const file of ['core.js','timing.js','render-source.js']) w.eval(await readFile(new URL(file,root),'utf8'));
+  for(const file of ['core.js','timing.js','storage.js','render-source.js']) w.eval(await readFile(new URL(file,root),'utf8'));
   w.MogwaiFrameTiming={...w.MogwaiFrameTiming,read:async()=>{if(!detect) throw new Error('Unsupported fixture');return {times:Float64Array.from({length:300},(_,i)=>i*frame),fps:1/frame,origin:'mp4'};}};
   w.setTimeout=(fn,delay)=>{const id=nextTimer++;timers.set(id,{fn,delay});return id;};
   w.clearTimeout=id=>timers.delete(id);

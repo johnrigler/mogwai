@@ -7,12 +7,19 @@ let JSDOM;
 try { ({ JSDOM } = require('jsdom')); } catch { /* Optional local dependency; installed in CI. */ }
 const root = new URL('../tools/recast/', import.meta.url), tick = () => new Promise(resolve => setImmediate(resolve));
 
-test('layout switches preserve one playing video, cues follow the playhead, and export excludes source media', { skip: !JSDOM }, async () => {
+test('layouts preserve one playing video; downloads, native folders and FileProxy save complete projects without source media', { skip: !JSDOM }, async () => {
   const dom = new JSDOM(await readFile(new URL('index.html', root), 'utf8'), { url:'https://example.test/recast/',runScripts:'outside-only',pretendToBeVisual:true });
   const w=dom.window, $=id=>w.document.getElementById(id), calls={loads:0,plays:0,fetches:0};
   try {
     Object.assign(w,{TextEncoder,TextDecoder,Blob,Uint8Array,DataView});
     w.URL.createObjectURL=()=> 'blob:private-fixture';w.URL.revokeObjectURL=()=>{};
+    const nativeFiles=new Map(),downloads=[];
+    const folder=(prefix='')=>({name:'work',async getDirectoryHandle(name){return folder(prefix+name+'/');},async getFileHandle(name,options={}){
+      if(!options.create&&!nativeFiles.has(prefix+name))throw new w.DOMException('Missing','NotFoundError');
+      return {async createWritable(){let value;return {async write(data){value=data;},async close(){nativeFiles.set(prefix+name,value);},async abort(){}};}};
+    }});
+    w.showDirectoryPicker=async()=>folder();
+    w.HTMLAnchorElement.prototype.click=function(){downloads.push(this.download);};
     w.fetch=()=>{calls.fetches++;throw new Error('No network request is expected.');};
     const context={save(){},restore(){},beginPath(){},rect(){},clip(){},fillRect(){},clearRect(){},fillText(){},drawImage(){},measureText:t=>({width:t.length*14})};
     w.HTMLCanvasElement.prototype.getContext=()=>context;
@@ -21,7 +28,7 @@ test('layout switches preserve one playing video, cues follow the playhead, and 
     w.HTMLMediaElement.prototype.pause=function(){paused=true;this.dispatchEvent(new w.Event('pause'));};
     w.HTMLMediaElement.prototype.play=async function(){calls.plays++;paused=false;this.dispatchEvent(new w.Event('play'));};
     w.HTMLMediaElement.prototype.load=function(){calls.loads++;Object.defineProperties(this,{duration:{value:98.22,configurable:true},videoWidth:{value:480,configurable:true},videoHeight:{value:360,configurable:true}});this.dispatchEvent(new w.Event('loadedmetadata'));};
-    for(const file of ['core.js','timing.js','render-source.js','recast.js'])w.eval(await readFile(new URL(file,root),'utf8'));
+    for(const file of ['core.js','timing.js','storage.js','render-source.js','recast.js'])w.eval(await readFile(new URL(file,root),'utf8'));
     await tick();
     const app=w.MOGWAI_RECAST, video=$('video');
     Object.defineProperty($('source'),'files',{value:[{name:'apocalypseNewscast.mp4'}]});$('source').dispatchEvent(new w.Event('change'));await tick();
@@ -39,5 +46,30 @@ test('layout switches preserve one playing video, cues follow the playhead, and 
     Object.defineProperties($('stage'),{clientWidth:{value:360,configurable:true},clientHeight:{value:640,configurable:true}});
     w.dispatchEvent(new w.Event('resize'));assert.equal(parseFloat($('overlay').style.width),360);assert.equal(parseFloat($('overlay').style.height),202.5);
     assert.equal(calls.loads,1);assert.equal(calls.plays,1);
+    $('saveProject').click();await tick();assert.deepEqual(downloads,['recast-project.json']);
+    $('chooseWorkDir').click();await tick();assert.equal($('workTarget').textContent,'work');assert.equal($('export').textContent,'Save FFmpeg render folder');
+    $('saveProject').click();await tick();
+    const saved=[...nativeFiles.entries()].find(([name])=>name.endsWith('.json'));
+    assert(saved);assert.equal(JSON.parse(saved[1]).cues.length,3);
+    $('export').click();await tick();
+    const exported=[...nativeFiles.keys()].find(name=>name.endsWith('/project.json')),prefix=exported.slice(0,-'project.json'.length);
+    assert(nativeFiles.has(prefix+'render.py'));assert.equal(nativeFiles.get(prefix+'render.py'),w.RecastRenderPython);
+    assert(nativeFiles.has(prefix+'overlays/000.png'));assert(nativeFiles.has(prefix+'overlays/002.png'));assert(nativeFiles.has(prefix+'README.txt'));
+    assert([...nativeFiles.keys()].every(name=>!name.endsWith('.mp4')));assert.equal(downloads.length,1);
+    const puts=[];let failWrite=false;
+    w.fetch=async(url,options={})=>{
+      calls.fetches++;
+      if(url.endsWith('/v1/health'))return {ok:true,status:200,json:async()=>({ok:true,service:'fileproxy',version:1,roots:['daisy2026']})};
+      puts.push({body:JSON.parse(options.body),token:options.headers['X-FileProxy-Token']});
+      return {ok:!failWrite,status:failWrite?403:200,json:async()=>failWrite?{ok:false,error:'Write token required'}:{ok:true}};
+    };
+    $('proxyRoot').value='daisy2026';$('proxyFolder').value='42';$('proxyToken').value='local-test-secret';$('connectWorkDir').click();await tick();
+    assert.equal($('workTarget').textContent,'daisy2026:42');assert.equal($('proxyToken').value,'');
+    $('saveProject').click();await tick();assert.equal(puts.length,1);assert.equal(puts[0].token,'local-test-secret');assert.match(puts[0].body.path,/^42\/.*\.json$/);assert.equal(puts[0].body.overwrite,false);
+    assert.equal(JSON.parse(puts[0].body.text).cues.length,3);assert(!JSON.stringify(app.state.project).includes('local-test-secret'));assert.equal(w.localStorage.length,0);
+    $('export').click();await tick();assert(puts.some(item=>item.body.path.endsWith('/overlays/000.png')&&item.body.base64));assert.equal(downloads.length,1);
+    failWrite=true;$('saveProject').click();await tick();assert.match($('status').textContent,/Write token required/);assert.equal($('status').classList.contains('error'),true);assert.equal(downloads.length,1);assert.equal($('saveProject').disabled,false);
+    w.showDirectoryPicker=async()=>{throw new w.DOMException('Canceled','AbortError');};$('chooseWorkDir').click();await tick();assert.equal($('workTarget').textContent,'daisy2026:42');
+    $('useDownloads').click();assert.equal($('export').textContent,'Export FFmpeg ZIP');$('saveProject').click();await tick();assert.equal(downloads.length,2);
   } finally { dom.window.close(); }
 });

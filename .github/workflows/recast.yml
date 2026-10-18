@@ -22,6 +22,7 @@ jobs:
         run: |
           node --check tools/recast/core.js
           node --check tools/recast/timing.js
+          node --check tools/recast/storage.js
           node --check tools/recast/recast.js
           node --check tools/recast/render-source.js
       - name: Test cue editing and uninterrupted playback
