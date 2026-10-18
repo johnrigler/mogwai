@@ -58,6 +58,27 @@ class RecastTest(unittest.TestCase):
             self.assertNotIn('concat', graph)
 
     @unittest.skipUnless(shutil.which('ffmpeg') and shutil.which('ffprobe'), 'FFmpeg integration requires ffmpeg and ffprobe')
+    def test_fractional_frame_cue_switches_on_the_exact_frame(self):
+        with tempfile.TemporaryDirectory() as name:
+            folder = Path(name); (folder / 'overlays').mkdir()
+            frame = 1001 / 30000
+            project = {**self.project(), 'cues': [{'at': 0, 'layout': 'full'}, {'at': frame * 2, 'layout': 'side'}, {'at': frame * 3, 'layout': 'full'}]}
+            (folder / 'project.json').write_text(json.dumps(project)); shutil.copyfile(RENDER, folder / 'render.py')
+            for i, cue in enumerate(project['cues']):
+                (folder / 'overlays' / f'{i:03d}.png').write_bytes(png(320, 240, right=(212, 0, 108, 240) if cue['layout'] == 'side' else None))
+            source = folder / 'original.mp4'; output = folder / 'result.mp4'
+            subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=red:s=160x120:r=30000/1001:d=0.4', '-c:v', 'libx264', '-threads', '1', '-y', str(source)], check=True)
+            result = subprocess.run([sys.executable, str(folder / 'render.py'), str(source), str(output)], capture_output=True, text=True, timeout=45)
+            self.assertEqual(result.returncode, 0, result.stderr[-6000:])
+            frames = subprocess.check_output(['ffmpeg', '-v', 'error', '-i', str(output), '-frames:v', '5', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'])
+            stride = 320 * 240 * 3
+            def pixel(i):
+                start = i * stride + (100 * 320 + 300) * 3
+                return tuple(frames[start:start + 3])
+            for i in [0, 1, 3, 4]: self.assertTrue(pixel(i)[0] > 180 and pixel(i)[2] < 70, (i, pixel(i)))
+            self.assertTrue(pixel(2)[2] > 150 and pixel(2)[0] < 70, pixel(2))
+
+    @unittest.skipUnless(shutil.which('ffmpeg') and shutil.which('ffprobe'), 'FFmpeg integration requires ffmpeg and ffprobe')
     def test_rendered_layout_pixels_and_audio_payload(self):
         with tempfile.TemporaryDirectory() as name:
             folder = Path(name); (folder / 'overlays').mkdir(); project = self.project()

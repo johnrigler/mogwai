@@ -12,7 +12,16 @@ const project = () => ({ format:C.FORMAT,width:1280,height:720,source:{name:'apo
 test('cue playback and replacement use source times, including exact boundaries', () => {
   const p=C.validate(project());
   assert.equal(C.cueAt(p.cues,7.999).index,0); assert.equal(C.cueAt(p.cues,8).index,1); assert.equal(C.cueAt(p.cues,100).index,2);
-  const cues=C.upsert(p.cues,{...C.emptyCue(),at:8.02,layout:'right'}); assert.equal(cues.length,3); assert.equal(cues[1].at,8); assert.equal(cues[1].layout,'right');
+  const cues=C.upsert(p.cues,{...C.emptyCue(),at:8,layout:'right'}); assert.equal(cues.length,3); assert.equal(cues[1].at,8); assert.equal(cues[1].layout,'right');
+});
+test('fractional frame times survive validation, adjacent frames stay distinct, and display carries minutes', () => {
+  const frame = 1001/30000, p = project(); p.source.frameRate='30000/1001'; p.cues[1].at=frame; p.cues[2].at=frame*2;
+  const clean=C.validate(JSON.parse(JSON.stringify(C.validate(p))));
+  assert.equal(clean.cues[1].at,frame); assert.equal(clean.cues[2].at,frame*2); assert.equal(clean.source.frameRate,'30000/1001');
+  const cues=C.upsert([C.emptyCue()],{...C.emptyCue(),at:frame});
+  assert.equal(C.upsert(cues,{...C.emptyCue(),at:frame*2}).length,3);
+  assert.equal(C.preciseTime(59.9999),'1:00.000');
+  for(const frameRate of ['0','1/0','999','auto<script>']) assert.throws(()=>C.validate({...p,source:{frameRate}}));
 });
 test('layouts partition the frame without stretched or off-frame rectangles', () => {
   for (const name of Object.keys(C.layouts)) {

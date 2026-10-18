@@ -21,7 +21,7 @@ test('layout switches preserve one playing video, cues follow the playhead, and 
     w.HTMLMediaElement.prototype.pause=function(){paused=true;this.dispatchEvent(new w.Event('pause'));};
     w.HTMLMediaElement.prototype.play=async function(){calls.plays++;paused=false;this.dispatchEvent(new w.Event('play'));};
     w.HTMLMediaElement.prototype.load=function(){calls.loads++;Object.defineProperties(this,{duration:{value:98.22,configurable:true},videoWidth:{value:480,configurable:true},videoHeight:{value:360,configurable:true}});this.dispatchEvent(new w.Event('loadedmetadata'));};
-    for(const file of ['core.js','render-source.js','recast.js'])w.eval(await readFile(new URL(file,root),'utf8'));
+    for(const file of ['core.js','timing.js','render-source.js','recast.js'])w.eval(await readFile(new URL(file,root),'utf8'));
     await tick();
     const app=w.MOGWAI_RECAST, video=$('video');
     Object.defineProperty($('source'),'files',{value:[{name:'apocalypseNewscast.mp4'}]});$('source').dispatchEvent(new w.Event('change'));await tick();
