@@ -1,0 +1,32 @@
+{
+  "person": {
+    "name": "John Rigler",
+    "github": "johnrigler"
+  },
+  "assistant": {
+    "name": "Codex"
+  },
+  "projects": {
+    "alp": { "name": "ALP", "path": "~/alp" },
+    "daisy": { "name": "Daisy", "path": "~/daisy" },
+    "daisy_2026": { "name": "Daisy 2026", "path": "~/daisy_2026" },
+    "mogwai": { "name": "Mogwai", "path": "~/mogwai" },
+    "fileproxy": { "name": "FileProxy", "path": "~/fileProxy" },
+    "sbshell": { "name": "SB Shell", "path": "~/sbshell" },
+    "sbstats": { "name": "SB Stats", "path": "~/sbstats" },
+    "chisel": { "name": "Chisel", "path": "~/chisel" },
+    "certledger": { "name": "CertLedger", "path": "~/certLedger" },
+    "lantern": { "name": "Lantern", "path": "~/lantern" },
+    "darkstar": { "name": "Beautiful Dark Star", "path": "~/darkStar" },
+    "commons": { "name": "Commons", "path": "~/Commons" }
+  },
+  "services": {
+    "fileproxy": {
+      "url": "http://127.0.0.1:7799",
+      "config": "~/.config/fileproxy/config.json"
+    }
+  },
+  "defaults": {
+    "chain": "LTC"
+  }
+}

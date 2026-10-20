@@ -2,6 +2,13 @@
 
 Mogwai supplies small, inspectable tools. Daisy keeps the source records and saved projects; it does not depend on Mogwai to exist.
 
+## Shared home configuration
+
+Copy [config.example.json](config.example.json) to `~/config.json` for shared
+names, project locations, FileProxy settings and defaults outside the checkouts.
+See [Home config](HOME-CONFIG.md) for the copy command and a reading example.
+This is an optional example; existing tools do not load it automatically.
+
 ## Annual Daisy archives
 
 [The annual Daisy starter](templates/daisy-year/) creates a clean local
