@@ -24,5 +24,5 @@ See [the tool instructions](tools/recast/README.md) and [assistant architecture 
 
 [Receipts and folded letters](tools/ctp500-folded-letter/) builds upright,
 32-column sample receipts or sideways four-page strips for the Core Innovations
-CTP500. It uses the optimized BLE/Serial raster path with progress and transfer
-timing. [Open the hosted tool](https://johnrigler.github.io/chisel/tools/ctp500-folded-letter/).
+CTP500. It uses full-width BLE/Serial raster output with reliable default pacing,
+a short connection test, progress and transfer timing. [Open the hosted tool](https://johnrigler.github.io/chisel/tools/ctp500-folded-letter/).

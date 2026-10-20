@@ -44,18 +44,26 @@ function decode(bytes) {
   }
   return { rows, end: Array.from(bytes.subarray(offset)) };
 }
-test('fast output preserves pixels, row positions and feed for dense, sparse and white images', () => {
+test('every transfer mode retains the original single full-width raster and 160 feed rows', () => {
   for (const kind of ['dense', 'sparse', 'blank']) {
     const c = new Canvas(); c.width = 384; c.height = 167; const g = c.getContext();
     g.fillRect(0, 0, c.width, c.height); g.fillStyle = '#000';
     if (kind === 'dense') g.fillRect(0, 0, 384, 167);
     if (kind === 'sparse') { g.fillRect(0, 1, 1, 1); g.fillRect(383, 165, 1, 1); }
     ctx.source = c;
-    const fast = vm.runInContext('ctp500PreparePrint(source)', ctx);
-    const full = vm.runInContext('ctp500Encode(source, {feedLines:8, cut:false})', ctx);
-    assert.deepEqual(decode(fast.bytes), decode(full));
-    assert(fast.bytes.length <= full.length);
-    assert.equal(decode(fast.bytes).rows.length, 167 * 48);
+    const full = vm.runInContext('ctp500Encode(source, {feedRows:160})', ctx);
+    for (const mode of ['compatibility', 'acknowledged', 'fast']) {
+      ctx.mode = mode;
+      const job = vm.runInContext('ctp500PreparePrint(source, {mode})', ctx);
+      assert.deepEqual(job.bytes, full);
+      assert.equal(job.mode, mode);
+      assert.equal(job.bytes[19], 48); // 48 bytes = 384 dots; no trimmed bands.
+      assert.equal(job.bytes.length, 15 + 8 + (167 + 160) * 48 + 6);
+      const decoded = decode(job.bytes);
+      assert.equal(decoded.rows.length, (167 + 160) * 48);
+      assert(decoded.rows.slice(-160 * 48).every(value => value === 0));
+    }
+    assert.equal(vm.runInContext('ctp500PreparePrint(source).mode', ctx), 'compatibility');
   }
 });
 test('receipt arithmetic uses cents and rejects invalid prices or quantities', () => {
