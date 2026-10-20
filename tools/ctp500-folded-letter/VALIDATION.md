@@ -1,3 +1,40 @@
+# Receipt and speed validation · 2026-10-20
+
+Passed in headless Chromium with the actual modules, native Canvas and
+vendored QRCode.js; phone viewport 390 × 844:
+
+- Sample receipt builds with aligned totals; upright 384 × 851-dot output.
+- No horizontal page overflow; receipt preview inspected visually.
+- Fast receipt: **22,818 bytes**, versus original **48,557 bytes** (53% smaller).
+- Default folded letter: **46,591 bytes**, versus **161,309** (71% smaller).
+- Numbered fold test: **30,967 bytes** (81% smaller than original).
+- Decoding fast raster packets reproduces all baseline pixels and row positions,
+  including sparse marks at both extreme columns and blank/dense test images.
+- Dense images select a single raster when band headers would be larger.
+- Original fallback emits the original byte count and feed; changing modes
+  rebuilds bytes, editing text invalidates output, sample reload and both
+  layouts work, no browser JavaScript errors.
+- Simulated browser BLE printing uses fast writes, reports elapsed time/B/s,
+  and recovers controls after an injected failure without retrying the chunk.
+- Nine Node regression checks pass: raster/feed identity, receipt arithmetic,
+  BLE packet ordering/pacing, connection reuse, Serial cleanup and no retries,
+  concurrent-job rejection and wake-lock lifecycle.
+
+No printer is attached. These are byte/layout checks, not measured physical
+speed, paper-feed, QR-scan or Bluetooth-buffer acceptance on this job.
+
+Imported source blobs from `johnrigler/chisel`:
+
+- `ctp500.js`: `61d97ba3c3d266f978655b5ef529f21733a5e3bf`
+- `ctp500-ble.js`: `35094620236bf99ac8fe44c9979adb543bb83f8c`
+- `ctp500-print.js`: `21ba303c8963130936aee3c217f632e91b496940`
+
+The local print wrapper adds automatic choice of the smaller raster and
+cache-busted module imports. The historical validation below describes the
+older full-width, acknowledged-only prototype.
+
+---
+
 # Prototype validation · 2026-10-18
 
 Passed using the actual layout/encoder/UI modules, the vendored QRCode.js,

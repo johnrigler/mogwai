@@ -19,3 +19,10 @@ and retained history need cleanup before public release.
 Open `tools/recast/index.html` locally, or use the [hosted copy](https://johnrigler.github.io/chisel/tools/recast/). Choose your video from the device. It is not uploaded.
 
 See [the tool instructions](tools/recast/README.md) and [assistant architecture notes](AGENTS.md). Historical prototype work remains on `concept-notes-2026-09-11`; it has not been merged into this branch by this change.
+
+## CTP500 printer
+
+[Receipts and folded letters](tools/ctp500-folded-letter/) builds upright,
+32-column sample receipts or sideways four-page strips for the Core Innovations
+CTP500. It uses the optimized BLE/Serial raster path with progress and transfer
+timing. [Open the hosted tool](https://johnrigler.github.io/chisel/tools/ctp500-folded-letter/).
