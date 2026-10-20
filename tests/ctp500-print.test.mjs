@@ -34,7 +34,11 @@ function fixture({ failAt = 0 } = {}) {
   const context = vm.createContext({ Uint8Array, isSecureContext: true,
     navigator: {
       bluetooth: { requestDevice: async () => { state.pickers++; return device; } },
-      serial: { requestPort: async () => { state.pickers++; return port; } },
+      serial: { requestPort: async options => {
+        assert.equal(options.filters.length, 1);
+        assert.equal(options.filters[0].bluetoothServiceClassId, '00001101-0000-1000-8000-00805f9b34fb');
+        state.pickers++; return port;
+      } },
     },
     performance: { now: () => clock },
     setTimeout(fn, ms) { clock += ms; queueMicrotask(fn); },
@@ -59,6 +63,18 @@ test('BLE connection is reused for successive jobs with the verified packet paci
   printer.disconnect();
   assert.equal(printer.connected, false);
   await assert.rejects(printer.write(first), /disconnected/);
+});
+
+test('default connection uses Classic Bluetooth Serial; feed probe has no raster or printable text', async () => {
+  const f = fixture();
+  const printer = await vm.runInContext('ctp500ConnectPrinter()', f.context);
+  assert.equal(printer.transport, 'serial');
+  const bytes = vm.runInContext('ctp500FeedTestBytes()', f.context);
+  assert.deepEqual(Array.from(bytes), [27, 64, 10, 10, 10, 10, 10, 10, 10, 10]);
+  await printer.write(bytes);
+  assert.equal(f.state.chunks.length, 1);
+  assert.deepEqual(Array.from(f.state.chunks[0]), Array.from(bytes));
+  assert.equal(f.state.closes, 1);
 });
 
 test('Serial chooser is reused and each job releases its writer and port', async () => {
