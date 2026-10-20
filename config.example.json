@@ -18,7 +18,7 @@
     "certledger": { "name": "CertLedger", "path": "~/certLedger" },
     "lantern": { "name": "Lantern", "path": "~/lantern" },
     "darkstar": { "name": "Beautiful Dark Star", "path": "~/darkStar" },
-    "commons": { "name": "Commons", "path": "~/Commons" }
+    "commons": { "name": "commons", "path": "~/commons" }
   },
   "services": {
     "fileproxy": {

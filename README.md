@@ -7,7 +7,9 @@ Mogwai supplies small, inspectable tools. Daisy keeps the source records and sav
 Copy [config.example.json](config.example.json) to `~/config.json` for shared
 names, project locations, FileProxy settings and defaults outside the checkouts.
 See [Home config](HOME-CONFIG.md) for the copy command and a reading example.
-This is an optional example; existing tools do not load it automatically.
+Source `tools/home-config/m.pull`, then run `m.pull` to fast-forward the
+configured checkouts. See [Pull configured repositories](tools/home-config/).
+Other tools do not load the shared config automatically.
 
 ## Annual Daisy archives
 

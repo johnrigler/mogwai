@@ -35,6 +35,18 @@ On another machine, `127.0.0.1` refers to that machine; edit the address for
 your actual setup. This shared file references FileProxy's existing config;
 its registered roots still belong in `~/.config/fileproxy/config.json`.
 
+## Pull the configured repositories
+
+```bash
+source "$HOME/mogwai/tools/home-config/m.pull"
+m.pull
+```
+
+The [pull command](tools/home-config/) reads every `projects.KEY.path`, follows
+the current branch's upstream and performs fast-forward-only updates. It skips
+local changes and reports results per checkout. It leaves your home config
+alone. The `commons` entry should point to `~/commons` with a lowercase `c`.
+
 ## Reading it
 
 This is plain JSON, with no comments or shell substitutions. A path starting
@@ -62,5 +74,5 @@ projects keep working independently without this file or a Mogwai checkout.
 Browser JavaScript cannot directly read `~/config.json`. A browser tool would
 need a file picker or an explicitly exposed subset through FileProxy. No
 shared-config endpoint or automatic loader is introduced by this example.
-The example does not change how existing tools load their settings; each
-tool can adopt the shared values when its integration is implemented.
+`m.pull` now reads the project paths from this file. Other tools can adopt
+the shared values when their integrations are implemented.
