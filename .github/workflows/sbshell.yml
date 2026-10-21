@@ -16,7 +16,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install local PHP runtime for checks
-        run: sudo apt-get update && sudo apt-get install -y php8.3-cli php8.3-sqlite3 php8.3-gd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y php8.3-cli php8.3-sqlite3 php8.3-gd
+          # The runner's Xdebug build crashes while formatting SQLite exceptions.
+          # Exercise ordinary PHP exception handling without a debugger extension.
+          sudo phpdismod -v 8.3 -s cli xdebug
       - name: PHP behavior checks
         run: |
           "$SB_PHP" -v
