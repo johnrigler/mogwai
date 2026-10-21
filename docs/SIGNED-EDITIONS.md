@@ -20,12 +20,26 @@ verification interface is implemented. Resume from
   or a reference to an exact published record. This is not Litecoin-specific.
 
 CertLedger's final product combines the selected Commons argument versions
-with Daisy case evidence. Its later verification view should retrieve the
-actual referenced Litecoin transaction and compare its decoded commitment
-with the finished PDF or committed manifest. Report network, source, block/
-confirmation state and byte comparison separately from PDF signatures and
-identity trust. A stored tx ID is not an independently checked ledger match.
-This ledger-verification view is planned, not supplied by this documentation.
+with Daisy case evidence. It assumes artifacts may be on IPFS and retains
+their CIDs, byte hashes and exact ledger references. CertLedger is product:
+IPFS operations, signing and the operational ledger verifier belong in Mogwai,
+not another tool suite copied into CertLedger. Product pages can display
+recorded results or link to the tool.
+
+The proposed global timestamp/announcement transaction links elements through
+its OP_RETURN payload and labeled unspendable outputs, using Chisel's declared
+encoding. Preserve the network, tx ID, output indexes, actual payload and
+mapping to the source versions/final artifacts or manifest. Do not fabricate
+outputs, claim broadcast or exceed the chosen encoding's payload capacity.
+Block inclusion anchors the commitment in public order/time; it is not an
+exact document-creation timestamp or proof of the document's assertions.
+
+The later Mogwai verifier should retrieve the actual referenced Litecoin
+transaction and compare its decoded commitment with the finished PDF or
+committed manifest. Report network, source, block/confirmation state and byte
+comparison separately from PDF signatures and identity trust. A stored tx ID
+is not an independently checked ledger match. This tool integration is planned,
+not supplied by this documentation.
 
 ## Author, print, sign, then commit
 
