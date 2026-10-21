@@ -19,6 +19,14 @@ verification interface is implemented. Resume from
 - Chisel prepares/signs chain transactions that can commit a document hash
   or a reference to an exact published record. This is not Litecoin-specific.
 
+CertLedger's final product combines the selected Commons argument versions
+with Daisy case evidence. Its later verification view should retrieve the
+actual referenced Litecoin transaction and compare its decoded commitment
+with the finished PDF or committed manifest. Report network, source, block/
+confirmation state and byte comparison separately from PDF signatures and
+identity trust. A stored tx ID is not an independently checked ledger match.
+This ledger-verification view is planned, not supplied by this documentation.
+
 ## Author, print, sign, then commit
 
 1. Author the full argument in HTML, with sources, scope and review status.
