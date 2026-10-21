@@ -1,0 +1,11 @@
+__sb.bitcoin() {
+
+curl https://btc-e.com/api/3/ticker/btc_usd-btc_rur
+
+}
+
+bc.jq() {
+
+bc | jq .
+
+} ; _sb.init 'bitcoin'

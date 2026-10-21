@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CertLedger — email and mail registration</title>
+<link rel="stylesheet" href="index.css">
+<script src="qrcode.min.js" defer></script>
+<script src="index.js" type="module"></script>
+</head>
+<body>
+<main class="controls">
+<h1>Email and mail registration</h1>
+<p>Finalize and register the email PDF first. After sending it, record its destination and actual sent time. Then finalize the shorter mail PDF and register that file separately.</p>
+<p>The registration sheet and transaction receipt are additional pieces of paper. Keep them outside the PDF whose fingerprint they display.</p>
+<div class="editions">
+<fieldset data-edition="email"><legend>1. Email PDF</legend>
+<label>Final PDF<input type="file" accept=".pdf,application/pdf" data-field="file"></label>
+<output data-field="fingerprint">No PDF selected.</output>
+<label>CertLedger ID<input data-field="certledger_id" autocomplete="off"></label>
+<label>Sticker identifier, if used<input data-field="sticker_id" autocomplete="off"></label>
+<label>Ledger / network<input data-field="network" value="Litecoin"></label>
+<label>Returned transaction ID<input data-field="transaction_id" autocomplete="off"></label>
+<label>Transaction URL — the receipt QR destination<input type="url" data-field="transaction_url" maxlength="500" placeholder="https://…"></label>
+</fieldset>
+<fieldset data-edition="mail"><legend>3. Mail PDF</legend>
+<label>Final PDF<input type="file" accept=".pdf,application/pdf" data-field="file"></label>
+<output data-field="fingerprint">No PDF selected.</output>
+<label>CertLedger ID<input data-field="certledger_id" autocomplete="off"></label>
+<label>Preprinted colored sticker identifier<input data-field="sticker_id" autocomplete="off"></label>
+<label>Ledger / network<input data-field="network" value="Litecoin"></label>
+<label>Returned transaction ID<input data-field="transaction_id" autocomplete="off"></label>
+<label>Transaction URL — the receipt QR destination<input type="url" data-field="transaction_url" maxlength="500" placeholder="https://…"></label>
+</fieldset>
+</div>
+<fieldset><legend>2. Actual email dispatch</legend>
+<label>Destination email address<input id="email-to" type="email" autocomplete="off"></label>
+<label>Actual sent time, including time zone<input id="email-sent" placeholder="YYYY-MM-DDTHH:MM:SS-06:00"></label>
+<div class="actions"><button id="email-body">Prepare email body</button><button id="dispatch">Download email-dispatch.php after sending</button></div>
+<textarea id="body-draft" rows="10" readonly aria-label="Email body draft"></textarea>
+<p>Save the downloaded email-dispatch.php beside the letter's numbered PHP parts, replacing its blank template. Rebuild or reload the mail edition before exporting its PDF.</p>
+</fieldset>
+<div class="actions">
+<label>Registration edition<select id="edition"><option value="email">Email PDF</option><option value="mail">Mail PDF</option></select></label>
+<button id="render">Prepare sheet and receipt</button>
+<button id="download-record">Download edition record</button>
+<button id="import-record">Load edition record</button><input id="record-file" type="file" accept=".json,application/json" hidden>
+<button id="print-sheet">Print registration sheet</button>
+<button id="download-receipt">Download receipt PNG</button>
+</div>
+<div class="actions">
+<select id="transport" aria-label="Printer connection"><option value="ble">BLE printer (phone)</option><option value="serial">Serial printer (desktop)</option></select>
+<button id="connect">Connect printer</button><button id="print-receipt">Print transaction receipt</button><button id="disconnect">Disconnect</button>
+</div>
+<p id="status" role="status">No ledger transaction or email is sent by this page. Enter the returned transaction references from your ledger tool.</p>
+<p class="small">Browser storage remembers entered metadata. Re-select the PDF after reopening to check its bytes. Download the edition record to retain it with the case.</p>
+</main>
+<div class="previews">
+<article id="sheet" class="registration-sheet" aria-label="Separate registration sheet">
+<h1>CertLedger Registration</h1><p>Select a final PDF and enter its transaction reference to prepare this separate sheet.</p>
+</article>
+<aside class="receipt-preview"><h2>Transaction receipt</h2><canvas id="receipt" width="384" height="100" aria-label="Thermal transaction receipt preview"></canvas></aside>
+</div>
+</body>
+</html>

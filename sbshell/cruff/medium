@@ -1,0 +1,10 @@
+#!/bin/bash
+
+medium(){
+
+<< EOF
+afadfafdas
+f
+EOF
+
+}

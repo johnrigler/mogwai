@@ -1,0 +1,99 @@
+#!/bin/bash 
+
+SUDO="sudo"
+
+docker.init() {
+
+- sudo groupadd docker
+- sudo gpasswd -a john docker
+- sudo usermod -aG docker john
+sudo service docker restart
+
+}
+
+docker.nginx.install() {
+- sudo docker build -t="dockerfile/nginx" github.com/nginxinc/docker-nginx
+sudo docker pull nginx
+
+}
+
+docker.info() {
+
+sudo docker info
+}
+
+docker.build() {
+- example docker build with init file
+
+$SUDO docker build -t "$1:tictactoe" .
+}
+
+
+docker.history() {
+sudo docker history $*
+}
+
+docker.images.dangling() {
+
+$SUDO docker images -f dangling=true -q
+
+}
+
+
+
+.ps() {
+- sudo docker ps
+$SUDO docker ps -a
+
+}
+
+.images() {
+- sudo docker images
+$SUDO docker images
+}
+
+.lastimage() {
+.images | head -2 | tail -1 | awk '{ print $3 }'
+}
+
+
+docker.run.swarm() {
+
+
+docker run -d dockerswarm/swarm:master join \ 
+  --advertise=192.168.1.105:2375 consul://192.168.1.103:8500
+
+}
+
+docker.run() {
+- sudo docker run -it 35325281b9f0
+$SUDO docker run -it $(.lastimage) -p 8080:80 
+
+}
+
+docker.container.recent() {
+
+$SUDO docker ps | head -2 | tail -1 | awk '{ print $1 }'
+
+}
+
+docker.names() {
+
+$SUDO docker ps -a | cut -c 125-
+
+}
+
+docker.hack() {
+
+sudo rm /var/lib/docker/network/files/local-kv.db
+
+}
+
+docker.wordpress() {
+
+- docker pull wordpress
+docker pull mysql
+docker run -e WORDPRESS_DB_PASSWORD=password -d --name wordpress --link wordpressdb:mysql  wordpress
+
+
+}

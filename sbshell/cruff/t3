@@ -1,0 +1,13 @@
+#!/bin/bash
+
+## Documentation shell for 
+
+# Set debug mode
+-() { return; }
+
+t3.git() {
+
+cd /usr/local
+git clone https://github.com/nathandyck/tictactoe
+
+}

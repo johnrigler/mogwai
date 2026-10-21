@@ -1,0 +1,63 @@
+#!/bin/bash
+
+resume()  {
+
+cat << EOF
+
+As a Linux Build Automation engineer your objective is to develop and implement build automation methodologies using various automation toolsets. 
+EOF
+
+cat << EOF
+Responsibilities include: 
+• Provide 24X7 system administration and resolve distributed server issues. 
+• Root cause analysis. 
+• Assist with maintaining compliance for industry certifications such as PCI 
+• Create and maintain reports for compliance and system audit data. 
+• Participate in ongoing automation/operational projects. 
+• Provide recommendations for system automation. 
+• Troubleshoot hardware and software issues as they arise. 
+• Document issues and associated resolutions to problems. 
+• Participate in OS patch management and coordination. 
+• Develop and test Windows security patch packages. 
+• Troubleshoot Linux OS and application security patch installations. 
+• Participate in technical on-call rotation. 
+EOF
+
+Responsibilities also include: 
+cat <<EOF 
+• Ongoing maintenance & administration of assigned systems. 
+• Adherence to policies, processes and procedures within your areas of responsibility. 
+• Assistance with execution of projects related to areas of responsibility. 
+EOF
+
+echo "Required experience: "
+cat << EOF
+• Strong understanding of data communication concepts and network/software configuration management. 
+• Familiar with standard security best practices. 
+• Minimum seven years of experience with Linux server platforms. 
+• Strong working knowledge of Linux Server administration and engineering. 
+• Knowledge of PCI Remediation and various audit requirements. 
+• Working knowledge and experience with Puppet, Cobbler. 
+• Working knowledge of HP Server Automation “HP SA”. 
+• Working knowledge of scripting 
+• Working knowledge of SQL Reporting Services report creation. 
+• Working knowledge of TSQL queries. 
+• Working knowledge of Installshield, Wise Install or similar product. 
+• Working knowledge of VMWARE ESX, vSphere. 
+• Individual must interact extensively with all levels of management, business and IT, and is required to act in a professional and confident manner. 
+• Self-motivator possessing a high sense of urgency and a high level of integrity. 
+• Seven + years’ experience in a fast-paced distributed systems support or engineering position. 
+• Experience in an enterprise-class IT organization, managing ? 600 distributed (Windows) servers. 
+• Industry-related certifications a plus. 
+• Strong customer service skills to deliver quality results in a demanding environment. 
+• Able to work well under pressure and within short time constraints. 
+• Excellent documentation, communication and interpersonal skills. 
+• Excellent analytical and problem-solving abilities. 
+• Ability to efficiently prioritize and organize competing work demands with little oversight. 
+
+EOF
+}
+
+
+
+

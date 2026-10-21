@@ -1,0 +1,15 @@
+fabreq.info() {
+
+:   is-netproxy
+
+--- fabreq 57
+
+-   netproxyhkg0201.softlayer.local
+-   netproxyams0301.softlayer.local
+-   netproxydal0501.softlayer.local
+-   netproxydal0502.softlayer.local
+-   netproxydal0503.softlayer.local
+-   netproxyhkg0202.softlayer.local x
+-   netproxyams0302.softlayer.local
+
+}

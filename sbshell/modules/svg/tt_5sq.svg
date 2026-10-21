@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="1220mm" height="610mm" viewBox="0 0 1220 610" 
+version="1.1" xmlns="http://www.w3.org/2000/svg"><line x1='20' y1='20' x2='492' y2='260' 
+     style='stroke:rgb(255,0,0);stroke-width:2' />
+<line x1='20' y1='260' x2='492' y2='20' 
+     style='stroke:rgb(255,0,0);stroke-width:2' />
+<line x1='10' y1='140' x2='506' y2='140' 
+     style='stroke:rgb(255,0,0);stroke-width:2' />
+<line x1='255' y1='20' x2='255' y2='258' 
+     style='stroke:rgb(255,0,0);stroke-width:2' />
+<line x1='20' y1='20' x2='255' y2='258' 
+     style='stroke:rgb(255,0,0);stroke-width:2' />
+<line x1='20' y1='255' x2='255' y2='20' 
+     style='stroke:rgb(255,0,0);stroke-width:2' />
+<path fill='none' stroke='purple' stroke-width='1'  d='
+M190,70 
+h120 a10,10 0 0 1 10,10 
+v120 a10,10 0 0 1 -10,10 
+h-120 a10,10 0 0 1 -10,-10 
+v-120 a10,10 0 0 1 10,-10
+'/>
+
+<circle cx='40' cy='120' r='12' 
+              stroke='brown' stroke-width='2' fill='none' />
+<circle cx='468' cy='120' r='12' 
+              stroke='brown' stroke-width='2' fill='none' />
+<circle cx='255' cy='238' r='12' 
+              stroke='brown' stroke-width='2' fill='none' />
+<circle cx='470' cy='32' r='4' 
+              stroke='blue' stroke-width='2' fill='none' />
+<path fill='none' stroke='black' stroke-width='1'  d='
+M20,20 
+h472 a10,10 0 0 1 10,10 
+v220 a10,10 0 0 1 -10,10 
+h-472 a10,10 0 0 1 -10,-10 
+v-220 a10,10 0 0 1 10,-10
+'/>
+
+</svg>

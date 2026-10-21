@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>fileproxy-catalog</title>
+<style>
+:root{color-scheme:light;--ink:#18344a;--muted:#627387;--line:#d4dfe8;--paper:#fff;--bg:#f4f7fa;--link:#176693}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:var(--paper);border-bottom:1px solid var(--line);padding:14px max(16px,calc((100vw - 1140px)/2));display:flex;justify-content:space-between;align-items:center;gap:12px}
+header strong{font-size:19px}nav{display:flex;gap:16px}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
+main{max-width:1140px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:28px;margin:4px 0 8px;overflow-wrap:anywhere}
+p{color:var(--muted)}
+.controls{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:12px 0 18px}
+label{font-size:13px;color:var(--muted);display:block}
+select,button{font:inherit;padding:9px 11px;border-radius:6px;border:1px solid #a9bed0;background:white;color:var(--ink)}
+input{font:inherit;padding:9px 11px;border:1px solid #a9bed0;border-radius:6px}
+button:disabled{opacity:.5;cursor:wait}[hidden]{display:none!important}
+.file-actions{display:flex;gap:16px;margin-top:8px}.item .file-actions button,.leaf .file-actions button{font:13px system-ui;padding:5px 0}
+.file-heading{display:flex;gap:7px;align-items:center}.file-heading label{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px}.file-heading input{width:23px;height:23px;padding:0}
+.thumbnail{display:flex;align-items:center;justify-content:center;flex:none;width:70px;height:90px;border:1px solid var(--line);background:#f4f7fa;overflow:hidden;font:12px system-ui;color:var(--muted)}.thumbnail img{width:100%;height:100%;object-fit:contain}.selected-row .thumbnail{width:44px;height:56px}.source-integrity{font:11px/1.4 ui-monospace,monospace;color:var(--muted);margin-top:6px}
+#arrangePanel{background:white;border:1px solid var(--line);border-radius:8px;padding:16px;margin:16px 0}#selectedFiles{max-height:28vh;overflow:auto}
+.selected-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)}.selected-row .selected-path{flex:1;min-width:130px;overflow-wrap:anywhere}
+#arrangePanel button{min-height:44px}#destination{max-width:100%;min-width:min(300px,100%)}.folder-create{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.danger{color:#a32323!important}#preview{background:white;border:1px solid var(--line);border-radius:8px;padding:16px;margin:16px 0}
+#preview h2{margin:0;overflow-wrap:anywhere}#previewBody{margin-top:12px;max-height:70vh;overflow:auto}#previewBody pre{white-space:pre-wrap;overflow-wrap:anywhere}
+#previewBody iframe{width:100%;height:65vh;border:1px solid var(--line)}#previewBody img{display:block;max-width:100%;height:auto;margin:auto}
+#undo{margin:12px 0}#packetLink{padding:9px 11px;border:1px solid #a9bed0;border-radius:6px;background:white}
+button{cursor:pointer}
+small,.meta{font-size:12px;color:var(--muted)}
+#crumbs{display:flex;flex-wrap:wrap;gap:7px;color:var(--muted)}
+#list{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px 18px}
+.item{padding:10px 4px;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item a,.item button{font-weight:600;background:none;border:0;padding:0;color:var(--link);text-align:left}
+.item .mono{font:12px/1.5 ui-monospace,Consolas,monospace;overflow-wrap:anywhere;color:var(--muted)}
+.item .detail{margin-top:4px}
+.browse{font-size:16px}
+.folder{margin:8px 0 8px 10px;padding:4px 0 4px 12px;border-left:2px solid var(--line)}
+.folder summary{font-weight:650;cursor:pointer;overflow-wrap:anywhere}
+.leaf{margin:8px 0;padding:5px 2px;overflow-wrap:anywhere}
+.leaf .mono{font:11px/1.4 ui-monospace,Consolas,monospace;color:var(--muted)}
+#notice{min-height:22px}
+#printLabel{font:12px ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+footer{font-size:12px;color:var(--muted);margin-top:18px}
+@media print {
+ @page{size:letter;margin:0.6in}
+ :root{color-scheme:light}
+ body{background:white;font:10pt/1.4 "Helvetica Neue",Arial,sans-serif;color:#000}
+ header,.controls,.no-print{display:none!important}
+ main{max-width:none;padding:0}
+ #list{border:0;border-radius:0;padding:0}
+ h1{font-size:17pt}
+ a{color:#000;text-decoration:none}
+ .item,.leaf,.folder{break-inside:avoid-page}
+ .folder{border-left:1px solid #999}
+ footer{border-top:1px solid #aaa;padding-top:8px}
+ .mono{font-size:8pt!important}
+}
+</style>
+</head>
+<body>
+<header><strong>FileProxy / Catalog</strong><nav><a href="./">Inbox</a><a href="catalog">Catalog</a></nav></header>
+<main>
+<div id="crumbs" class="no-print"></div>
+<h1 id="title">Catalog</h1>
+<p id="summary">Loading registered data roots…</p>
+<div class="controls">
+ <div><label for="root">Data root</label><select id="root"><option value="">Choose a root</option></select></div>
+ <button id="recursive" type="button" aria-pressed="false">Recursive tree: off</button>
+ <button id="print" type="button">Print listing / Save PDF</button>
+ <button id="refresh" type="button" disabled>Rescan folder root</button>
+ <button id="selectAll" type="button">Select all</button><button id="selectDocuments" type="button">Select PDFs / images</button>
+ <button id="newFolder" type="button">New folder</button>
+ <a id="packetLink" href="packet" class="no-print">Arrange response</a>
+ <div id="tokenField" hidden><label for="token">Write token</label><input id="token" type="password" autocomplete="off"></div>
+</div>
+<p id="notice" role="status"></p>
+<section id="arrangePanel" class="no-print" hidden>
+ <h2 id="selectionCount">Selected files</h2><div id="selectedFiles"></div>
+ <div class="controls"><div><label for="destination">Destination folder</label><select id="destination"><option value="__choose__">Choose a folder</option></select></div></div>
+ <div class="folder-create"><label for="folderName">New folder name</label><input id="folderName" value="response-1"><button id="createFolder" type="button">Create folder here</button></div>
+ <div class="controls"><button id="copyFiles" type="button">Copy</button><button id="moveFiles" type="button">Move</button><button id="copyOrdered" type="button">Copy in order</button><button id="clearSelection" type="button">Clear selection</button></div>
+ <small>Copy in order creates 001-, 002-, … copies in the chosen order. Existing destination files are kept.</small>
+</section>
+<div id="undo" class="no-print" hidden><span id="undoText"></span> <button id="restore" type="button">Undo delete</button></div>
+<section id="preview" class="no-print" hidden>
+ <h2 id="previewTitle"></h2><div id="previewMeta" class="meta"></div>
+ <div class="controls"><a id="download">Download copy</a><button id="delete" type="button" class="danger">Delete to Trash</button><button id="closePreview" type="button">Close preview</button></div>
+ <div id="previewBody"></div>
+</section>
+<div id="list"></div>
+<footer>FileProxy catalog projection. Printing creates a new PDF with its own bytes and hash; it does not change or authenticate the original source files. File names and recommended PDF names contain no spaces.<div id="printLabel"></div></footer>
+</main>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const params=new URLSearchParams(location.search);
+let records=[],root="",directory="",recursive=false,rootNames=[],truncated=false;
+let writeTokenRequired=true,previewEntry=null,previewRoot="",previewSequence=0,previewURL="",lastTrash=null;
+let folderPaths=[],selectedFiles=new Map(),fileOperation=false;
+const html=(tag,text,className)=>{
+ const e=document.createElement(tag);
+ if(text!==undefined)e.textContent=text;
+ if(className)e.className=className;
+ return e;
+};
+const safeLabel=s=>String(s||"root").replace(/[^A-Za-z0-9._-]+/g,"-").replace(/-{2,}/g,"-").replace(/^[._-]+|[._-]+$/g,"").slice(0,90)||"root";
+function printName(){return "fileproxy-catalog-"+safeLabel(root)+"-"+safeLabel(directory.replace(/\//g,"-")||"root")+".pdf";}
+function linkFor(dir){const q=new URLSearchParams();q.set("root",root);if(dir)q.set("path",dir);return "catalog?"+q.toString();}
+function fileLink(entry){return "v1/file?root="+encodeURIComponent(root)+"&path="+encodeURIComponent(entry.path);}
+function thumbnail(entry){
+ if(!/\.(pdf|png|jpe?g|webp|gif)$/i.test(entry.path))return null;
+ const link=html("a",undefined,"thumbnail no-print"),image=html("img"),isPDF=/\.pdf$/i.test(entry.path);
+ link.href=fileLink(entry);link.setAttribute("aria-label","Preview "+entry.path);link.addEventListener("click",event=>{event.preventDefault();previewFile(entry);});
+ image.alt="Preview of "+entry.path.split("/").at(-1);image.loading="lazy";image.decoding="async";
+ image.addEventListener("error",()=>link.replaceChildren(html("span",isPDF?"PDF · Open":"Open image")),{once:true});
+ image.src=isPDF?"v1/thumbnail?"+new URLSearchParams({root,path:entry.path,sha256:entry.sha256}):fileLink(entry);
+ link.append(image);return link;
+}
+function setPrintTitle(){
+ const withoutExtension=printName().slice(0,-4);
+ document.title=withoutExtension;
+ $("printLabel").textContent="Suggested PDF filename: "+printName();
+}
+function renderCrumbs(){
+ const row=$("crumbs");row.replaceChildren();
+ const link=html("a","Catalog");link.href="catalog";row.append(link);
+ if(!root)return;
+ const link2=html("a",root);link2.href=linkFor("");row.append(html("span","/"),link2);
+ link2.addEventListener("click",event=>{event.preventDefault();navigateFolder("");});
+ let partial="";
+ for(const part of directory.split("/").filter(Boolean)){
+   partial+=(partial?"/":"")+part;
+   const a=html("a",part);a.href=linkFor(partial);
+   const path=partial;a.addEventListener("click",event=>{event.preventDefault();navigateFolder(path);});
+   row.append(html("span","/"),a);
+ }
+}
+function renderLeaf(entry){
+ const element=html("div",undefined,"leaf");
+ const heading=html("div",undefined,"file-heading");const label=html("label");
+ const checkbox=html("input");checkbox.type="checkbox";checkbox.disabled=fileOperation;checkbox.checked=selectedFiles.has(entry.path);checkbox.setAttribute("aria-label","Select "+entry.path);label.className="no-print";
+ checkbox.addEventListener("change",()=>{if(checkbox.checked)selectedFiles.set(entry.path,entry);else selectedFiles.delete(entry.path);$("arrangePanel").hidden=false;renderSelection();});label.append(checkbox);heading.append(label);
+ const link=html("a",entry.path.split("/").at(-1));link.href=fileLink(entry);
+ link.target="_blank";link.rel="noopener";
+ link.addEventListener("click",event=>{event.preventDefault();previewFile(entry);});
+ const preview=thumbnail(entry);if(preview)heading.append(preview);heading.append(link);element.append(heading);
+ element.append(html("div",entry.bytes+" bytes","mono"));
+ const integrity=html("details",undefined,"source-integrity no-print");integrity.append(html("summary","SHA-256"),html("div",entry.sha256));element.append(integrity);
+ const actions=html("div",undefined,"file-actions no-print");
+ const view=html("button","Preview");view.type="button";view.addEventListener("click",()=>previewFile(entry));
+ const remove=html("button","Delete","danger");remove.type="button";remove.disabled=writeTokenRequired&&!$("token").value;
+ remove.addEventListener("click",()=>deleteFile(entry,root));actions.append(view,remove);element.append(actions);
+ return element;
+}
+function renderTree(nodes,depth=0){
+ const container=document.createDocumentFragment();
+ const names=[...nodes.keys()].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+ for(const name of names){
+  const child=nodes.get(name);
+  if(child.dirs.size){
+   const folder=html("details",undefined,"folder");
+   folder.open=true;
+   const title=html("summary",name+"/");
+   folder.append(title,renderTree(child.dirs,depth+1));
+   for(const entry of child.files) folder.append(renderLeaf(entry));
+   container.append(folder);
+  }else if(child.files.length){
+   for(const entry of child.files)container.append(renderLeaf(entry));
+  }else{
+   const folder=html("details",undefined,"folder");folder.open=true;
+   folder.append(html("summary",name+"/"));container.append(folder);
+  }
+ }
+ return container;
+}
+function makeTree(entries,prefix){
+ const tree=new Map();
+ for(const entry of entries){
+  if(!entry.path.startsWith(prefix))continue;
+  const segments=entry.path.slice(prefix.length).split("/").filter(Boolean);
+  if(!segments.length)continue;
+  let level=tree;
+  for(const [i,segment] of segments.entries()){
+   if(!level.has(segment))level.set(segment,{dirs:new Map(),files:[]});
+   const node=level.get(segment);
+   if(i===segments.length-1){node.files.push(entry);}else level=node.dirs;
+  }
+ }
+ return tree;
+}
+function render(){
+ renderCrumbs();setPrintTitle();
+ const parent=$("list");parent.replaceChildren();$("notice").textContent="";
+ $("title").textContent=root?(root+":"+(directory?"/"+directory:"/")):"Catalog";
+ $("packetLink").href="packet?"+new URLSearchParams({root,path:directory});
+ $("refresh").disabled=!root||(writeTokenRequired&&!$("token").value);
+ renderSelection();
+ if(!root){parent.append(html("p","Select a registered data root."));return;}
+ const prefix=directory?directory.replace(/\/$/,"")+"/":"";
+ const matching=records.filter(row=>row.path.startsWith(prefix));
+ $("summary").textContent=matching.length+" indexed file(s)"+(truncated?" (catalog listing may be truncated)":"")+".";
+ if(recursive){
+   const tree=makeTree(matching,prefix);
+   parent.append(renderTree(tree));
+ }else{
+   const folders=new Set(),files=[];
+   for(const path of folderPaths){if(path.startsWith(prefix)){const rest=path.slice(prefix.length);if(rest&&!rest.includes("/"))folders.add(rest);}}
+   for(const entry of matching){
+     const rest=entry.path.slice(prefix.length);
+     if(rest.includes("/"))folders.add(rest.split("/")[0]);
+     else if(rest)files.push(entry);
+   }
+   for(const folder of [...folders].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))){
+     const item=html("div",undefined,"item");
+     const a=html("a","▸ "+folder+"/","browse");a.href=linkFor(prefix+folder);
+     a.addEventListener("click",event=>{event.preventDefault();navigateFolder(prefix+folder);});
+     item.append(a);parent.append(item);
+   }
+   for(const row of files.sort((a,b)=>a.path.localeCompare(b.path,undefined,{numeric:true}))){
+     const item=html("div",undefined,"item");
+     item.append(renderLeaf(row));parent.append(item);
+   }
+ }
+ if(!matching.length)parent.append(html("p","No indexed files in this directory."));
+ if(truncated)$("notice").textContent="This listing is limited to the first 1,000 indexed records. Do not treat a printed report as a complete inventory.";
+ $("recursive").textContent="Recursive tree: "+(recursive?"on":"off");
+ $("recursive").setAttribute("aria-pressed",String(recursive));
+}
+async function load(){
+ try{
+  const health=await fetch("v1/health",{cache:"no-store"});
+  if(!health.ok)throw new Error("Unable to load roots");
+  const data=await health.json();rootNames=data.roots||[];
+  writeTokenRequired=data.writeTokenRequired!==false;$("tokenField").hidden=!writeTokenRequired;
+  const sel=$("root");
+  for(const name of rootNames){const option=html("option",name);option.value=name;sel.append(option);}
+  const requested=params.get("root");
+  root=rootNames.includes(requested)?requested:(rootNames[0]||"");
+  sel.value=root;
+  directory=(params.get("path")||"").replace(/^\/+|\/+$/g,"");
+  await loadFolders();
+  await loadRecords();
+ }catch(err){$("summary").textContent=err.message;}
+}
+async function loadRecords(){
+ const activeRoot=root,activeDirectory=directory;
+ records=[];truncated=false;
+ if(root){
+  const response=await fetch("v1/index?"+new URLSearchParams({root,prefix:directory?directory+"/":"",limit:"1000"}),{cache:"no-store"});
+  if(!response.ok)throw new Error("Unable to fetch catalog");
+  const data=await response.json();
+  if(root!==activeRoot||directory!==activeDirectory)return;
+  records=Array.isArray(data.entries)?data.entries:[];
+  truncated=records.length>=1000;
+ }
+ render();
+}
+async function loadFolders(){
+ if(!root)return;const response=await fetch("v1/folders?"+new URLSearchParams({root}),{cache:"no-store"});
+ if(!response.ok)throw new Error("Folder controls need the updated server. Restart with python3 fp.py serve --local.");
+ folderPaths=(await response.json()).directories||[];
+ const select=$("destination"),previous=select.value;select.replaceChildren();
+ const choose=html("option","Choose a folder");choose.value="__choose__";select.append(choose);
+ for(const folder of [...folderPaths].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))){const option=html("option",folder||"/ (data root)");option.value=folder;select.append(option);}
+ select.value=folderPaths.includes(previous)?previous:"__choose__";suggestFolder();
+}
+function suggestFolder(){
+ const parent=$("destination").value==="__choose__"?directory:$("destination").value;
+ if(/^response-\d+$/.test($("folderName").value)){let number=1;while(folderPaths.includes((parent?parent+"/":"")+"response-"+number))number++;$("folderName").value="response-"+number;}
+}
+function renderSelection(){
+ $("selectionCount").textContent=selectedFiles.size+" selected file(s)";
+ const parent=$("selectedFiles");parent.replaceChildren();const entries=[...selectedFiles.values()];
+ entries.forEach((entry,index)=>{
+  const row=html("div",undefined,"selected-row");const preview=thumbnail(entry);if(preview)row.append(preview);row.append(html("span",(index+1)+". "+entry.path,"selected-path"));
+  for(const [text,delta] of [["Up",-1],["Down",1]]){const button=html("button",text);button.disabled=fileOperation||index+delta<0||index+delta>=entries.length;button.setAttribute("aria-label",text+" "+entry.path);button.addEventListener("click",()=>{[entries[index],entries[index+delta]]=[entries[index+delta],entries[index]];selectedFiles=new Map(entries.map(item=>[item.path,item]));renderSelection();});row.append(button);}
+  const remove=html("button","Remove");remove.disabled=fileOperation;remove.addEventListener("click",()=>{selectedFiles.delete(entry.path);render();});row.append(remove);parent.append(row);
+ });
+ const locked=fileOperation||(writeTokenRequired&&!$("token").value);
+ for(const id of ["copyFiles","moveFiles","copyOrdered"])$(id).disabled=locked||!entries.length||$("destination").value==="__choose__";
+ $("createFolder").disabled=locked||!root;$("newFolder").disabled=locked||!root;
+ $("root").disabled=fileOperation;$("clearSelection").disabled=fileOperation;
+ for(const id of ["selectAll","selectDocuments"])$(id).disabled=fileOperation||!root;
+ for(const checkbox of document.querySelectorAll('.file-heading input'))checkbox.disabled=fileOperation;
+}
+async function navigateFolder(path,push=true){
+ closePreview();directory=path;if(push)history.pushState(null,"",linkFor(path));
+ try{await loadRecords();suggestFolder();}catch(error){$("notice").textContent=error.message;}
+}
+function selectVisible(documentsOnly){
+ const prefix=directory?directory+"/":"";
+ const visible=records.filter(entry=>entry.path.startsWith(prefix)&&(recursive||!entry.path.slice(prefix.length).includes("/"))&&(!documentsOnly||/\.(pdf|png|jpe?g|webp|gif)$/i.test(entry.path)));
+ for(const entry of visible.sort((a,b)=>a.path.localeCompare(b.path,undefined,{numeric:true})))selectedFiles.set(entry.path,entry);
+ $("arrangePanel").hidden=false;render();
+}
+async function transfer(operation,numbered=false){
+ const destination=$("destination").value;if(!selectedFiles.size||destination==="__choose__"||fileOperation)return;
+ if(operation==="move"&&!confirm("Move "+selectedFiles.size+" selected file(s) to "+root+":"+(destination||"/")+"?"))return;
+ fileOperation=true;renderSelection();
+ try{
+  const data=await write("v1/transfer",{root,destination,operation,numbered,files:[...selectedFiles.values()].map(entry=>({path:entry.path,sha256:entry.sha256}))});
+  selectedFiles.clear();await loadRecords();$("arrangePanel").hidden=true;
+  $("notice").textContent=data.files.length+" file(s) "+(operation==="move"?"moved":"copied")+". ";
+  const open=html("a","Open destination folder");open.href=linkFor(destination);open.addEventListener("click",event=>{event.preventDefault();navigateFolder(destination);});$("notice").append(open);
+ }catch(error){$("notice").textContent=error.message;}finally{fileOperation=false;renderSelection();}
+}
+$("selectAll").addEventListener("click",()=>selectVisible(false));$("selectDocuments").addEventListener("click",()=>selectVisible(true));
+$("newFolder").addEventListener("click",()=>{$("arrangePanel").hidden=false;suggestFolder();renderSelection();});
+$("destination").addEventListener("change",()=>{suggestFolder();renderSelection();});
+$("clearSelection").addEventListener("click",()=>{selectedFiles.clear();render();});
+$("copyFiles").addEventListener("click",()=>transfer("copy"));$("moveFiles").addEventListener("click",()=>transfer("move"));$("copyOrdered").addEventListener("click",()=>transfer("copy",true));
+$("createFolder").addEventListener("click",async()=>{
+ if(fileOperation)return;const parent=$("destination").value==="__choose__"?directory:$("destination").value;
+ const path=(parent?parent+"/":"")+$("folderName").value;fileOperation=true;renderSelection();
+ try{const data=await write("v1/mkdir",{root,path});await loadFolders();$("destination").value=data.path;await loadRecords();$("notice").textContent="Folder created: "+data.path;}
+ catch(error){$("notice").textContent=error.message;}finally{fileOperation=false;renderSelection();}
+});
+function closePreview(){
+ previewSequence++;previewEntry=null;$("preview").hidden=true;$("previewBody").replaceChildren();
+ if(previewURL){URL.revokeObjectURL(previewURL);previewURL="";}
+}
+async function previewFile(entry){
+ closePreview();const sequence=previewSequence;const activeRoot=root;
+ previewEntry=entry;previewRoot=activeRoot;$("preview").hidden=false;$("previewTitle").textContent=entry.path;
+ $("previewMeta").textContent=entry.bytes+" bytes · SHA-256 "+entry.sha256;
+ $("download").href=fileLink(entry)+"&download=1";$("delete").disabled=writeTokenRequired&&!$("token").value;
+ $("previewBody").textContent="Loading preview…";
+ try{
+  const response=await fetch(fileLink(entry),{cache:"no-store"});if(!response.ok)throw new Error("Preview unavailable: HTTP "+response.status);
+  const blob=await response.blob();if(sequence!==previewSequence)return;
+  const body=$("previewBody");body.replaceChildren();const extension=entry.path.split(".").at(-1).toLowerCase();
+  if(extension==="pdf"||["png","jpg","jpeg","webp","gif"].includes(extension)){
+   const mime=extension==="pdf"?"application/pdf":({jpg:"image/jpeg",jpeg:"image/jpeg"}[extension]||"image/"+extension);
+   previewURL=URL.createObjectURL(new Blob([blob],{type:mime}));
+   const node=html(extension==="pdf"?"iframe":"img");node.src=previewURL;node.title=entry.path;node.alt=entry.path;body.append(node);
+  }else if(blob.size<=512*1024){
+   const text=await blob.text();if(sequence!==previewSequence)return;
+   if(extension==="html"||extension==="htm"){
+    const frame=html("iframe");frame.title="Read-only HTML preview";frame.setAttribute("sandbox","");
+    frame.srcdoc="<!doctype html><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:\">"+text;body.append(frame);
+   }else body.append(html("pre",text.includes("\u0000")?"Binary file. Download a copy to inspect it.":text));
+  }else body.append(html("p","This file is too large for a text preview. Download a copy to inspect it."));
+  $("preview").scrollIntoView?.({behavior:"smooth",block:"start"});
+ }catch(error){if(sequence===previewSequence)$("previewBody").textContent=error.message;}
+}
+async function write(path,payload){
+ const headers={"Content-Type":"application/json"};if($("token").value)headers["X-FileProxy-Token"]=$("token").value;
+ const response=await fetch(path,{method:"POST",headers,body:JSON.stringify(payload)});const data=await response.json();
+ if(!response.ok||!data.ok)throw new Error(data.error||"HTTP "+response.status);return data;
+}
+async function deleteFile(entry,activeRoot){
+ if(!confirm("Move "+activeRoot+":"+entry.path+" to Trash? You can undo this deletion."))return;
+ $("delete").disabled=true;
+ try{
+  lastTrash=await write("v1/trash",{root:activeRoot,path:entry.path,sha256:entry.sha256});
+  if(activeRoot===root)selectedFiles.delete(entry.path);
+  closePreview();await loadRecords();$("undo").hidden=false;$("undoText").textContent="Moved to Trash: "+entry.path;
+ }catch(error){$("notice").textContent=error.message;}
+ finally{$("delete").disabled=writeTokenRequired&&!$("token").value;}
+}
+$("closePreview").addEventListener("click",closePreview);
+$("delete").addEventListener("click",()=>{if(previewEntry)deleteFile(previewEntry,previewRoot);});
+$("restore").addEventListener("click",async()=>{
+ if(!lastTrash)return;$("restore").disabled=true;
+ try{await write("v1/restore",{root:lastTrash.root,trashId:lastTrash.trashId});lastTrash=null;$("undo").hidden=true;await loadRecords();$("notice").textContent="File restored.";}
+ catch(error){$("notice").textContent=error.message;}finally{$("restore").disabled=false;}
+});
+$("refresh").addEventListener("click",async()=>{
+ $("refresh").disabled=true;try{await write("v1/scan",{roots:[root]});await loadRecords();$("notice").textContent="Catalog refreshed from disk.";}
+ catch(error){$("notice").textContent=error.message;}finally{$("refresh").disabled=writeTokenRequired&&!$("token").value;}
+});
+$("token").addEventListener("input",()=>{render();$("delete").disabled=writeTokenRequired&&!$("token").value;});
+$("root").addEventListener("change",async ()=>{
+ closePreview();
+ root=$("root").value;directory="";
+ selectedFiles.clear();folderPaths=[];
+ history.pushState(null,"",linkFor(""));
+ try{await loadFolders();await loadRecords();}catch(e){$("notice").textContent=e.message;}
+});
+$("recursive").addEventListener("click",()=>{recursive=!recursive;render();});
+$("print").addEventListener("click",()=>{setPrintTitle();window.print();});
+window.addEventListener("popstate",()=>{const query=new URLSearchParams(location.search);if(query.get("root")!==root){location.reload();return;}navigateFolder(query.get("path")||"",false);});
+load();
+</script>
+</body></html>

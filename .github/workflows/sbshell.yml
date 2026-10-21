@@ -1,0 +1,27 @@
+name: SB Shell component checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sbshell
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install local PHP runtime for checks
+        run: sudo apt-get update && sudo apt-get install -y php-cli php-sqlite3 php-gd
+      - name: PHP behavior checks
+        run: |
+          for check in tests/*.php; do php "$check"; done
+          php -n tests/php-setup.php
+      - name: Browser and shell interoperability checks
+        run: |
+          for check in tests/*.mjs; do node "$check"; done
+      - name: Mogwai archive and catalog integration
+        working-directory: .
+        run: python3 -m unittest discover -s tests -p test_consolidation.py -v

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Archive: Boards of Canada - Everything You Do Is a Balloon</title>
+    <style>
+        :root {
+            --bg-color: #0f1117;
+            --card-bg: #1a1d24;
+            --accent-color: #3b82f6;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --border-color: #2e3440;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            margin: 0 0 0.5rem 0;
+            color: #ffffff;
+        }
+
+        .meta-tag {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent-color);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            margin-top: 0;
+            color: #ffffff;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        ul {
+            padding-left: 1.25rem;
+            margin: 0.5rem 0;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        li strong {
+            color: var(--text-primary);
+        }
+
+        .action-bar {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+        }
+
+        .code-block {
+            font-family: monospace;
+            background: #111318;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 0.9rem;
+            color: #a7f3d0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <span class="meta-tag">GEMINI ARCHIVE PAYLOAD</span>
+        <h1>Boards of Canada - Everything You Do Is a Balloon</h1>
+        <p style="color: var(--text-secondary); margin: 0;">Preservation Specimen | Chisel Web3 Pipeline Target</p>
+    </header>
+
+    <main id="content">
+        <section class="card">
+            <h2>Track & Video Metadata</h2>
+            <ul>
+                <li><strong>Artist:</strong> Boards of Canada</li>
+                <li><strong>Track Title:</strong> Everything You Do Is a Balloon</li>
+                <li><strong>Release:</strong> <em>Hi Scores</em> EP (1996) / <em>Music Has the Right to Children</em></li>
+                <li><strong>Source URL:</strong> <a href="https://youtu.be/dQEmaj9C6ko" style="color: var(--accent-color);">https://youtu.be/dQEmaj9C6ko</a></li>
+                <li><strong>Visual Origin:</strong> Adapted from the 1970 public safety educational film <em>Monkey Safety</em></li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>Synopsis & Visual Themes</h2>
+            <ul>
+                <li><strong>Visual Style:</strong> Vintage 16mm archival film featuring children wearing unsettling monkey masks while riding bicycles around a suburban neighborhood.</li>
+                <li><strong>Themes:</strong> Nostalgia, surrealism, childhood innocence mixed with eerie, dreamlike imagery, matching Boards of Canada's signature ambient / IDM soundscapes.</li>
+                <li><strong>Key Visual Sequence:</strong> Countdowns interspersed with scenes of children riding bikes, gathering at picnic tables [00:01:34], and riding into a dark tunnel as the music swells [00:06:33].</li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>Web3 Protocol Markers</h2>
+            <div class="code-block">
+                Target Pipeline: #github johnrigler/chisel<br>
+                Network: Litecoin / IPFS Integration<br>
+                Thunderword: #LLxGEMiNizzz
+            </div>
+        </section>
+    </main>
+
+    <div class="action-bar">
+        <button id="downloadBtn">Download HTML Document</button>
+    </div>
+</div>
+
+<script>
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+        // Capture the current document HTML content
+        const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+        
+        // Create a blob containing the HTML source
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        
+        // Trigger browser download mechanism
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'gemini-boc-archive.html';
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup memory
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+</script>
+
+</body>
+</html>

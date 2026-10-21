@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="1220mm" height="610mm" viewBox="0 0 1220 610" 
+version="1.1" xmlns="http://www.w3.org/2000/svg"><line x1='10' y1='160' x2='506' y2='160' 
+     style='stroke:rgb(255,0,0);stroke-width:2' />
+<circle cx='128' cy='140' r='40' stroke='green'
+              stroke-width='2' 
+              fill='none' />
+<circle cx='256' cy='140' r='40' stroke='green'
+              stroke-width='2' 
+              fill='none' />
+<circle cx='386' cy='140' r='40' stroke='green'
+              stroke-width='2' 
+              fill='none' />
+<circle cx='40' cy='120' r='12' 
+              stroke='brown' stroke-width='2' fill='none' />
+<circle cx='468' cy='120' r='12' 
+              stroke='brown' stroke-width='2' fill='none' />
+<circle cx='255' cy='238' r='12' 
+              stroke='brown' stroke-width='2' fill='none' />
+<circle cx='470' cy='32' r='4' 
+              stroke='blue' stroke-width='2' fill='none' />
+<path fill='none' stroke='black' stroke-width='1'  d='
+M20,20 
+h472 a10,10 0 0 1 10,10 
+v220 a10,10 0 0 1 -10,10 
+h-472 a10,10 0 0 1 -10,-10 
+v-220 a10,10 0 0 1 10,-10
+'/>
+
+</svg>

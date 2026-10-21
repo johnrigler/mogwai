@@ -1,0 +1,5 @@
+blockchain.install() {
+
+npm install blockchain.info
+
+}

@@ -1,0 +1,7 @@
+minetest.server() {
+
+- basic server startup in background
+
+minetest --server 3104Lakeview
+
+}

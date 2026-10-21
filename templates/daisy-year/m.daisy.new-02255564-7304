@@ -1,0 +1,157 @@
+m.daisy.new () 
+{ 
+    ( if (($# < 1 || $# > 2)) || [[ ! $1 =~ ^[0-9]{4}$ ]]; then
+        printf '%s\n' 'Usage: m.daisy.new ISO_YEAR [EXISTING_PARENT_DIRECTORY]' 1>&2;
+        exit 2;
+    fi;
+    local archive_year=$1 archive_parent=. archive_dir;
+    local year_number=$((10#$1)) prior january_first weeks=52 week day coordinate;
+    (($# == 1)) || archive_parent=$2;
+    ((year_number > 0)) || exit 2;
+    prior=$((year_number - 1));
+    january_first=$(((prior + prior / 4 - prior / 100 + prior / 400) % 7 + 1));
+    if ((january_first == 4 || (january_first == 3 && year_number % 4 == 0 &&
+                (year_number % 100 != 0 || year_number % 400 == 0)))); then
+        weeks=53;
+    fi;
+    cd -- "$archive_parent" || exit;
+    archive_dir="$PWD/daisy_$archive_year";
+    mkdir -- "$archive_dir" || exit;
+    sed "s/@DAISY_YEAR@/$archive_year/g" > "$archive_dir/README.md" <<'DAISY_README' || 
+# Daisy @DAISY_YEAR@
+
+Public annual archive for ISO week-year **@DAISY_YEAR@**. The directory
+421/ represents full Daisy coordinate @DAISY_YEAR@/421: week 42, Monday.
+The year is already in the repository name. The starter creates every
+valid WWD/ directory for this ISO year; SB Shell maintains the organization
+and publication sequence beyond that date structure.
+
+The archive contains public source records and deliberate publication
+copies. Keep private working documents, identity information and signing
+keys outside this repository and its Git history.
+
+## Tools that can use or write this archive
+
+| Tool | Role and current boundary |
+| --- | --- |
+| [Daisy](https://github.com/johnrigler/daisy) | Independent Bash functions, saved function artifacts and date conventions. |
+| [Mogwai](https://github.com/johnrigler/mogwai) | Reusable tools, this year template and optional integrations. The archive remains ordinary files after creation. |
+| [SB Shell](https://github.com/johnrigler/mogwai/tree/main/sbshell) | Mogwai component: maintain and present the archive as ordered issues/pages, with local PHP assembly and static HTML publication. |
+| [FileProxy](https://github.com/johnrigler/mogwai/tree/main/fileProxy) | Mogwai component: register this archive as its own root; read/write local files and generate its SQLite catalog and root files.txt inventory. Registration and scanning do not push Git commits. |
+| [SB Stats](https://github.com/johnrigler/sbstats) | Collectors, journals, data and charts can be written here through an explicitly chosen output path. No adapter is installed by this starter. |
+| crypto-python | User-named prospective writer; its exact repository and output interface still need to be linked. |
+| [Chisel](https://github.com/johnrigler/chisel) | Optional transaction tooling and public transaction records. Keep WIFs and private keys outside the archive. |
+| [CertLedger](https://github.com/johnrigler/certLedger) | Legal/administrative context and verification tools; public release follows removal of private case material. |
+
+Choose the destination explicitly in each writer. Other tools may write
+ordinary files into the same directory tree. They do not need to adopt a
+new record schema or run a Mogwai service.
+
+## Work locally
+
+For today's coordinate, first check that the local ISO year matches:
+
+~~~bash
+test "$(date +%G)" = "@DAISY_YEAR@" && printf '%s\n' "$(date +%V%u)"
+~~~
+
+Set TZ=America/Denver when the machine uses a different archival timezone.
+Daisy core's d.today produces a full YYYY/WWD path; use the WWD coordinate
+directly within this year-scoped checkout.
+
+For a default checkout at $HOME/daisy_@DAISY_YEAR@, register FileProxy:
+
+~~~bash
+cd "$HOME/mogwai/fileProxy"
+python3 fp.py add-root daisy@DAISY_YEAR@ "$HOME/daisy_@DAISY_YEAR@"
+python3 fp.py scan daisy@DAISY_YEAR@
+~~~
+
+FileProxy keeps the actual catalog.sqlite3 and generated root files.txt
+in the registered archive by default. Commit an inspected, consistent
+database snapshot when publishing it; SQLite WAL/SHM files are transient.
+Preserve ALP's .files.txt, which has a separate meaning.
+
+To browse this archive with Mogwai's SB Shell component:
+
+~~~bash
+bash "$HOME/mogwai/sbshell/setup" check "$HOME/daisy_@DAISY_YEAR@"
+cd "$HOME/daisy_@DAISY_YEAR@"
+php -S 127.0.0.1:39692 -t . "$HOME/mogwai/sbshell/cruff/index.php"
+~~~
+
+Use your installed PHP 8+ binary with SQLite3 and GD. Files and the actual
+SQLite catalog stay in this archive; both tool implementations live in
+Mogwai. Add this repository's path to your home config when it should be
+included in your normal repository-pull command.
+
+SB Shell's current static navigation uses a root files.txt with paths
+relative to that root. Numbered files and symlinks provide editorial order
+inside chosen units. The local PHP assembler can build the long HTML page;
+publish its HTML and required assets for static hosting or IPFS. Chrome
+handles printing to US Letter. GitHub Pages does not execute PHP.
+
+## Publish the new repository
+
+Create an empty **public** daisy_@DAISY_YEAR@ repository on GitHub, then:
+
+~~~bash
+cd "$HOME/daisy_@DAISY_YEAR@"
+git init -b main
+git add .
+git commit -m "Start Daisy @DAISY_YEAR@"
+git remote add origin https://github.com/johnrigler/daisy_@DAISY_YEAR@.git
+git push -u origin main
+~~~
+
+Adjust the owner and local path when using a different account/location.
+The starter creates local files; remote repository creation and publication
+are explicit operations.
+
+## Closing the ISO year
+
+An ISO year can extend into early January of the next calendar year.
+ISO 2026 ends January 3, 2027; ISO 2027 begins January 4. Mogwai carries the tools that prepare and publish these files. Archiving the
+closed source tree and SQLite catalog to IPFS and combined GitHub/IPFS
+lookup remain planned features:
+[annual archive plan](https://github.com/johnrigler/mogwai/blob/main/fileProxy/docs/ANNUAL-IPFS-ARCHIVE.md).
+DAISY_README
+ exit
+    cat > "$archive_dir/AGENTS.md" <<'DAISY_AGENTS' || 
+# Annual Daisy archive
+
+- This archive is intended for public records. Keep private working files,
+  identity information, credentials and signing keys outside its Git history.
+- The year is in daisy_YYYY; dated paths beneath it are ISO WWD/.
+  Preserve existing historical paths; do not insert another YYYY/.
+- SB Shell maintains editorial order beyond the dated structure. Preserve
+  numbered parts and intended symlink placement.
+- FileProxy's root files.txt is a generated root-relative inventory.
+  ALP's .files.txt is different and may contain executable loading actions.
+- Publish the actual, inspected SQLite catalog when needed; do not fabricate
+  catalog entries or ledger/IPFS references.
+- Daisy works independently. Keep reusable tooling in its source repository.
+  Saved Bash functions retain their original names and content-derived IDs.
+DAISY_AGENTS
+ exit
+    cat > "$archive_dir/.gitignore" <<'DAISY_IGNORE' || 
+.DS_Store
+.env
+.env.*
+__pycache__/
+*.pyc
+*.sqlite3-wal
+*.sqlite3-shm
+DAISY_IGNORE
+ exit
+    for ((week = 1; week <= weeks; week++))
+    do
+        for ((day = 1; day <= 7; day++))
+        do
+            printf -v coordinate '%02d%d' "$week" "$day";
+            mkdir -- "$archive_dir/$coordinate" || exit;
+            : > "$archive_dir/$coordinate/.gitkeep" || exit;
+        done;
+    done;
+    printf 'Created %s with %d ISO week/day directories.\n' "$archive_dir" "$((weeks * 7))" )
+}

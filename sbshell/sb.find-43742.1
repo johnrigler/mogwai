@@ -1,0 +1,15 @@
+sb.find ()
+{
+    # Run from the SB Shell repository root.
+    # Paths in the inventory are relative to the repository root.
+    local root="${1:-.}"
+    (
+        cd "$root" || return 1
+        find myshell -mindepth 1 \
+            -name '.*' -prune -o \
+            -name 'files.txt' -prune -o \
+            -name '.files.txt' -prune -o \
+            -print | LC_ALL=C sort > files.txt
+        printf 'Indexed %s: %s entries\n' "$PWD" "$(wc -l < files.txt)"
+    )
+}

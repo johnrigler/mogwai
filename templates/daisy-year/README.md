@@ -7,7 +7,7 @@ the tools that may write into it. No existing records or credentials are copied.
 ~~~bash
 cd "$HOME/mogwai"
 git pull
-source templates/daisy-year/m.daisy.new-02244558-6686
+source templates/daisy-year/m.daisy.new
 m.daisy.new 2027 "$HOME"
 ~~~
 
@@ -16,19 +16,23 @@ current directory. Existing destinations and symlinks are refused. The
 caller's directory is retained. ISO 2026 has 371 coordinates; ISO 2027 has
 364. Empty markers keep the generated directories in Git.
 
-The function is a pure declare-f snapshot with its short Shoctal identifier
+`m.daisy.new` is a symlink selecting `m.daisy.new-02255564-7304`.
+Older snapshots remain unchanged. The function is a pure declare-f snapshot with its short Shoctal identifier
 and byte count in the filename. It works when copied elsewhere and requires
 Bash, mkdir, cat and sed. Daisy does not acquire a Mogwai runtime dependency.
 
-The generated README describes the standalone FileProxy registration and
+The generated README uses Mogwai's `fileProxy/` and `sbshell/` components for
+FileProxy registration, PHP browsing and
 Git publication steps, with links to Daisy, Mogwai, SB Shell, FileProxy,
 SB Stats, Chisel and CertLedger. The exact crypto-python repository was not
 resolved; its named writer reference is explicitly pending.
 
 SB Shell maintains each archive beyond its date structure, including
 numbered units, selected files, symlinks, navigation and printable pages.
-See [the local PHP direction](https://github.com/johnrigler/sbshell/blob/master/notes/2026-10-18-public-daisy-and-local-php.md).
-Writer adapters and PHP modernization are separate work.
+See [the local PHP direction](https://github.com/johnrigler/mogwai/blob/main/sbshell/notes/2026-10-18-public-daisy-and-local-php.md).
+The starter prepares a local tree; it does not initialize Git, create a
+remote, register a root or publish an IPFS archive automatically.
+See [the consolidated setup and IPFS boundaries](../../docs/CONSOLIDATION.md).
 
 ## GitHub template scope
 

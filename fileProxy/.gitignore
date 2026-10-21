@@ -1,0 +1,11 @@
+# Runtime data and machine-specific configuration
+data/
+.state/
+config.json
+catalog.json
+*.sqlite3
+*.sqlite3-*
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store

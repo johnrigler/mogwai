@@ -1,0 +1,3 @@
+sb.clip() {
+    cat -- .clip
+}

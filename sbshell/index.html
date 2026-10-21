@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SB Shell / Mogwai</title>
+<style>
+:root{color-scheme:dark}
+body{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;margin:0;background:#111;color:#ddd}
+header{padding:12px 16px;border-bottom:1px solid #333;position:sticky;top:0;background:#111;z-index:2}
+main{display:grid;grid-template-columns:minmax(250px,32%) 1fr;min-height:calc(100vh - 48px)}
+#tree{border-right:1px solid #333;padding:12px;overflow:auto}
+#view{padding:18px;overflow:auto}
+button,a.entry{font:inherit;color:#ddd;background:#181818;border:1px solid #444;padding:7px 9px;margin:2px;cursor:pointer;text-decoration:none;display:inline-block}
+button:hover,a.entry:hover{background:#252525}
+.meta{opacity:.65;font-size:.85em}
+.version{float:right;opacity:.55;font-size:.82em}
+iframe{width:100%;height:78vh;border:1px solid #333;background:white}
+img.scan{max-width:100%;height:auto;display:block;margin:auto}
+pre{white-space:pre-wrap;overflow-wrap:anywhere}
+.note{margin:.5rem 0 1rem;color:#aaa}
+@media(max-width:700px){main{grid-template-columns:1fr}#tree{border-right:0;border-bottom:1px solid #333}.version{float:none;margin-left:.6rem}}
+</style>
+</head>
+<body>
+<header>
+  <strong>SB Shell / Mogwai</strong>
+  <span id="where" class="meta"></span>
+  <span id="version" class="version"></span>
+</header>
+<main>
+<section id="tree">Loading files.txt…</section>
+<section id="view">Select an item.</section>
+</main>
+<script>
+const SB_VERSION="0.4.0";
+const tree=document.querySelector("#tree");
+const view=document.querySelector("#view");
+const where=document.querySelector("#where");
+document.querySelector("#version").textContent="v"+SB_VERSION;
+
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function natural(a,b){return a.localeCompare(b,undefined,{numeric:true,sensitivity:"base"});}
+function kind(name,isDir=false){
+  if(isDir) return "dir";
+  const n=name.toLowerCase();
+  if(/\.(png|jpe?g|gif|webp|svg)$/.test(n)) return "image";
+  if(/\.html?$/.test(n)) return "html";
+  return "text";
+}
+function show(entry){
+  if(entry.type==="dir"){location.href=entry.href;return;}
+  if(entry.type==="image"){view.innerHTML='<img class="scan" src="'+encodeURI(entry.href)+'" alt="'+esc(entry.name)+'">';return;}
+  if(entry.type==="html"){view.innerHTML='<iframe src="'+encodeURI(entry.href)+'"></iframe>';return;}
+  view.innerHTML='<iframe src="'+encodeURI(entry.href)+'"></iframe>';
+}
+
+async function findInventory(){
+  const here=new URL(".",location.href);
+  for(let depth=0;depth<12;depth++){
+    const base=new URL("../".repeat(depth),here);
+    const url=new URL("files.txt",base);
+    try{
+      const r=await fetch(url,{cache:"no-store"});
+      if(!r.ok) continue;
+      const text=await r.text();
+      return {base,url,text};
+    }catch(_){}
+  }
+  throw new Error("No files.txt found here or in a parent directory.");
+}
+
+function buildEntries(inventory,currentDir){
+  const infra=new Set(["index.html","index.js","files.txt"]);
+  const all=inventory.split(/\r?\n/)
+    .map(s=>s.trim())
+    .filter(Boolean)
+    .map(s=>s.replace(/^\.\//,"").replace(/\/$/,""))
+    .filter(s=>s && s!==".");
+  const files=new Set(all);
+  const prefix=currentDir ? currentDir.replace(/\/$/,"")+"/" : "";
+  const children=new Map();
+
+  for(const path of all){
+    if(prefix && !path.startsWith(prefix)) continue;
+    const rest=prefix ? path.slice(prefix.length) : path;
+    if(!rest) continue;
+    const first=rest.split("/")[0];
+    if(infra.has(first)) continue;
+    const childPath=prefix+first;
+    const isDir=rest.includes("/") || files.has(childPath) && all.some(p=>p.startsWith(childPath+"/"));
+    if(!children.has(first)) children.set(first,{name:first,path:childPath,isDir});
+    else if(isDir) children.get(first).isDir=true;
+  }
+
+  return [...children.values()].sort((a,b)=>natural(a.name,b.name));
+}
+
+async function render(){
+  try{
+    const inv=await findInventory();
+    const current=new URL(".",location.href);
+    let rel=decodeURIComponent(current.pathname).slice(decodeURIComponent(inv.base.pathname).length);
+    rel=rel.replace(/^\/+|\/+$/g,"");
+    where.textContent=rel ? "/"+rel : "/";
+
+    const entries=buildEntries(inv.text,rel);
+    tree.innerHTML="";
+
+    if(rel){
+      const up=document.createElement("a");
+      up.className="entry";
+      up.href="../";
+      up.textContent="..";
+      tree.append(up,document.createElement("br"));
+    }
+
+    for(const e of entries){
+      const type=kind(e.name,e.isDir);
+      const b=document.createElement("button");
+      b.textContent=(type==="dir"?"▸ ":"")+e.name;
+      b.onclick=()=>show({
+        name:e.name,
+        type,
+        href:type==="dir" ? encodeURI(e.name)+"/" : encodeURI(e.name)
+      });
+      tree.append(b,document.createElement("br"));
+    }
+
+    if(!entries.length) tree.textContent="No files in this directory.";
+  }catch(err){
+    tree.textContent=err.message;
+  }
+}
+render();
+</script>
+</body>
+</html>

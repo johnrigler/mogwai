@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>FileProxy · Inbox</title>
+<style>
+:root{color-scheme:dark;--bg:#11151c;--panel:#1a2029;--surface:#212936;--border:#354154;--text:#e9eef6;--muted:#a4b1c2;--blue:#83b5fa;--good:#8ad5b3;--bad:#ffa8a8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{border-bottom:1px solid var(--border);padding:18px max(20px,calc((100vw - 1180px)/2));display:flex;gap:22px;justify-content:space-between;align-items:baseline}
+header strong{font-size:20px;letter-spacing:-.02em}header small{font-size:12px;color:var(--muted)}
+main{max-width:1180px;margin:auto;padding:24px 20px 45px;display:grid;grid-template-columns:minmax(0,1.75fr) minmax(270px,1fr);gap:20px}
+section{min-width:0}.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px}
+h1,h2,h3{line-height:1.2;letter-spacing:-.02em}h1{font-size:30px;font-weight:640;margin:0 0 12px}h2{font-size:18px;margin:0 0 14px}h3{font-size:16px;margin:14px 0 8px}
+p{margin:8px 0 18px;color:var(--muted)}label{display:block;color:var(--muted);font-size:13px;margin:0 0 6px}
+textarea,input,select{font:inherit;color:var(--text);border:1px solid var(--border);background:#10151d;border-radius:8px;padding:11px 12px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:350px;height:49vh;max-height:850px;line-height:1.5;font:15px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}
+textarea:focus,input:focus,select:focus{outline:2px solid #4f83c6;outline-offset:1px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px}
+.fields.localWrites{grid-template-columns:1fr}
+button{font:inherit;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 17px;color:var(--text);cursor:pointer}
+button.primary{background:#a9ccff;color:#101923;border:0;font-weight:700}
+button:disabled{opacity:.5;cursor:wait}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;align-items:center}
+.hint,small{font-size:12px;color:var(--muted)}
+.mono{font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+.preview{padding:13px 0;border-top:1px solid var(--border)}
+.preview:first-child{border-top:0}
+.tag{font-size:11px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;color:var(--blue)}
+.preview strong{display:block;overflow-wrap:anywhere;margin:5px 0 2px}
+.preview .source{color:var(--muted);word-break:break-all;font-size:12px}
+.status{margin-top:16px;border-top:1px solid var(--border);padding-top:12px;min-height:38px;white-space:pre-wrap;overflow-wrap:anywhere}
+.success{color:var(--good)}.error{color:var(--bad)}
+a{color:var(--blue)}code{color:#bad4f7}
+#output{padding:0;margin:0;list-style:none}#output li{padding:12px 0;border-top:1px solid var(--border)}#output li:first-child{border-top:0}
+#output b{display:block}.empty{color:var(--muted);font-size:14px}
+aside .panel+ .panel{margin-top:20px}
+footer{max-width:1180px;margin:0 auto;padding:0 20px 30px;color:var(--muted);font-size:12px}
+@media print{header, .actions, #token, label[for="token"]{display:none!important}body{background:#fff;color:#000}main{display:block;padding:0}section{border:0!important;box-shadow:none}textarea{border:1px solid #aaa;color:#000;min-height:80px;height:auto}h1{font-size:19pt}}\n@media(max-width:840px){main{display:block;padding-top:20px}aside{margin-top:20px}.fields{grid-template-columns:1fr}textarea{height:42vh;min-height:260px}header{padding:14px 20px}}
+</style>
+</head>
+<body>
+<header><strong>FileProxy <span style="color:var(--muted);font-weight:400">/ Inbox</span></strong><nav><a href="catalog">Browse catalog</a> &nbsp; <small id="health">Checking local service…</small></nav></header>
+<main>
+<section class="panel">
+<h1>Paste anything.</h1>
+<p>URLs, documents, notes, or several links. FileProxy proposes a destination, then captures the original and creates a SHA-256 catalog record when you import.</p>
+<label for="paste">Incoming material</label>
+<textarea id="paste" spellcheck="false" autofocus placeholder="Paste a PDF URL, text, or up to five HTTPS links…"></textarea>
+<div class="fields">
+<div><label for="destination">Destination</label><select id="destination"><option value="auto">Automatic classification</option></select></div>
+<div id="tokenField"><label for="token">Local write token</label><input id="token" type="password" autocomplete="off" placeholder="FILEPROXY_WRITE_TOKEN"></div>
+</div>
+<div style="margin-top:14px"><label for="note">Optional context</label><input id="note" maxlength="4096" placeholder="Matter, agency, reason for retaining it…"></div>
+<div class="actions"><button id="import" class="primary" disabled>Process and import</button><button id="sample">Try Laguna Form 211</button><button id="clear">Clear</button><span class="hint">Preview does not download anything.</span></div>
+<div id="status" class="status" role="status" aria-live="polite"></div>
+</section>
+<aside>
+<div class="panel">
+<h2>Classification preview</h2>
+<div id="preview" class="empty">Paste material to classify it.</div>
+</div>
+<div class="panel">
+<h2>Last import</h2>
+<ul id="output"><li class="empty">No files imported in this session.</li></ul>
+</div>
+</aside>
+</main>
+<footer>FileProxy is a local intake processor. Files remain in registered data roots; it does not publish to GitHub, IPFS, or a blockchain. A hash demonstrates byte identity, not legal authenticity or delivery.</footer>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const urlPattern = /https:\/\/[^\s<>\[\]{}"']+/gi;
+let roots = [];
+let writeTokenRequired = true;
+let defaultDaisyRoot = "daisy";
+function classify(value) {
+  const v = value.toLowerCase();
+  if (v.includes("business") && (v.includes("registration") || v.includes("form-211"))) return {root:"certledger",category:"regulatory/business-registration",reason:"Business registration source"};
+  if (["registration","application","ordinance","tax","licens","legal","court","statute","regulation","pueblo"].some(word => v.includes(word))) return {root:"certledger",category:"legal/regulatory",reason:"Legal or administrative source"};
+  return {root:defaultDaisyRoot,category:"inbox/unclassified",reason:"Not yet classified"};
+}
+function routedPaste(value) {
+  const re=/(^|\s)#(daisy2026|daisy|certledger|chisel|sbshell|sbstats)(?=\s|$)/gi;
+  const tags=[...new Set([...value.matchAll(re)].map(match=>match[2].toLowerCase()))];
+  return {content:value.replace(re,"$1").trim(),tags};
+}
+function itemsFromPaste(value) {
+  const {content,tags}=routedPaste(value);
+  if(!content || tags.length>1)return [];
+  const directive=tags[0]||"";
+  const urls=[...new Set((content.match(urlPattern)||[]).map(url=>url.replace(/[.,;)}]+$/g,"")))];
+  if(urls.length) return urls.slice(0,5).map(url=>{
+    const c=classify(url);return {url,...c,root:directive||c.root,directive};
+  });
+  const c=classify(content);
+  return [{url:"",...c,root:directive||c.root,directive}];
+}
+function element(tag, text, className) {
+  const node=document.createElement(tag);
+  if(text!==undefined) node.textContent=text;
+  if(className) node.className=className;
+  return node;
+}
+function preview() {
+  const input = $("paste").value;
+  const items=itemsFromPaste(input);
+  const route=routedPaste(input);
+  const target=$("preview");target.replaceChildren();
+  if(route.tags.length>1) {target.append(element("div","Conflicting routing tags: "+route.tags.join(", "),"error"));return;}
+  if (!items.length) {target.append(element("div",route.tags.length?"Add a URL or text beside the routing tag.":"Paste material to classify it.","empty"));return;}
+  const totalLinks=(input.match(urlPattern)||[]).length;
+  if(totalLinks>5) target.append(element("p","Limit is five URLs per import.","error"));
+  for(const item of items){
+    const card=element("div",undefined,"preview");
+    card.append(element("div",item.category+(item.directive?" · #"+item.directive:""),"tag"));
+    card.append(element("strong",($("destination").value==="auto"?item.root:$("destination").value).toUpperCase()));
+    card.append(element("div",item.url||"Pasted text","source"));
+    card.append(element("small",item.reason));
+    if(!roots.includes(item.root) && $("destination").value==="auto") card.append(element("div","Register root ‘"+item.root+"’ before import.","error"));
+    if(item.directive && $("destination").value!=="auto" && $("destination").value!==item.directive) card.append(element("div","Selected destination conflicts with #"+item.directive,"error"));
+    target.append(card);
+  }
+}
+async function health() {
+  try{
+    const r=await fetch("v1/health",{cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const data=await r.json();roots=Array.isArray(data.roots)?data.roots:[];
+    defaultDaisyRoot=typeof data.defaultDaisyRoot==="string"?data.defaultDaisyRoot:"daisy";
+    writeTokenRequired=data.writeTokenRequired!==false;
+    $("tokenField").hidden=!writeTokenRequired;
+    $("tokenField").parentElement.classList.toggle("localWrites",!writeTokenRequired);
+    const select=$("destination");for(const root of roots){const opt=document.createElement("option");opt.value=root;opt.textContent=root;select.append(opt);}
+    $("health").textContent="Local API online · "+roots.length+" roots · "+(writeTokenRequired?"write token required":"local writes, no token");
+    $("import").disabled=false;
+    preview();
+  }catch(e){$("health").textContent="Local API unavailable";$("status").textContent="Open this page using python3 fp.py serve, not file://. "+e.message;}
+}
+async function importText(){
+  const value=$("paste").value;
+  if(!value.trim()){ $("status").textContent="Paste a URL or text first.";return;}
+  if(!value || new TextEncoder().encode(value).byteLength>65536){$("status").textContent="Input must be 65,536 bytes or less.";return;}
+  if((value.match(urlPattern)||[]).length>5){$("status").textContent="Import at most five URLs at once.";return;}
+  const token=$("token").value;
+  if(writeTokenRequired&&!token){$("status").textContent="Enter FILEPROXY_WRITE_TOKEN to import, or restart with fp serve --local for the local Inbox.";return;}
+  $("import").disabled=true;
+  $("status").className="status";$("status").textContent="Retrieving and cataloging. Larger PDFs may take several seconds…";
+  try {
+    const headers={"Content-Type":"application/json"};
+    if(token)headers["X-FileProxy-Token"]=token;
+    const response=await fetch("v1/ingest",{
+      method:"POST",
+      headers,
+      body:JSON.stringify({text:value,destination:$("destination").value,note:$("note").value})
+    });
+    const data=await response.json();
+    if(!response.ok||!data.ok) throw new Error(data.error||"HTTP "+response.status);
+    const list=$("output");list.replaceChildren();
+    for(const row of data.items){
+      const li=element("li");
+      li.append(element("b",row.title));
+      li.append(element("div",row.root+":"+row.path,"mono"));
+      li.append(element("div","SHA-256 "+row.sha256,"mono"));
+      li.append(element("small",row.bytes+" bytes · "+row.mime+(row.duplicate?" · already stored":" · imported")));
+      const a=element("a","Open saved document");a.href="v1/file?root="+encodeURIComponent(row.root)+"&path="+encodeURIComponent(row.path);a.target="_blank";a.rel="noopener";
+      const link=element("div");link.append(a);li.append(link);
+      list.append(li);
+    }
+    $("status").className="status success";
+    $("status").textContent=data.count+" record(s) processed. Original bytes and provenance metadata were saved to the configured root(s); catalog updated.";
+  } catch(error) {
+    $("status").className="status error";$("status").textContent=error.message;
+  } finally {$("import").disabled=false;}
+}
+$("sample").addEventListener("click",()=>{$("paste").value="https://www.lagunapueblo-nsn.gov/wp-content/uploads/2021/02/Form-211-Business-Registration-Application-Rev_2_20_19.pdf";preview();});
+$("paste").addEventListener("input",preview);
+$("destination").addEventListener("change",preview);
+$("import").addEventListener("click",importText);
+$("clear").addEventListener("click",()=>{$("paste").value="";$("note").value="";$("output").replaceChildren(element("li","No files imported in this session.","empty"));$("status").textContent="";preview();$("paste").focus();});
+health();
+</script>
+</body>
+</html>

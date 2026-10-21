@@ -1,0 +1,31 @@
+#!/bin/bash
+
+golang() {
+
+SB_MODULE="golang"
+
+export GOPATH="$SB_HOME"/modules/go
+
+PS1="世界> "
+
+}
+
+golang.git.curses() {
+
+go get github.com/rthornton128/goncurses
+
+}
+
+golang.git.iris() {
+
+go get github.com/kataras/iris
+
+}
+
+golang.env() {
+
+color green
+echo "GOPATH		| $GOPATH"
+echo "GOROOT		| $GOROOT"
+color white
+}

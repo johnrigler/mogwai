@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FileProxy / Arrange response</title>
+<style>
+:root{color-scheme:light;--ink:#18344a;--muted:#637486;--line:#ccd9e3;--link:#176693}
+*{box-sizing:border-box}body{margin:0;background:#f4f7fa;color:var(--ink);font:15px/1.5 system-ui,sans-serif}
+header{display:flex;justify-content:space-between;padding:16px max(18px,calc((100vw - 1160px)/2));background:white;border-bottom:1px solid var(--line)}
+a{color:var(--link)}main{max-width:1160px;margin:auto;padding:24px 18px 60px}h1{margin:0;font-size:28px}h2{font-size:19px;margin:0 0 12px}
+p{color:var(--muted)}label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+select,input,textarea,button{font:inherit;border:1px solid #adc0cf;border-radius:6px;padding:9px 11px;background:white;color:var(--ink)}
+button{min-height:44px}.source-group{margin:14px 0}.source-group h3{font-size:14px;overflow-wrap:anywhere}
+select,input,textarea{width:100%}textarea{min-height:80px;resize:vertical}button{cursor:pointer}button:disabled{opacity:.5;cursor:wait}[hidden]{display:none!important}
+.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(290px,1fr);gap:20px;align-items:start;margin-top:20px}
+.card{background:white;border:1px solid var(--line);border-radius:8px;padding:20px;margin-bottom:18px}.field{margin-bottom:14px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{min-width:0}.primary{background:#183e59;color:white;border-color:#183e59;font-weight:650}
+.source{padding:10px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.source:last-child{border-bottom:0}.path,small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.source-preview{display:flex;gap:12px;align-items:flex-start}.source-info{min-width:0;flex:1}.thumbnail{display:flex;align-items:center;justify-content:center;flex:none;width:88px;height:112px;border:1px solid var(--line);background:#f4f7fa;color:var(--muted);font:12px system-ui;overflow:hidden}.thumbnail img{width:100%;height:100%;object-fit:contain}.thumbnail:focus{outline:2px solid var(--link)}
+.added .thumbnail{float:right;margin:0 0 8px 10px}.added::after{content:"";display:block;clear:both}.placement{clear:both;margin:8px 0}.inline-document{display:flex;gap:12px;align-items:center;padding:12px;margin:8px 0 18px;background:#f4f7fa;border-left:3px solid #176693;font:13px/1.4 system-ui;color:var(--ink)}.inline-document .thumbnail{width:54px;height:70px}
+.added{padding:12px 0;border-bottom:1px solid var(--line)}.added input{margin:7px 0}.added .row button{padding:5px 8px;font-size:13px}
+#letter{background:#fff;color:#111;padding:14px 8px;font:15px/1.4 Georgia,serif}#letter p{color:#111;white-space:pre-line;margin:0 0 12px}
+#letter [contenteditable]{outline:0;border-bottom:1px dotted #b1b9c0}#letter [contenteditable]:focus{background:#fff8cf;outline:2px solid #b9cddd}
+#letter h3{font-size:18px}#letter table{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}#letter td{border:1px solid #bbb;padding:6px;vertical-align:top;white-space:pre-line}
+.pagebreak{border:0;border-top:1px dashed #ccd9e3;margin:24px 0}.signature{padding-top:24px;border-top:1px solid #aaa}
+.label-zone{float:right;border:1px dashed #777;padding:8px;white-space:pre-line;font:10px/1.4 system-ui;text-align:center;margin:0 0 10px 12px}
+#status{white-space:pre-wrap;overflow-wrap:anywhere}#result iframe{width:100%;height:75vh;border:1px solid var(--line);margin-top:14px}.error{color:#a32323}.good{color:#256749}
+@media(max-width:800px){.grid{display:flex;flex-direction:column}.grid>section,.grid>aside{width:100%}.card{padding:16px}header{gap:12px}}
+</style>
+</head>
+<body>
+<header><strong>FileProxy / Arrange response</strong><a id="back" href="catalog">Back to catalog</a></header>
+<main><h1>Letter and files, in order</h1><p id="location">Loading the case folder…</p>
+<div class="grid">
+<section>
+ <div class="card">
+  <div class="field"><label for="source">Response HTML or text</label><select id="source"><option value="">Choose a response</option></select></div>
+  <p>Edit the narrative below, then add documents beside it. Each document can follow a paragraph or go at the end. Captions are optional.</p>
+  <p id="fields" class="path"></p><div id="letter"></div>
+ </div>
+</section>
+<aside>
+ <div class="card"><h2>Available source files</h2><label class="row"><input id="showSaved" type="checkbox" style="width:auto">Show saved response folders</label><div id="available">Loading…</div></div>
+ <div class="card"><h2>Added documents</h2><div id="added">No documents added.</div></div>
+ <div class="card">
+  <div class="field"><label for="title">Response title</label><input id="title" value="Response" maxlength="120"></div>
+  <div class="field"><label for="folderName">Save in a new folder</label><input id="folderName" value="response-1" maxlength="100"></div>
+  <div class="field"><label for="note">Assembly note</label><textarea id="note" maxlength="4096" placeholder="What is included, and why…"></textarea></div>
+  <div id="tokenField" class="field" hidden><label for="token">Write token</label><input id="token" type="password" autocomplete="off"></div>
+  <button id="build" class="primary" disabled>Save response folder</button>
+  <p class="path">Saves an HTML view and numbered copies of the added files. Use the browser's Print / Save PDF button after saving.</p>
+ </div>
+</aside>
+</div>
+<p id="status" role="status"></p><section id="result" class="card" hidden></section>
+</main>
+<script>
+"use strict";
+const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
+const root=params.get("root")||"",directory=(params.get("path")||"").replace(/^\/+|\/+$/g,"");
+let records=[],source=null,blocks=[],added=[],writeTokenRequired=true,busy=false,sourceSequence=0;
+const el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
+const fileURL=(path,download=false)=>"v1/file?"+new URLSearchParams({root,path,...(download?{download:"1"}:{})});
+function thumbnail(item){
+ const link=el("a");link.className="thumbnail";link.href=fileURL(item.path);link.target="_blank";link.rel="noopener";link.setAttribute("aria-label","Open "+item.path);
+ const isPDF=/\.pdf$/i.test(item.path),image=el("img");
+ image.alt="Preview of "+item.path.split("/").at(-1);image.loading="lazy";image.decoding="async";
+ image.addEventListener("error",()=>link.replaceChildren(el("span",isPDF?"PDF · Open":"Open image")),{once:true});
+ image.src=isPDF?"v1/thumbnail?"+new URLSearchParams({root,path:item.path,sha256:item.sha256}):fileURL(item.path);
+ link.append(image);return link;
+}
+function textOf(node){
+ let text="";const preLine=node.matches(".addr")||!!node.closest(".response-letter");
+ function read(part){
+  if(part.nodeType===3)text+=preLine?part.textContent:part.textContent.replace(/\s+/g," ");
+  else if(part.nodeName==="BR")text+="\n";
+  else for(const child of part.childNodes)read(child);
+ }
+ read(node);return text.replace(/[ \t]+/g," ").replace(/ *\n */g,"\n").trim();
+}
+function extractLetter(text,isHTML){
+ if(!isHTML)return text.split(/\n\s*\n/).filter(x=>x.trim()).map(text=>({kind:"paragraph",text:text.trim()}));
+ const doc=new DOMParser().parseFromString(text,"text/html"),result=[];
+ let pages=[...doc.querySelectorAll(".page")];if(!pages.length)pages=[doc.body];
+ pages=pages.filter(page=>!page.matches(".enclosures,.scan-page,.source-index")&&!/^(?:Enclosures\b|Documents included\b|(?:Additional )?(?:Centro )?Source Index\b|Exhibit index\b|Document index\b)/i.test(page.querySelector("h1,h2")?.textContent.trim()||""));
+ function read(node){
+  if(node.nodeType===3){if(node.textContent.trim())result.push({kind:"paragraph",text:node.textContent.trim()});return;}
+  if(node.nodeType!==1||node.matches("script,style,nav,button,input,.toolbar,.footer,.exhibit,.draft,.exhibit-index,.inline-document"))return;
+  if(node.matches(".label-zone")){result.push({kind:"label",text:textOf(node)});return;}
+  if(node.matches(".signature")&&node.textContent.trim()){result.push({kind:"signature",text:textOf(node)});return;}
+  if(node.tagName==="TABLE"){
+   const rows=[...node.rows].map(row=>[...row.cells].map(textOf));if(rows.length)result.push({kind:"table",rows});return;
+  }
+  if(node.querySelector(".signature")){
+   for(const name of node.querySelectorAll("p"))result.push({kind:"signature",text:textOf(name)});return;
+  }
+  if(node.matches("p,li,h1,h2,h3,.addr,.callout")){
+   let text=textOf(node);if(!text)return;
+   if(/^We are enclosing copies/i.test(text))text="The document index identifies the supporting records included in this packet.";
+   result.push({kind:node.matches("h1,h2,h3")?"heading":node.matches(".addr")?"address":"paragraph",text:(node.tagName==="LI"?"- ":"")+text});return;
+  }
+  for(const child of node.childNodes)read(child);
+ }
+ for(const page of pages){
+  const start=result.length;if(start)result.push({kind:"pagebreak"});const boundary=result.length;
+  for(const child of page.childNodes)read(child);
+  if(result.length===boundary)result.length=start;
+ }
+ return result;
+}
+function readLetter(){
+ return [...$("letter").children].filter(node=>node.dataset.kind).map(node=>{
+  const kind=node.dataset.kind;
+  if(kind==="pagebreak")return {kind};
+  if(kind==="table")return {kind,rows:[...node.rows].map(row=>[...row.cells].map(cell=>cell.innerText??cell.textContent))};
+  return {kind,text:node.innerText??node.textContent};
+ });
+}
+function renderLetter(){
+ const parent=$("letter");parent.replaceChildren();
+ for(const block of blocks){
+  const kind=block.kind;let node;
+  if(kind==="table"){
+   node=el("table");for(const row of block.rows){const tr=el("tr");for(const text of row){const td=el("td",text);td.contentEditable="true";tr.append(td);}node.append(tr);}
+  }else if(kind==="pagebreak"){node=el("hr");node.className="pagebreak";}
+  else{node=el(kind==="heading"?"h3":"p",block.text);node.contentEditable="true";if(kind==="signature")node.className="signature";if(kind==="label")node.className="label-zone";}
+  node.dataset.kind=kind;parent.append(node);
+ }
+ renderPlacements();update();
+}
+function update(){
+ const count=[...readLetter().map(block=>block.text||block.rows?.flat().join("\n")||"").join("\n").matchAll(/\[[^\]\n]{1,160}\]/g)].length;
+ $("fields").textContent=count?count+" unfilled field(s). Complete them here; an unfinished letter remains marked DRAFT.":"Review the letter before saving.";
+ $("build").textContent=count?"Save draft response folder":"Save response folder";
+ $("build").disabled=busy||!source||!added.length||(writeTokenRequired&&!$("token").value);
+}
+function placementOptions(select,item){
+ select.replaceChildren();const end=el("option","At end of document");end.value="";select.append(end);
+ readLetter().forEach((block,index)=>{
+  if(!["paragraph","heading","table"].includes(block.kind))return;
+  const text=(block.text??block.rows?.flat().join(" · ")??"").replace(/\s+/g," ");
+  const option=el("option","After "+(index+1)+": "+text.slice(0,95));option.value=String(index);select.append(option);
+ });
+ select.value=item.afterBlock==null?"":String(item.afterBlock);
+}
+function renderPlacements(){
+ $("letter").querySelectorAll(".inline-document").forEach(node=>node.remove());
+ const nodes=[...$("letter").children].filter(node=>node.dataset.kind),groups=new Map();
+ for(const item of added){
+  if(item.afterBlock==null||!nodes[item.afterBlock])continue;
+  const marker=el("div");marker.className="inline-document";
+  marker.append(thumbnail(item),el("span",item.label||item.path.split("/").at(-1)));
+  if(!groups.has(item.afterBlock))groups.set(item.afterBlock,[]);groups.get(item.afterBlock).push(marker);
+ }
+ for(const [index,markers] of groups)nodes[index].after(...markers);
+}
+function renderAdded(){
+ const parent=$("added");parent.replaceChildren();
+ if(!added.length)parent.textContent="No documents added.";
+ added.forEach((item,index)=>{
+  const row=el("div");row.className="added";row.append(thumbnail(item),el("strong",String(index+1)+". "+item.path.split("/").at(-1)));
+  const input=el("input");input.value=item.label;input.maxLength=240;input.placeholder="Caption (optional)";input.setAttribute("aria-label","Document "+(index+1)+" caption (optional)");input.addEventListener("input",()=>{item.label=input.value;renderPlacements();});row.append(input);
+  const path=el("div",item.path);path.className="path";row.append(path);
+  const placement=el("label","Place this document");placement.className="placement";
+  const select=el("select");select.setAttribute("aria-label","Placement for "+item.path);placementOptions(select,item);
+  select.addEventListener("change",()=>{item.afterBlock=select.value===""?null:Number(select.value);renderPlacements();});placement.append(select);row.append(placement);
+  const actions=el("div");actions.className="row";
+  for(const [label,delta] of [["Up",-1],["Down",1]]){const button=el("button",label);button.disabled=index+delta<0||index+delta>=added.length;button.addEventListener("click",()=>{[added[index],added[index+delta]]=[added[index+delta],added[index]];renderAdded();});actions.append(button);}
+  const remove=el("button","Remove");remove.addEventListener("click",()=>{added.splice(index,1);renderAdded();renderAvailable();});actions.append(remove);row.append(actions);parent.append(row);
+ });renderPlacements();update();
+}
+function renderAvailable(){
+ const parent=$("available");parent.replaceChildren();
+ const paths=new Set(records.map(row=>row.path));
+ const savedFolders=records.filter(row=>row.path.endsWith('/index.html')&&paths.has(row.path.slice(0,-10)+'letter.html'))
+  .map(row=>row.path.slice(0,-11)).filter(folder=>folder!==directory);
+ const candidates=records.filter(row=>/\.(pdf|png|jpe?g|webp)$/i.test(row.path)&&
+  ($("showSaved").checked||!savedFolders.some(folder=>row.path.startsWith(folder+'/'))));
+ if(!candidates.length)parent.textContent="No indexed PDFs or scans here. Rescan the root from the catalog after adding files.";
+ const groups=new Map();for(const item of candidates){const folder=item.path.split("/").slice(0,-1).join("/");if(!groups.has(folder))groups.set(folder,[]);groups.get(folder).push(item);}
+ for(const [folder,items] of groups){
+  items.sort((a,b)=>a.path.localeCompare(b.path,undefined,{numeric:true}));
+  const group=el("div");group.className="source-group";group.append(el("h3",folder===directory?"This folder":folder.slice(directory?directory.length+1:0)));
+  const all=el("button","Add all from folder ("+items.length+")");all.disabled=items.every(item=>added.some(x=>x.path===item.path));
+  all.addEventListener("click",()=>{for(const item of items)if(!added.some(x=>x.path===item.path))added.push({...item,label:item.path.split("/").at(-1)});renderAdded();renderAvailable();});group.append(all);
+ for(const item of items){
+  const row=el("div");row.className="source";const preview=el("div");preview.className="source-preview";const info=el("div");info.className="source-info";
+  const a=el("a",item.path.slice(directory?directory.length+1:0));a.href=fileURL(item.path);a.target="_blank";a.rel="noopener";info.append(a);
+  const meta=el("div",item.bytes+" bytes");meta.className="path";info.append(meta);preview.append(thumbnail(item),info);row.append(preview);
+  const button=el("button",added.some(x=>x.path===item.path)?"Added":"Add enclosure");button.disabled=added.some(x=>x.path===item.path);
+  button.addEventListener("click",()=>{added.push({...item,label:item.path.split("/").at(-1)});renderAdded();renderAvailable();});info.append(button);group.append(row);
+ }
+ parent.append(group);}
+}
+async function loadSource(){
+ const sequence=++sourceSequence;source=null;blocks=[];$("letter").replaceChildren();update();
+ const entry=records.find(row=>row.path===$("source").value);if(!entry)return;
+ try{
+  const response=await fetch(fileURL(entry.path),{cache:"no-store"});if(!response.ok)throw new Error("Cannot read the response letter");
+  const text=await response.text();if(sequence!==sourceSequence)return;
+  blocks=extractLetter(text,/\.html?$/i.test(entry.path));if(!blocks.length)throw new Error("The selected file has no response text");
+  const reset=added.some(item=>item.afterBlock!=null);for(const item of added)item.afterBlock=null;
+  source=entry;renderLetter();renderAdded();
+  if(reset)$("status").textContent="The response changed. Choose the document placements again for this narrative.";
+ }catch(error){$("status").textContent=error.message;}
+}
+async function load(){
+ $("back").href="catalog?"+new URLSearchParams({root,path:directory});$("location").textContent=root+":"+(directory?"/"+directory:"/");
+ try{
+  const health=await fetch("v1/health",{cache:"no-store"});if(!health.ok)throw new Error("FileProxy is unavailable");const h=await health.json();
+  if(!h.roots?.includes(root))throw new Error("Choose a registered root from the catalog first");
+  writeTokenRequired=h.writeTokenRequired!==false;$("tokenField").hidden=!writeTokenRequired;
+  const response=await fetch("v1/index?"+new URLSearchParams({root,prefix:directory?directory+"/":"",limit:"1000"}),{cache:"no-store"});
+  if(!response.ok)throw new Error("Cannot read the catalog");const data=await response.json();records=data.entries||[];
+  if(records.length>=1000)throw new Error("Open a smaller case folder; this listing reaches the 1,000-file limit");
+  const letters=records.filter(row=>/\.(html?|txt)$/i.test(row.path)&&row.path.split("/").slice(0,-1).join("/")===directory);
+  for(const row of letters){const option=el("option",row.path.split("/").at(-1));option.value=row.path;$("source").append(option);}
+  const initial=letters.find(row=>row.path.split("/").at(-1)==="letter.html")||letters.find(row=>/dispute|response/i.test(row.path.split("/").at(-1)))||letters[0];if(initial)$("source").value=initial.path;
+  const folders=await fetch("v1/folders?"+new URLSearchParams({root}),{cache:"no-store"});
+  if(folders.ok){const names=(await folders.json()).directories||[];let number=1;while(names.includes((directory?directory+"/":"")+"response-"+number))number++;$("folderName").value="response-"+number;}
+  renderAvailable();await loadSource();
+ }catch(error){$("status").className="error";$("status").textContent=error.message;}
+}
+async function build(){
+ if(!source||!added.length||busy)return;busy=true;update();$("status").className="";$("status").textContent="Saving the arranged files and printable HTML…";
+ try{
+  const headers={"Content-Type":"application/json"};if($("token").value)headers["X-FileProxy-Token"]=$("token").value;
+  const response=await fetch("v1/packet",{method:"POST",headers,body:JSON.stringify({root,directory,folderName:$("folderName").value,title:$("title").value,note:$("note").value,
+   letter:{path:source.path,sha256:source.sha256,blocks:readLetter()},attachments:added.map(item=>({path:item.path,sha256:item.sha256,label:item.label,afterBlock:item.afterBlock??null}))})});
+  const data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||"HTTP "+response.status);
+  const result=$("result");result.hidden=false;result.replaceChildren();result.append(el("h2",data.draft?"Draft response folder saved":"Response folder saved"));
+  const info=el("p",data.attachments.length+" added file(s) · "+root+":"+data.directory);result.append(info);
+  const links=el("div");links.className="row";
+  const viewURL="v1/fs/"+encodeURIComponent(root)+"/"+data.path.split("/").map(encodeURIComponent).join("/");
+  const open=el("a","Open printable HTML");open.href=viewURL;open.target="_blank";open.rel="noopener";links.append(open);
+  const folder=el("a","Open saved folder");folder.href="catalog?"+new URLSearchParams({root,path:data.directory});links.append(folder);
+  const print=el("button","Print / Save PDF");print.disabled=true;links.append(print);result.append(links);
+  const frame=el("iframe");frame.title="Printable response";frame.setAttribute("sandbox","allow-same-origin allow-modals");
+  frame.addEventListener("load",async()=>{try{await Promise.all([...frame.contentDocument.images].map(image=>image.decode()));print.disabled=false;}catch(error){$("status").textContent="A page image did not load; check the saved files before printing.";}});
+  print.addEventListener("click",()=>{frame.contentWindow.focus();frame.contentWindow.print();});frame.src=viewURL;result.append(frame);
+  $("status").className=data.draft?"":"good";$("status").textContent=data.draft?"Files and HTML saved. Complete the remaining letter fields before mailing.":"Files and HTML saved in order. Print / Save PDF uses your browser.";
+ }catch(error){$("status").className="error";$("status").textContent=error.message;}
+ finally{busy=false;update();}
+}
+$("source").addEventListener("change",loadSource);$("showSaved").addEventListener("change",renderAvailable);$("letter").addEventListener("input",()=>{update();$("added").querySelectorAll(".added select").forEach((select,index)=>placementOptions(select,added[index]));});$("token").addEventListener("input",update);$("build").addEventListener("click",build);
+load();
+</script>
+</body>
+</html>

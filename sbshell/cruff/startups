@@ -1,0 +1,12 @@
+startups() {
+
+- Use this to keep track of start-up ideas.
+
+ls ~/.sbshell/startups
+
+}
+
+startups.vi() {
+
+[[ $1 ]] &&  vi ~/.sbshell/startups/$1 # || startups.new
+}

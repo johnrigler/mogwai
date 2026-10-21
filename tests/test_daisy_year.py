@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SNAPSHOT = ROOT / "templates/daisy-year/m.daisy.new-02244558-6686"
+SNAPSHOT = (ROOT / "templates/daisy-year/m.daisy.new").resolve()
 
 
 class DaisyYearTest(unittest.TestCase):
@@ -49,7 +49,9 @@ class DaisyYearTest(unittest.TestCase):
                 self.assertNotIn("@DAISY_YEAR@", readme)
                 self.assertIn("crypto-python", readme)
                 self.assertIn("https://github.com/johnrigler/sbstats", readme)
-                self.assertIn("https://github.com/johnrigler/fileProxy", readme)
+                self.assertIn("https://github.com/johnrigler/mogwai/tree/main/fileProxy", readme)
+                self.assertIn('"$HOME/mogwai/sbshell/cruff/index.php"', readme)
+                self.assertNotIn('cd "$HOME/fileProxy"', readme)
                 self.assertFalse((archive / str(year)).exists())
 
     def test_existing_destination_refused_even_in_conditional(self):

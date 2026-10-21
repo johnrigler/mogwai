@@ -1,0 +1,92 @@
+#!/bin/bash
+
+color.aqua
+echo "Reload web..."
+. ~/.sbshell/web.ini
+color.blue
+
+.web() {
+declare -f | grep --color=none "^web." | sed 's/()//g'
+}
+
+web.env() {
+env | grep --color=none "WEB_"
+
+}
+
+web.local.url.cd() {
+
+cd $WEB_LOCAL_URL/$1
+
+}
+
+web.local.url.mkdir() {
+- create subdirectory and adds an index.php link
+
+cd $WEB_LOCAL_URL
+mkdir -p $1 2>/dev/null
+cd $1
+ln -s ../index.php .
+}
+
+web.module() {
+export WEB_MODULE=$1
+}
+
+web.init() {
+export WEB_CNT="1"
+web.module $1
+PS1="web:$WEB_MODULE> "
+}
+
+web.pre() {
+
+color.green
+echo "<pre>" > $$ 
+script   
+cat typescript >> $$
+rm typescript
+echo "</pre>" >> $$
+mv $$ $WEB_LOCAL_URL/$WEB_MODULE/1_$WEB_CNT.php
+color.white
+
+}
+
+web.vi.index() {
+vi $WEB_LOCAL_URL/index.php
+}
+
+
+web.ssh() {
+ssh rigler@rigler.org $1
+}
+
+web.scp() {
+scp -r $1 rigler@rigler.org:www/$1
+}
+
+web.inc() {
+- increase page segment 
+if [[ $1 ]]
+  then
+  let WEB_CNT=$WEB_CNT+$1
+  else 
+  let WEB_CNT=$WEB_CNT+1
+  fi
+}
+
+web.dec() {
+- decrease page segment 
+if [[ $1 ]]
+  then
+  let WEB_CNT=WEB_CNT-$1
+  else 
+  let WEB_CNT=WEB_CNT-1
+  fi
+}
+
+.pwd() {
+- override when this module is loaded.
+echo $WEB_LOCAL_URL/$WEB_MODULE
+
+}

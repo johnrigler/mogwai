@@ -1,0 +1,12 @@
+--- cluster.old
+- gxsdal1001a
+- gxsdal1001b
+- gxsdal1001c
+
+--- cluster.new
+- gxswdc1001a
+- gxswdc1001b
+- gxswdc1001c
+
+source $_XENDIR/xen.bash
+

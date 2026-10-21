@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Check by default; installing packages is an explicit terminal operation.
+set -euo pipefail
+sb_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+sb_mode=${1:-check}
+sb_archive=${2:-$PWD}
+if [[ $# -gt 2 || ( "$sb_mode" != check && "$sb_mode" != install ) ]]; then
+    printf 'Usage: bash %s [check|install] [archive-directory]\n' "$sb_dir/setup" >&2
+    exit 2
+fi
+sb_php=${SB_PHP:-}
+if [[ -n "$sb_php" ]]; then
+    command -v "$sb_php" >/dev/null || { printf 'PHP binary not found: %s\n' "$sb_php" >&2; exit 1; }
+elif command -v php8.2 >/dev/null; then
+    sb_php=php8.2
+elif command -v php >/dev/null; then
+    sb_php=php
+fi
+
+if [[ "$sb_mode" == install ]]; then
+    if [[ ! -f /etc/debian_version || "${PREFIX:-}" == /data/data/com.termux/* ]] || ! command -v apt-get >/dev/null; then
+        printf 'Automatic installation is for Penguin / Debian / Ubuntu. Install PHP 8+, SQLite3 and GD with your system package manager, then run this check.\n' >&2
+        exit 1
+    fi
+    sb_package=php
+    if [[ -n "$sb_php" ]]; then
+        "$sb_php" -r 'exit(PHP_VERSION_ID >= 80000 ? 0 : 1);' || { printf 'PHP 8+ is required. Select a newer PHP binary with SB_PHP.\n' >&2; exit 1; }
+        sb_package=php$("$sb_php" -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')
+    fi
+    sb_sudo=()
+    if [[ $EUID -ne 0 ]]; then sb_sudo=(sudo); fi
+    printf 'Installing: %s-cli %s-common %s-sqlite3 %s-gd\n' "$sb_package" "$sb_package" "$sb_package" "$sb_package"
+    "${sb_sudo[@]}" apt-get update
+    "${sb_sudo[@]}" apt-get install "$sb_package-cli" "$sb_package-common" "$sb_package-sqlite3" "$sb_package-gd"
+    if [[ -z "$sb_php" ]]; then sb_php=php; fi
+    sb_version=$("$sb_php" -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')
+    if command -v phpenmod >/dev/null; then
+        "${sb_sudo[@]}" phpenmod -v "$sb_version" -s cli sqlite3 gd fileinfo
+    fi
+    printf '\nRestart SB Shell\047s PHP server, reload its page and open PHP setup to verify the server too.\n\n'
+fi
+
+if [[ -z "$sb_php" ]]; then
+    printf 'PHP is missing. On Penguin / Debian / Ubuntu, run: bash %q install\n' "$sb_dir/setup" >&2
+    exit 1
+fi
+exec "$sb_php" "$sb_dir/cruff/check.php" "$sb_archive"

@@ -1,6 +1,6 @@
 # Original Mogwai pull implementation
 
-The working command belongs in Daisy as `d.pull`. John has adapted and
+John uses the working command as `d.pull` in his Daisy environment. John has adapted and
 installed it there by sourcing its saved function definition directly from
 his shell RC file. See [Daisy command ownership](https://github.com/johnrigler/daisy/blob/main/docs/ENGAGEMENTS.md)
 for the current publication status. This folder retains the earlier `m.pull`

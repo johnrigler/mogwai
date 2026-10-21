@@ -1,0 +1,326 @@
+html {
+	background-color: #004444;
+	}
+
+div {
+    border: 2px solid #2f6fab;
+    width: 800px;
+    padding: 1em;
+    font-size: 18px;
+    background-color: #cfcfff;
+
+}
+
+h1 {
+   font-size: 30px;
+	}
+
+div.frame {
+	position: absolute;
+        border: 1px solid black;
+        background-color: white;
+	width: 1080px;
+        }
+
+div.topframe {
+        position: absolute;
+        border: 1px solid black;
+        background-color: white;
+        width: 1140px;
+	height: 90px;
+        }
+
+div.menuframe {
+        margin-left: auto;
+        margin-right: auto;
+        border: 1px solid black;
+        background-color: white;
+        width: 800px;
+        height: 120px;
+        }
+
+div.middleframe {
+        position: absolute;
+        border: 1px solid black;
+        background-color: white;
+        width: 1140px;
+        height: 90px;
+	top: 154px;
+        }
+
+div.navigationframe {
+        margin-left: auto;
+        margin-right: auto;
+        border: 1px solid black;
+        background-color: white;
+        width: 800px;
+        height: 90px;
+        top: 154px;
+        }
+
+
+div.bigframe {
+        position: absolute;
+        border: 1px solid black;
+        background-color: white;
+        width: 1080px;
+        top: 154px;
+        }
+
+
+div.bottomframe {
+        position: absolute;
+        border: 1px solid black;
+        background-color: white;
+        width: 1140px;
+        top: 294px;
+        }
+
+div.contentsframe {
+	margin-left: 20px;
+	margin-right: auto;
+        border: 1px solid black;
+        background-color: white;
+        width: 1140px;
+        top: 294px;
+        }
+
+div.bodyframe {
+        border: 1px solid black;
+        background-color: white;
+        width: 1140px;
+        top: 294px;
+        }
+
+
+
+div.redbox {
+        background-color: #b5121b;
+        width: 220px;
+        border: none;
+        color: white;
+        text-align: left;
+        font-size: 18px;
+        font-family: arial;
+        font-weight: bold;
+}
+
+div.menubox {
+        background-color: #004444;
+        width: 220px;
+        border: none;
+        color: white;
+        text-align: left;
+        font-size: 18px;
+        font-family: arial;
+        font-weight: bold;
+}
+
+
+div.shortredbox {
+        background-color: #b5121b;
+        width: 140px;
+        border: none;
+        color: white;
+        text-align: left;
+        font-size: 16px;
+        font-family: arial;
+        font-weight: bold;
+	line-height: 14px;
+}
+
+div.contentsbox {
+        background-color: #004444;
+        border: none;
+        color: white;
+        text-align: left;
+        font-size: 16px;
+        font-family: arial;
+        font-weight: bold;
+        line-height: 14px;
+}
+
+
+div.shortwhitebox {
+        background-color: white;
+        width: 160px;
+        border: none;
+        color: white;
+        text-align: left;
+        font-size: 18px;
+        font-family: arial;
+        font-weight: bold;
+}
+
+div.descriptionbox {
+        background-color: #004444;
+        width: 140px;
+        border: none;
+        color: black;
+        text-align: left;
+        font-size: 16px;
+        font-family: arial;
+        font-weight: bold;
+        line-height: 14px;
+
+}
+
+div.menuboxes {
+
+        padding: 4px;
+        border: 2px solid #2f6fab;
+        background-color: #e9e9e9;
+	width: 200px;
+	font-size: 14px;
+        left: 20px;
+        line-height: 20px;
+        top: 240px;
+
+}
+
+div.fourrows {
+ 	float: left;
+	border: none;
+	background-color: white;
+	width: 24.6%;
+	}
+
+div.menu {
+	float: left;
+	border: none;
+	background-color: white;
+	line-height:30px;
+	width: 14%;
+	}
+
+div.logo {
+        float: left;
+        border: none;
+        background-color: white;
+        line-height:30px;
+        width: 20%;
+	}
+
+div.horizontal {
+	float: left;
+	border: 2px solid black;
+	}
+
+div.vertical {
+	float: top;
+	border: 2px solid blue;
+	}
+
+
+pre {
+    font-size: 18px;
+    font-family: monospace;
+    font-weight: bold;
+    padding: 1em;
+    border: 2px solid #2f6fab;
+    background-color: #e9e9e9;
+    width: 1060px;
+}
+
+
+span.prompt {
+   color: green;
+}
+
+span.normal {
+  color: black;
+}
+
+span.docprompt  {
+   color: brown;
+}	
+
+span.cmd {
+   color: blue;
+}
+
+span.literal {
+	color: red;
+}
+
+span.oldcmd {
+   color: black;
+}
+
+span.new {
+   color: blue;
+}
+
+span.comment {
+   color: purple;
+}
+
+span.embedded {
+   color: brown;
+}
+
+span.inverted {
+   color: white;
+   background-color: black;
+}
+
+span.cursor {
+   background-color: green;
+} 
+
+span.section {
+   font-size:12pt;
+}
+
+span.color32 {
+  color: orange;
+}
+
+span.color33 {
+  color: green;
+}
+
+span.color34 {
+  color: red;
+}
+
+span.color36 {
+  color: purple;
+}
+
+span.color40_31_1 {
+  color: purple;
+}
+
+span.color00_36 {
+   color: aqua;
+}
+
+span.color01_35 {
+
+   color: purple;
+}
+
+span.color01_31 {
+
+  color: blue;
+}
+
+div.spacing {
+
+   border: 8px solid white;
+   background-color: white;
+   width: auto;
+   height: auto;
+}
+
+div.shortspacing {
+
+  border: none;
+  background-color: white;
+  width: 140px;
+  height: auto;
+  padding: 1px 1px 1px 1px;
+}
+
+

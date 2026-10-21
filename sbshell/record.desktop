@@ -1,0 +1,5 @@
+youtube.record.desktop() {
+
+recordmydesktop -x 80 -y 130 --width 860 --height  380  -o "$1".ogv
+
+}

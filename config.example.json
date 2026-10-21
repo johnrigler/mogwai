@@ -11,8 +11,6 @@
     "daisy": { "name": "Daisy", "path": "~/daisy" },
     "daisy_2026": { "name": "Daisy 2026", "path": "~/daisy_2026" },
     "mogwai": { "name": "Mogwai", "path": "~/mogwai" },
-    "fileproxy": { "name": "FileProxy", "path": "~/fileProxy" },
-    "sbshell": { "name": "SB Shell", "path": "~/sbshell" },
     "sbstats": { "name": "SB Stats", "path": "~/sbstats" },
     "chisel": { "name": "Chisel", "path": "~/chisel" },
     "certledger": { "name": "CertLedger", "path": "~/certLedger" },

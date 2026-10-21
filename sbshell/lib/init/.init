@@ -1,0 +1,18 @@
+gxswdc07.cluster() {
+
+echo "gxswdc0701a
+gxswdc0701b
+gxswdc0701c"
+
+}
+
+                                          #XEN 
+xen() {                                   #XEN
+: init xen lib.                           #XEN
+export _XENDIR=~/xen                      #XEN
+. $_XENDIR/_xen.bash                      #XEN
+echo "Now and Xen you need a break..."    #XEN
+_xen                                      #XEN
+}                                         #XEN
+
+xen

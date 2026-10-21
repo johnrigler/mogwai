@@ -1,0 +1,34 @@
+name: FileProxy component checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fileProxy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile Python sources
+        run: python -m compileall -q fileproxy tools/fileProxy fp.py
+      - name: Parse website inline JavaScript (no Node runtime dependency)
+        run: |
+          python tests/extract_js.py > /tmp/fileproxy-browser.js
+          node --check /tmp/fileproxy-browser.js
+          python tests/extract_js.py catalog.html > /tmp/fileproxy-catalog.js
+          node --check /tmp/fileproxy-catalog.js
+          python tests/extract_js.py packet.html > /tmp/fileproxy-packet.js
+          node --check /tmp/fileproxy-packet.js
+      - name: Core and compatibility tests
+        run: python -S -m unittest discover -s tests -v
+      - name: Install browser test dependency outside the application
+        run: npm install --prefix "$RUNNER_TEMP/fileproxy-test-deps" --ignore-scripts --no-audit --no-fund jsdom@26.1.0
+      - name: Browser behavior tests
+        run: NODE_PATH="$RUNNER_TEMP/fileproxy-test-deps/node_modules" node --test tests/*.test.cjs

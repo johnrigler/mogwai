@@ -1,0 +1,8 @@
+quora() {
+
+cat << EOF
+https://www.quora.com/topic/The-Public-House
+You really meant to go to medium.
+EOF
+
+}
