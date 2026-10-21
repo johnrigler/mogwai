@@ -15,6 +15,13 @@ external commitment workflow and planned automatic signature inspection.
 control/status window on port 1132 and movable working root on port 39632.
 These are plans; existing runtime entry points below remain unchanged.
 
+## Suggestions
+
+[Browser discussions and Bluesky](docs/BROWSER-AND-BLUESKY-SUGGESTIONS.md)
+records two proposals: a subscribed discussion overlay for YouTube, Bluesky
+and other sites, plus Bluesky / AT Protocol reading, publishing and portable
+discussion records. These are suggestions, not implemented features.
+
 ## FileProxy and SB Shell
 
 ```bash
