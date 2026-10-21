@@ -1,0 +1,31 @@
+name: Signing identity checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  signatures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PDF signature dependencies
+        run: python -m pip install -r signatures/requirements.txt
+      - name: Check signatures, identity pins and public exports
+        run: python -m unittest discover -s signatures -p test_workbench.py -v
+      - name: Install local GUI runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y php8.3-cli php8.3-sqlite3
+          sudo phpdismod -v 8.3 -s cli xdebug
+      - name: Check local GUI
+        env:
+          MOGWAI_SIGNATURE_PYTHON: python
+          SB_PHP: php8.3
+        run: |
+          php8.3 -l signatures/index.php
+          node signatures/test-http.mjs

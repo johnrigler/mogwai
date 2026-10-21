@@ -52,6 +52,14 @@ their required code/assets for pinning and retrieval.
 
 ## Shared home configuration
 
+[Signing identities](signatures/) inspects original PDF signatures without
+Adobe, records independently checked certificate fingerprints in the home
+database, exports public certificate records for GitHub/IPFS, and signs PDF
+copies using an existing local signing identity. Open **Signing identities**
+from the local directory viewer's hamburger menu after installing its Python
+dependencies. Published certificates and locally verified identities are
+reported separately.
+
 [People and correspondence](profiles/) adds a local GUI for John and Shannon's
 saved identity fields and NCS letter defaults. Open it from the directory
 viewer's hamburger menu. It uses `~/catalog.sqlite3`, outside the checkouts.
