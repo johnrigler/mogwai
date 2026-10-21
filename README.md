@@ -9,6 +9,12 @@ Personal annual archives and customer engagements keep their own repositories.
 Command names follow working habits: a `d.*` function may call a Mogwai tool
 and be saved in a dated Daisy repo.
 
+[Signed editions](docs/SIGNED-EDITIONS.md) records the HTML → PDF → signing →
+external commitment workflow and planned automatic signature inspection.
+[Local workspace](docs/LOCAL-WORKSPACE.md) records the proposed stable Mogwai
+control/status window on port 1132 and movable working root on port 39632.
+These are plans; existing runtime entry points below remain unchanged.
+
 ## FileProxy and SB Shell
 
 ```bash

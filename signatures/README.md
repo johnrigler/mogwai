@@ -1,5 +1,10 @@
 # Signing identities
 
+The [October 20 signed-edition direction](../docs/SIGNED-EDITIONS.md) records
+HTML authoring, PDF signing, external chain commitments and the next viewer
+integration. Automatic PDF inspection and common-secret key generation remain
+planned; the functions documented below are the existing workbench.
+
 Mogwai can inspect embedded PDF signatures without Adobe, record independently
 checked certificate fingerprints in the home database, export public signing
 identities, and add a PDF signature using an existing PKCS#12 identity.
