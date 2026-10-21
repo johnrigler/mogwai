@@ -8,6 +8,10 @@ if(isset($_GET["mogwai-profiles"])){
 	include dirname(__DIR__, 2) . "/profiles/index.php";
 	exit();
 }
+if(isset($_GET["mogwai-signatures"])){
+	include dirname(__DIR__, 2) . "/signatures/index.php";
+	exit();
+}
 if(isset($_GET["sb-check"])){
 	require_once __DIR__ . "/check.php";
 	sb_php_setup_page($sb_root);
@@ -206,6 +210,7 @@ foreach($sb_crumbs as $link => $label){
 <summary aria-label="Menu" title="Menu"><span aria-hidden="true">☰</span></summary>
 <nav class="sb-menu-links" aria-label="Settings">
 <?php if($mogwai_profiles_enabled){ ?><a href="<?= $sb_url ?>?mogwai-profiles=1&amp;return=<?= rawurlencode($sb_url) ?>">People and correspondence</a><?php } ?>
+<?php if($mogwai_profiles_enabled){ ?><a href="<?= $sb_url ?>?mogwai-signatures=1">Signing identities</a><?php } ?>
 <a href="<?= $sb_url ?>?sb-check=1">PHP setup</a>
 <div class="refresh-control">
 <label><input type="checkbox" id="auto-refresh" data-stamp="<?php echo $sb_stamp; ?>" checked><span>Auto-refresh<br><small>Check every 10 seconds</small></span></label>

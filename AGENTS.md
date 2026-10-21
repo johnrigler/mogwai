@@ -52,3 +52,14 @@ tables are preserved. Read [profiles/README.md](profiles/README.md). Never
 copy the home database or real identity fixtures into the source tree, a
 public catalog or an IPFS export. Local PHP letter rendering may fill these
 values; static template builds keep placeholders. Tests use synthetic data.
+
+## Signing identities
+
+`signatures/` verifies original PDFs with pyHanko and records explicit public
+certificate fingerprints/local identity assessments in the same home DB.
+Read `signatures/README.md`. Publication is availability, not identity proof;
+unknown issuer does not establish self-signing. Keep integrity, PDF revision
+coverage, certificate validity, local identity pins and PKI trust separate.
+Public export uses an allowlist and never includes home profiles or local
+assessment notes. Never commit real signing keys, passwords or identity test
+fixtures. Adding a signature must retain the original and check restrictions.
