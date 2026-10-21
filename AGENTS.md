@@ -29,3 +29,14 @@ numbered units, navigation and print views beyond the ISO WWD coordinate.
 PHP is available on the user's laptop for the SB Shell revival. The legacy
 PHP assembler has not yet been modernized or tested here. Keep private
 source material outside public archives and their retained Git history.
+
+## Tool ownership and engagement scope
+
+Mogwai supplies build/setup/orchestration tools. The working repository
+update command belongs in Daisy as `d.pull`; retain existing `m.pull`
+snapshots as history rather than making Mogwai a runtime requirement.
+Daisy's format can support personal or customer engagement repositories,
+each with independent history and access settings. The current annual
+starter still creates only `daisy_YYYY`. A future `certLedger_YYYY`
+layout is deferred; do not migrate CertLedger as part of this clarification.
+See [Daisy engagement conventions](https://github.com/johnrigler/daisy/blob/main/docs/ENGAGEMENTS.md).

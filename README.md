@@ -1,15 +1,16 @@
 # Mogwai
 
-Mogwai supplies small, inspectable tools. Daisy keeps the source records and saved projects; it does not depend on Mogwai to exist.
+Mogwai supplies small, inspectable tools for building and coordinating projects. Daisy supplies an independent shell environment and reusable record format. Personal and customer engagement repositories can each use that format with their own records and Git history. See [Daisy engagement repositories](https://github.com/johnrigler/daisy/blob/main/docs/ENGAGEMENTS.md).
 
 ## Shared home configuration
 
 Copy [config.example.json](config.example.json) to `~/config.json` for shared
 names, project locations, FileProxy settings and defaults outside the checkouts.
 See [Home config](HOME-CONFIG.md) for the copy command and a reading example.
-Source `tools/home-config/m.pull`, then run `m.pull` to fast-forward the
-configured checkouts. See [Pull configured repositories](tools/home-config/).
-Other tools do not load the shared config automatically.
+The working repository update command belongs in Daisy as `d.pull`, sourced
+from the user's saved definition in the shell RC file. The earlier
+[`m.pull` snapshot](tools/home-config/) remains available here; it is not a
+required Daisy dependency. Other tools do not load the shared config automatically.
 
 ## Annual Daisy archives
 

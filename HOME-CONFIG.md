@@ -37,15 +37,20 @@ its registered roots still belong in `~/.config/fileproxy/config.json`.
 
 ## Pull the configured repositories
 
-```bash
-source "$HOME/mogwai/tools/home-config/m.pull"
-m.pull
-```
+Use Daisy's `d.pull`, loaded by directly sourcing its saved function
+definition in your shell RC file. Run the command explicitly when you want
+updates. See [Daisy's command ownership and local-install status](https://github.com/johnrigler/daisy/blob/main/docs/ENGAGEMENTS.md).
 
-The [pull command](tools/home-config/) reads every `projects.KEY.path`, follows
-the current branch's upstream and performs fast-forward-only updates. It skips
-local changes and reports results per checkout. It leaves your home config
-alone. The `commons` entry should point to `~/commons` with a lowercase `c`.
+The earlier [Mogwai implementation](tools/home-config/) reads every
+`projects.KEY.path`, follows the current branch's upstream and performs
+fast-forward-only updates. It skips local changes and reports results per
+checkout. The existing snapshot is retained; no local `d.pull` source path
+is assumed here.
+
+Personal archives, separate engagements and tooling repos can each have
+their own configured path. The `commons` entry should point to `~/commons`
+with a lowercase `c`. CertLedger's existing entry stays in place until its
+future annual layout is explicitly adopted.
 
 ## Reading it
 
@@ -74,5 +79,6 @@ projects keep working independently without this file or a Mogwai checkout.
 Browser JavaScript cannot directly read `~/config.json`. A browser tool would
 need a file picker or an explicitly exposed subset through FileProxy. No
 shared-config endpoint or automatic loader is introduced by this example.
-`m.pull` now reads the project paths from this file. Other tools can adopt
+The original `m.pull` reads the project paths from this file; the working
+command is now owned by Daisy as `d.pull`. Other tools can adopt
 the shared values when their integrations are implemented.

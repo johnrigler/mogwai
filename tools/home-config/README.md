@@ -1,4 +1,10 @@
-# Pull configured repositories
+# Original Mogwai pull implementation
+
+The working command belongs in Daisy as `d.pull`. John has adapted and
+installed it there by sourcing its saved function definition directly from
+his shell RC file. See [Daisy command ownership](https://github.com/johnrigler/daisy/blob/main/docs/ENGAGEMENTS.md)
+for the current publication status. This folder retains the earlier `m.pull`
+snapshot and its tests; the instructions below describe that implementation.
 
 `m.pull` reads `projects` from `~/config.json` and updates each existing Git
 checkout at its configured `path`. Requires Bash, Python 3 and Git; no packages

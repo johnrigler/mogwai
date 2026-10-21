@@ -39,6 +39,15 @@ separate template repository containing that export. Mogwai remains the tools
 repository. This function creates local files; remote creation and public
 visibility remain explicit publishing steps.
 
+## Independent engagements
+
+Daisy's record format can also describe separate customer or domain
+engagements, each with its own annual repositories and Git history.
+The current `m.daisy.new` command creates `daisy_YYYY`; it does not yet
+accept an engagement name. See [Daisy engagement conventions](https://github.com/johnrigler/daisy/blob/main/docs/ENGAGEMENTS.md).
+A possible `certLedger_YYYY` layout is deferred; existing CertLedger records
+and repository names remain in place.
+
 ## Public release
 
 New annual archives are intended to be public. CertLedger becomes public
