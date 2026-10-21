@@ -43,3 +43,12 @@ Preserve direct RC source references and immutable function snapshots.
 New source requires a new content-derived name. The annual starter creates
 local `daisy_YYYY` trees; a future CertLedger annual layout remains deferred.
 No automatic IPFS publishing or unified archive lookup is implemented here.
+
+## Private home profiles
+
+Mogwai's `profiles/` GUI and PHP helpers use `~/catalog.sqlite3` for private
+people and correspondence records, separate from archive catalogs. Existing
+tables are preserved. Read [profiles/README.md](profiles/README.md). Never
+copy the home database or real identity fixtures into the source tree, a
+public catalog or an IPFS export. Local PHP letter rendering may fill these
+values; static template builds keep placeholders. Tests use synthetic data.

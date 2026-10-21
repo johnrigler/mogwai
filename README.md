@@ -52,6 +52,12 @@ their required code/assets for pinning and retrieval.
 
 ## Shared home configuration
 
+[People and correspondence](profiles/) adds a local GUI for John and Shannon's
+saved identity fields and NCS letter defaults. Open it from the directory
+viewer's hamburger menu. It uses `~/catalog.sqlite3`, outside the checkouts.
+The JSON example below remains shared project configuration, not a place for
+birth dates or SSNs.
+
 Copy [config.example.json](config.example.json) to `~/config.json` for shared
 names, repository locations and local FileProxy settings. See
 [Home config](HOME-CONFIG.md). FileProxy and SB Shell are components of the
