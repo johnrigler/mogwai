@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import net from 'node:net';
+import http from 'node:http';
 
 const temporary = await mkdtemp(join(tmpdir(), 'mogwai-profile-http-'));
 const archive = join(temporary, 'archive');
@@ -75,9 +76,18 @@ try {
   assert.equal(result.status, 400);
   assert.deepEqual(await readFile(database), before);
   // DNS-rebinding Host headers must not turn the local GUI into a profile API.
-  result = await fetch(origin + '/?mogwai-profiles=1', {headers:{Host:'example.invalid:' + port}});
+  // fetch replaces Host with the URL's host; use HTTP to send the actual test header.
+  const otherHost = path => new Promise((resolve, reject) => {
+    http.get(origin + path, {headers:{Host:'example.invalid:' + port}}, response => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => { body += chunk; });
+      response.on('end', () => resolve({status:response.statusCode, body}));
+    }).on('error', reject);
+  });
+  result = await otherHost('/?mogwai-profiles=1');
   assert.equal(result.status, 403);
-  const publicView = await (await fetch(origin + '/', {headers:{Host:'example.invalid:' + port}})).text();
+  const publicView = (await otherHost('/')).body;
   assert.match(publicView, /Unfilled sample/);
   assert.doesNotMatch(publicView, /000-00-0001|Example &lt;john&gt;/);
   console.log('Profile GUI: local saves, CSRF/origin checks, escaped fields, persistence, file permissions and public-view exclusion passed.');
