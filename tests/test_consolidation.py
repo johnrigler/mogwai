@@ -12,6 +12,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 FP = ROOT / "fileProxy/fp.py"
+PHP = os.environ.get("SB_PHP", "php")
 
 
 class ConsolidationTests(unittest.TestCase):
@@ -64,10 +65,10 @@ class ConsolidationTests(unittest.TestCase):
             self.assertIn("011/record.txt", (archive / "files.txt").read_text())
             self.assertFalse((ROOT / "fileProxy/catalog.sqlite3").exists())
 
-    @unittest.skipUnless(shutil.which("php"), "PHP is needed for the cross-language catalog check")
+    @unittest.skipUnless(shutil.which(PHP), "PHP is needed for the cross-language catalog check")
     def test_php_and_fileproxy_share_the_same_archive_database(self):
         capability = subprocess.run(
-            ["php", "-r", 'exit(class_exists("SQLite3") ? 0 : 1);'],
+            [PHP, "-r", 'exit(class_exists("SQLite3") ? 0 : 1);'],
             capture_output=True, timeout=10,
         )
         if capability.returncode:
@@ -88,7 +89,7 @@ sb_catalog_scan($argv[1] . "/011");
 sb_save_document("011/record.txt", "Integration record", hash_file("sha256", $argv[1] . "/011/record.txt", true));
 '''
             result = subprocess.run(
-                ["php", "-r", source, str(archive), str(ROOT / "sbshell/cruff/catalog.php")],
+                [PHP, "-r", source, str(archive), str(ROOT / "sbshell/cruff/catalog.php")],
                 capture_output=True, text=True, timeout=10,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
