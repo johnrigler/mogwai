@@ -1,6 +1,13 @@
 <?php
 // This file also works as the router passed to php -S.
 $sb_root = realpath(($_SERVER["DOCUMENT_ROOT"] ?? "") ?: getcwd());
+require_once dirname(__DIR__, 2) . "/profiles/store.php";
+$mogwai_profiles_enabled = mogwai_profiles_local();
+header("Cache-Control: no-store");
+if(isset($_GET["mogwai-profiles"])){
+	include dirname(__DIR__, 2) . "/profiles/index.php";
+	exit();
+}
 if(isset($_GET["sb-check"])){
 	require_once __DIR__ . "/check.php";
 	sb_php_setup_page($sb_root);
@@ -198,6 +205,7 @@ foreach($sb_crumbs as $link => $label){
 <details class="sb-menu" id="sb-menu">
 <summary aria-label="Menu" title="Menu"><span aria-hidden="true">☰</span></summary>
 <nav class="sb-menu-links" aria-label="Settings">
+<?php if($mogwai_profiles_enabled){ ?><a href="<?= $sb_url ?>?mogwai-profiles=1&amp;return=<?= rawurlencode($sb_url) ?>">People and correspondence</a><?php } ?>
 <a href="<?= $sb_url ?>?sb-check=1">PHP setup</a>
 <div class="refresh-control">
 <label><input type="checkbox" id="auto-refresh" data-stamp="<?php echo $sb_stamp; ?>" checked><span>Auto-refresh<br><small>Check every 10 seconds</small></span></label>
