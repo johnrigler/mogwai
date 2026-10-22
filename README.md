@@ -96,3 +96,10 @@ Chosen source video stays on the device.
 
 [Receipts and folded letters](tools/ctp500-folded-letter/) builds receipts
 or sideways four-page strips. Printer work is currently on hold.
+
+## PHP release build
+
+[PHP under tools](tools/php/) records the `php-8.5.12.tar.gz` Chromebook build
+workflow: verify the release archive, capture the real `d.script` session, install
+into a versioned home prefix, and read the directory through SB Shell.
+The local build and installation remain pending; no PHP source fork is required.
