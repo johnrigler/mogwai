@@ -209,6 +209,35 @@ curl 'http://127.0.0.1:7799/v1/index?root=daisy&limit=20'
 curl 'http://127.0.0.1:7799/v1/file?root=daisy&path=2026%2F42%2F1%2F01%2Freceipt.pdf' -o receipt.pdf
 ```
 
+### Persistent activity log and detached server
+
+FileProxy can write machine-readable JSON Lines diagnostics without recording
+query-string addresses, request bodies, or authentication headers. Enable the
+log **before starting the process** with `FILEPROXY_ACTIVITY_LOG`. Each request
+records the method, route, HTTP status, duration in milliseconds, and selected
+index diagnostics (cache hit, record count, rebuild outcome). The HTTP console
+still prints its normal request lines, so avoid publishing that raw console log.
+
+To start a detached service on an existing local port **after stopping any old
+listener**, keeping the current data-root and authentication configuration:
+
+```bash
+cd "$HOME/mogwai/fileProxy"
+umask 077
+mkdir -p "$HOME/.local/state/fileproxy"
+export CHISEL_FILE_HOST=127.0.0.1
+export CHISEL_FILE_PORT=47799  # match your existing Apache reverse-proxy target
+export FILEPROXY_ACTIVITY_LOG="$HOME/.local/state/fileproxy/activity.jsonl"
+nohup python3 -u fp.py serve > "$HOME/.local/state/fileproxy/console.log" 2>&1 < /dev/null &
+echo $! > "$HOME/.local/state/fileproxy/server.pid"
+```
+
+The environment values `CHISEL_FILE_ROOT`, `CHISEL_DATA_ROOT`,
+`FILEPROXY_WRITE_TOKEN`, and TLS settings continue to work as before.
+Check `ss -ltnp | grep ':47799'` before launching to avoid a port conflict.
+Inspect the log with `tail -n 30 "$HOME/.local/state/fileproxy/activity.jsonl"`.
+The log is opt-in, private to the local machine, and grows until rotated.
+
 Read operations do not require a token on the local HTTP listener. By default,
 general-purpose mutation routes require `FILEPROXY_WRITE_TOKEN`:
 
