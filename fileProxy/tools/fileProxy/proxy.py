@@ -2129,6 +2129,91 @@ def read_or_build_tx_index(coin=None, force=False):
     return {"ok": True, "cached": False, "path": rel_path(idx), "coin": coin or "", "transactions": rows}
 
 
+def account_index(coin, address):
+    """Read-only materialized account view over canonical stored transaction JSON.
+
+    The first request scans cached JSON; subsequent requests use a derived
+    per-address file invalidated by the source tx-index modification time.
+    Never return private key material or entire transaction bodies.
+    """
+    coin = normalize_coin_name(coin)
+    address = str(address or "").strip()
+    if coin not in ("litecoin", "digibyte", "ravencoin", "dogecoin", "ecash"):
+        raise ValueError("Unsupported account coin")
+    if not re.fullmatch(r"[a-zA-Z0-9]{25,90}", address):
+        raise ValueError("Invalid public address")
+    source = read_or_build_tx_index(coin)
+    index_path = index_file_path()
+    # Namespace includes complete address through SHA256; never trust it as a path.
+    tag = hashlib.sha256((coin + ":" + address).encode("utf-8")).hexdigest()
+    cache_path = index_path.parent / "account-index" / (tag + ".json")
+    source_mtime = index_path.stat().st_mtime_ns if index_path.exists() else 0
+    try:
+        if cache_path.is_file():
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            if cached.get("sourceMtimeNs") == source_mtime:
+                return dict(cached, cached=True)
+    except (OSError, ValueError, TypeError):
+        pass
+
+    def touches_account(tx):
+        if not isinstance(tx, dict):
+            return False
+        body = tx.get("tx") if isinstance(tx.get("tx"), dict) else tx
+        def matches(v):
+            return isinstance(v, str) and v == address
+        def walk_fields(part):
+            if not isinstance(part, dict):
+                return False
+            for key in ("address", "scriptpubkey_address", "addr"):
+                if matches(part.get(key)):
+                    return True
+            script = part.get("scriptPubKey")
+            if isinstance(script, dict):
+                if matches(script.get("address")) or address in (script.get("addresses") or []):
+                    return True
+            return False
+        if walk_fields(body): return True
+        for group in ("vin", "vout"):
+            for item in body.get(group, []):
+                if not isinstance(item, dict): continue
+                if walk_fields(item) or walk_fields(item.get("prevout")): return True
+        return False
+
+    result_rows = []
+    seen = set()
+    for row in source.get("transactions", []):
+        txid = str(row.get("txid") or "").lower()
+        if not is_txid(txid) or txid in seen: continue
+        relative = row.get("path")
+        if not relative: continue
+        try:
+            path = safe_path(relative)
+            if not path.is_file(): continue
+            raw = read_jsonish(path).get("json")
+            if not touches_account(raw): continue
+        except (OSError, ValueError, TypeError):
+            continue
+        seen.add(txid)
+        summary = row.get("summary") or {}
+        if not isinstance(summary, dict): summary = {}
+        result_rows.append({
+            "txid": txid, "blockTime": int(summary.get("blockTime") or 0),
+            "summary": summary
+        })
+    result_rows.sort(key=lambda row: (-row["blockTime"], row["txid"]))
+    payload = {
+        "ok": True, "coin": coin, "address": address,
+        "sourceMtimeNs": source_mtime, "generated": int(time.time()),
+        "count": len(result_rows), "transactions": result_rows
+    }
+    try:
+        atomic_write_text(cache_path, json.dumps(payload, ensure_ascii=False))
+    except OSError:
+        pass
+    return dict(payload, cached=False)
+
+
 def refresh_all_indexes(coin=None):
     """Refresh derived catalogs once after one or more canonical JSON writes."""
     result = {"ok": True, "json": None, "sqlite": None}
@@ -2642,6 +2727,12 @@ class Handler(BaseHTTPRequestHandler):
                     send_json(self, {"ok": False, "error": "TikTok thumbnail is unavailable", "url": clean_url}, 404)
                     return
                 send_redirect(self, thumbnail)
+                return
+
+            if parsed.path == "/account-index":
+                coin = query.get("coin", [""])[0]
+                address = query.get("address", [""])[0]
+                send_json(self, account_index(coin, address))
                 return
 
             if parsed.path == "/txids":
