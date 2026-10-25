@@ -2622,6 +2622,44 @@ def write_jist_feed_rows(rows, coin="dogecoin", mode="merge", source_name="bun-j
 
 
 class Handler(BaseHTTPRequestHandler):
+    def handle_one_request(self):
+        # Optional append-only JSONL activity log. Query strings, bodies, and
+        # credentials are deliberately excluded, including address lookups.
+        self._activity_started = time.monotonic()
+        self._activity_status = None
+        self._activity_info = {}
+        try:
+            return super().handle_one_request()
+        finally:
+            destination = os.environ.get("FILEPROXY_ACTIVITY_LOG", "").strip()
+            if destination and getattr(self, "command", ""):
+                route = urllib.parse.urlsplit(getattr(self, "path", "")).path
+                if route.startswith("/v1/fs/"):
+                    route = "/v1/fs/*"
+                event = {
+                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "method": self.command,
+                    "route": route,
+                    "status": self._activity_status,
+                    "duration_ms": round((time.monotonic() - self._activity_started) * 1000, 1),
+                }
+                event.update(self._activity_info)
+                try:
+                    # A single append call per request, compatible with future
+                    # concurrent handlers and readable while the server runs.
+                    descriptor = os.open(os.path.expanduser(destination),
+                                         os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+                    try:
+                        os.write(descriptor, (json.dumps(event, separators=(",", ":")) + "\\n").encode("utf-8"))
+                    finally:
+                        os.close(descriptor)
+                except OSError as exc:
+                    print("FileProxy activity logging failed:", type(exc).__name__)
+
+    def send_response(self, code, message=None):
+        self._activity_status = int(code)
+        return super().send_response(code, message)
+
     def log_message(self, fmt, *args):
         print("%s - - %s" % (self.address_string(), fmt % args))
 
@@ -2732,12 +2770,18 @@ class Handler(BaseHTTPRequestHandler):
             if parsed.path == "/account-index":
                 coin = query.get("coin", [""])[0]
                 address = query.get("address", [""])[0]
-                send_json(self, account_index(coin, address))
+                payload = account_index(coin, address)
+                self._activity_info = {
+                    "cached": bool(payload.get("cached", False)),
+                    "count": int(payload.get("count", 0)),
+                }
+                send_json(self, payload)
                 return
 
             if parsed.path == "/txids":
                 coin = normalize_coin_name(query.get("coin", [""])[0].strip()) or None
                 rows, catalog_source = list_txids(coin, with_source=True)
+                self._activity_info = {"count": len(rows), "catalog_source": catalog_source}
                 send_json(self, {
                     "ok": True,
                     "root": str(ROOT),
@@ -2752,6 +2796,11 @@ class Handler(BaseHTTPRequestHandler):
                 coin = normalize_coin_name(query.get("coin", [""])[0].strip()) or None
                 force = query.get("force", [""])[0].strip().lower() in ("1", "true", "yes")
                 payload = read_or_build_tx_index(coin, force=force)
+                self._activity_info = {
+                    "cached": bool(payload.get("cached", False)),
+                    "force": force,
+                    "count": len(payload.get("transactions", [])),
+                }
                 payload.update({"root": str(ROOT), "data_roots": [str(p) for p in EXTRA_DATA_ROOTS]})
                 send_json(self, payload)
                 return
@@ -2790,6 +2839,11 @@ class Handler(BaseHTTPRequestHandler):
             if parsed.path == "/reindex":
                 coin = normalize_coin_name(query.get("coin", [""])[0].strip()) or None
                 payload = refresh_all_indexes(coin)
+                self._activity_info = {
+                    "rebuilt_json": bool(payload.get("json", {}).get("ok", False)),
+                    "json_records": int(payload.get("json", {}).get("records", 0) or 0),
+                    "rebuilt_sqlite": bool(payload.get("sqlite", {}).get("ok", False)),
+                }
                 payload.update({"root": str(ROOT), "data_roots": [str(p) for p in EXTRA_DATA_ROOTS]})
                 send_json(self, payload, 200 if payload.get("ok") else 500)
                 return
