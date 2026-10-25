@@ -246,7 +246,7 @@ def make_handler(config_path, index_path, local=False, activity_log=""):
 
 
 def main(config_path=None, index_path=None, local=False,
-         host="127.0.0.1", port=7799, activity_log=""):
+         host="127.0.0.1", port=7799, activity_log="", data_root=None):
     if not host or not isinstance(host, str):
         raise ValueError("--host must be a non-empty address")
     if not 1 <= port <= 65535:
@@ -254,6 +254,9 @@ def main(config_path=None, index_path=None, local=False,
     if local:
         host = "127.0.0.1"
         print("FileProxy local mode: same-origin loopback writes do not require a token")
+    if data_root is not None:
+        path = chisel.configure_data_root(data_root)
+        print("FileProxy data root:", path)
 
     log_path = ""
     if activity_log:
