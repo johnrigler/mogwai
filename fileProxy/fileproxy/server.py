@@ -23,8 +23,9 @@ sys.path.insert(0, str(_LEGACY_DIR))
 import proxy as chisel  # noqa: E402: bundled unmodified Chisel service
 
 
-def make_handler(config_path, index_path, local=False):
+def make_handler(config_path, index_path, local=False, activity_log=""):
     class Handler(chisel.Handler):
+        activity_log_path = str(activity_log or "")
         def local_write_allowed(self):
             if not local:
                 return False
@@ -244,15 +245,28 @@ def make_handler(config_path, index_path, local=False):
     return Handler
 
 
-def main(config_path=None, index_path=None, local=False):
-    chisel.Handler = make_handler(config_path, index_path, local=local)
+def main(config_path=None, index_path=None, local=False,
+         host="127.0.0.1", port=7799, activity_log=""):
+    if not host or not isinstance(host, str):
+        raise ValueError("--host must be a non-empty address")
+    if not 1 <= port <= 65535:
+        raise ValueError("--port must be between 1 and 65535")
     if local:
-        chisel.HOST = "127.0.0.1"
+        host = "127.0.0.1"
         print("FileProxy local mode: same-origin loopback writes do not require a token")
-    print("FileProxy Inbox: http://127.0.0.1:%s/" % chisel.PORT)
+
+    log_path = ""
+    if activity_log:
+        path = Path(activity_log).expanduser()
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        log_path = str(path)
+        print("FileProxy activity log:", log_path)
+
+    chisel.Handler = make_handler(config_path, index_path, local=local, activity_log=log_path)
+    print("FileProxy Inbox: http://%s:%s/" % (host, port))
     print("FileProxy v1: /v1/health /v1/roots /v1/index /v1/file /v1/ingest /v1/scan /v1/put")
     print("Chisel legacy API preserved; bind to loopback unless protected by a trusted reverse proxy")
-    chisel.main()
+    chisel.main(host=host, port=port)
 
 
 if __name__ == "__main__":
