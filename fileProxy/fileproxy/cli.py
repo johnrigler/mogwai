@@ -51,12 +51,16 @@ def main(argv=None):
     service = cmd.add_parser("serve", help="Run legacy Chisel endpoints plus /v1 general routes")
     service.add_argument("--local", action="store_true",
                          help="Bind to loopback and allow same-origin local writes without a token")
+    service.add_argument("--host", default="127.0.0.1", help="HTTP listen address (default: 127.0.0.1)")
+    service.add_argument("--port", type=int, default=7799, help="HTTP listen port (default: 7799)")
+    service.add_argument("--activity-log", default="", metavar="FILE",
+                         help="Append sanitized per-request JSONL activity records to FILE")
     args = parser.parse_args(argv)
 
     try:
         if args.command == "serve":
             from .server import main as serve
-            return serve(args.config, args.index, local=args.local)
+            return serve(args.config, args.index, local=args.local, host=args.host, port=args.port, activity_log=args.activity_log)
         conf = load_config(args.config)
         if args.command == "date":
             from .daisy_dates import daisy_date
