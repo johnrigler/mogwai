@@ -53,6 +53,25 @@ except Exception:
 
 ALLOWED_ROOTS = [ROOT] + EXTRA_DATA_ROOTS
 ALLOWED_SOURCE_ROOTS = ALLOWED_ROOTS + LEGACY_SOURCE_ROOTS
+EXPLICIT_DATA_ROOT = None
+
+
+def configure_data_root(directory):
+    """Use an existing datastore as canonical data without environment variables.
+
+    This is called once, before the HTTP listener starts. It does not create,
+    move or copy transaction records, and fails closed for missing directories.
+    """
+    global EXPLICIT_DATA_ROOT
+    target = Path(directory).expanduser().resolve(strict=True)
+    if not target.is_dir():
+        raise ValueError("--data-root must be an existing directory: " + str(target))
+    EXPLICIT_DATA_ROOT = target
+    EXTRA_DATA_ROOTS[:] = [target]
+    ALLOWED_ROOTS[:] = [ROOT, target]
+    ALLOWED_SOURCE_ROOTS[:] = ALLOWED_ROOTS + LEGACY_SOURCE_ROOTS
+    return target
+
 
 TXID_RE = set("0123456789abcdefABCDEF")
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}
@@ -269,6 +288,8 @@ def atomic_write_text(path, text):
 
 
 def active_data_root():
+    if EXPLICIT_DATA_ROOT is not None:
+        return EXPLICIT_DATA_ROOT
     configured = _split_roots(os.environ.get("CHISEL_DATA_ROOT", ""))
     if configured:
         return configured[0]
