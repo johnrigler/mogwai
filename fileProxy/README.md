@@ -186,57 +186,46 @@ don't silently relocate files.
 
 ## Run the unified HTTP service
 
-By default the existing Chisel HTTP implementation listens on
-`127.0.0.1:7799`:
+Run the Python service with explicit flags. The default listener is
+`127.0.0.1:7799`; for the existing rigler.org Apache proxy, choose the
+matching internal port directly on the command:
 
 ```bash
-export CHISEL_FILE_HOST=127.0.0.1
-export CHISEL_FILE_PORT=7799
-# If you use an existing Chisel checkout, preserve its current paths:
-export CHISEL_FILE_ROOT="$HOME/chisel"
-# Optional: point to the actual existing Chisel data directory:
-# export CHISEL_DATA_ROOT="$HOME/daisy/2026/chisel-data"
-export FILEPROXY_WRITE_TOKEN="choose-a-long-random-local-token"
-python3 fp.py serve
+python3 ~/mogwai/fileProxy/fp.py serve --host 127.0.0.1 --port 47799
 ```
 
-Check:
+Enable the structured, private activity log with another argument:
 
 ```bash
-curl http://127.0.0.1:7799/ping
-curl http://127.0.0.1:7799/v1/health
-curl 'http://127.0.0.1:7799/v1/index?root=daisy&limit=20'
-curl 'http://127.0.0.1:7799/v1/file?root=daisy&path=2026%2F42%2F1%2F01%2Freceipt.pdf' -o receipt.pdf
+python3 ~/mogwai/fileProxy/fp.py serve --host 127.0.0.1 --port 47799 --activity-log ~/fileproxy-activity.jsonl
 ```
 
-### Persistent activity log and detached server
+`--host`, `--port`, and `--activity-log` are parsed as CLI arguments and
+passed directly to the listener and handler. They do not require environment
+variable assignments. The service creates the activity log's parent directory
+if necessary. The log is append-only JSONL, private by default, and records
+request methods, sanitized route paths, status, duration and index diagnostics.
+It omits query strings, bodies and authentication headers.
 
-FileProxy can write machine-readable JSON Lines diagnostics without recording
-query-string addresses, request bodies, or authentication headers. Enable the
-log **before starting the process** with `FILEPROXY_ACTIVITY_LOG`. Each request
-records the method, route, HTTP status, duration in milliseconds, and selected
-index diagnostics (cache hit, record count, rebuild outcome). The HTTP console
-still prints its normal request lines, so avoid publishing that raw console log.
-
-To start a detached service on an existing local port **after stopping any old
-listener**, keeping the current data-root and authentication configuration:
+For a process that survives SSH disconnection, stop the old listener first,
+then launch with all runtime options visible:
 
 ```bash
-cd "$HOME/mogwai/fileProxy"
-umask 077
-mkdir -p "$HOME/.local/state/fileproxy"
-export CHISEL_FILE_HOST=127.0.0.1
-export CHISEL_FILE_PORT=47799  # match your existing Apache reverse-proxy target
-export FILEPROXY_ACTIVITY_LOG="$HOME/.local/state/fileproxy/activity.jsonl"
-nohup python3 -u fp.py serve > "$HOME/.local/state/fileproxy/console.log" 2>&1 < /dev/null &
-echo $! > "$HOME/.local/state/fileproxy/server.pid"
+nohup python3 -u ~/mogwai/fileProxy/fp.py serve --host 127.0.0.1 --port 47799 --activity-log ~/fileproxy-activity.jsonl > ~/fileproxy-console.log 2>&1 < /dev/null &
 ```
 
-The environment values `CHISEL_FILE_ROOT`, `CHISEL_DATA_ROOT`,
-`FILEPROXY_WRITE_TOKEN`, and TLS settings continue to work as before.
-Check `ss -ltnp | grep ':47799'` before launching to avoid a port conflict.
-Inspect the log with `tail -n 30 "$HOME/.local/state/fileproxy/activity.jsonl"`.
-The log is opt-in, private to the local machine, and grows until rotated.
+Check without changing settings:
+
+```bash
+ss -ltnp | grep ':47799'
+curl http://127.0.0.1:47799/ping
+tail -n 30 ~/fileproxy-activity.jsonl
+```
+
+The default `fp.py serve` continues to use port 7799. Other existing
+FileProxy data-root and authentication settings are separate from the listener
+arguments and have not been changed in this update. Do not publish the raw
+HTTP console log or expose legacy mutation endpoints to unauthenticated clients.
 
 Read operations do not require a token on the local HTTP listener. By default,
 general-purpose mutation routes require `FILEPROXY_WRITE_TOKEN`:
@@ -259,8 +248,7 @@ cd ~/mogwai/fileProxy
 python3 fp.py serve --local
 ```
 
-`--local` forces the listener to `127.0.0.1`, even if `CHISEL_FILE_HOST`
-specifies another address. Tokenless `/v1` writes must come directly from
+`--local` forces the listener to `127.0.0.1`, even when a different `--host` is supplied. Tokenless `/v1` writes must come directly from
 loopback with a localhost Host header and, when present, a matching Origin.
 Cross-site browser requests, non-loopback connections, and requests carrying
 proxy forwarding headers still require a token. Use this mode directly at
