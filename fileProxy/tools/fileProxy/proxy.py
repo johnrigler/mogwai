@@ -2631,7 +2631,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             return super().handle_one_request()
         finally:
-            destination = os.environ.get("FILEPROXY_ACTIVITY_LOG", "").strip()
+            destination = str(getattr(self, "activity_log_path", "") or "").strip()
             if destination and getattr(self, "command", ""):
                 route = urllib.parse.urlsplit(getattr(self, "path", "")).path
                 if route.startswith("/v1/fs/"):
@@ -3134,8 +3134,10 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, {"ok": False, "error": str(e)}, 500)
 
 
-def main():
-    server = HTTPServer((HOST, PORT), Handler)
+def main(host=None, port=None):
+    listen_host = HOST if host is None else host
+    listen_port = PORT if port is None else port
+    server = HTTPServer((listen_host, listen_port), Handler)
     scheme = "http"
     if TLS_ENABLED:
         cert_path = Path(TLS_CERT).expanduser()
@@ -3151,7 +3153,7 @@ def main():
         server.socket = context.wrap_socket(server.socket, server_side=True)
         scheme = "https"
 
-    print(f"chisel-fileproxy running at {scheme}://{HOST}:{PORT}")
+    print(f"chisel-fileproxy running at {scheme}://{listen_host}:{listen_port}")
     print(f"root: {ROOT}")
     print("endpoints: /ping /config /main-streams /txids /tx-index /evm-stream-status /evm-local-catalog /evm-image-catalog /reindex /tx /ipfs /find-assets /raw /tiktok-thumbnail /list /load /save /text-editor /editor/status /editor/load /editor/save /main-stream /import-jist-feed /save-tx /save-evm-tx /save-evm-batch /import-legacy-evm-images")
     try:
