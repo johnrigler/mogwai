@@ -2650,7 +2650,7 @@ class Handler(BaseHTTPRequestHandler):
                     descriptor = os.open(os.path.expanduser(destination),
                                          os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
                     try:
-                        os.write(descriptor, (json.dumps(event, separators=(",", ":")) + "\\n").encode("utf-8"))
+                        os.write(descriptor, (json.dumps(event, separators=(",", ":")) + "\n").encode("utf-8"))
                     finally:
                         os.close(descriptor)
                 except OSError as exc:
