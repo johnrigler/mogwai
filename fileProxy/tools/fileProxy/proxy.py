@@ -2230,8 +2230,14 @@ def refresh_all_indexes(coin=None):
 
     indexer = load_chisel_indexer()
     if indexer is None:
-        result["ok"] = False
-        result["sqlite"] = {"ok": False, "available": False, "error": "tools/chisel_index/indexer.py is not installed"}
+        # SQLite is an optional derived witness. Do not report an HTTP 500
+        # when the canonical JSON transaction index was rebuilt successfully.
+        # Preserve an explicit partial status for clients/diagnostics.
+        result["partial"] = bool(result["ok"])
+        result["sqlite"] = {
+            "ok": False, "available": False,
+            "error": "tools/chisel_index/indexer.py is not installed",
+        }
         return result
 
     try:
