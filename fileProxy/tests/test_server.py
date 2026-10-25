@@ -51,5 +51,24 @@ class CompatibilityTests(unittest.TestCase):
             server.main(host="127.0.0.1", port=65536)
 
 
+    def test_optional_sqlite_absence_preserves_json_reindex_success(self):
+        with patch.object(server.chisel, "read_or_build_tx_index",
+                          return_value={"transactions": [{"txid": "a" * 64}], "ok": True}):
+            with patch.object(server.chisel, "load_chisel_indexer", return_value=None):
+                result = server.chisel.refresh_all_indexes()
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["partial"])
+        self.assertEqual(result["json"]["records"], 1)
+        self.assertFalse(result["sqlite"]["available"])
+
+    def test_json_reindex_failure_is_still_reported(self):
+        with patch.object(server.chisel, "read_or_build_tx_index",
+                          side_effect=OSError("index path unwritable")):
+            with patch.object(server.chisel, "load_chisel_indexer", return_value=None):
+                result = server.chisel.refresh_all_indexes()
+        self.assertFalse(result["ok"])
+        self.assertFalse(result.get("partial", False))
+
+
 if __name__ == "__main__":
     unittest.main()
