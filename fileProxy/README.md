@@ -200,7 +200,23 @@ Enable the structured, private activity log with another argument:
 python3 ~/mogwai/fileProxy/fp.py serve --host 127.0.0.1 --port 47799 --activity-log ~/fileproxy-activity.jsonl
 ```
 
-`--host`, `--port`, and `--activity-log` are parsed as CLI arguments and
+To reuse your original Chisel transaction cache outside the checkout, pass its
+existing directory directly with `--data-root`. For an archive at
+`~/chisel_data`:
+
+```bash
+python3 ~/mogwai/fileProxy/fp.py serve --host 127.0.0.1 --port 47799 --data-root ~/chisel_data --activity-log ~/fileproxy-activity.jsonl
+```
+
+First verify the actual path with `ls -ld ~/chisel_data`. The `--data-root`
+option requires an **existing directory** and fails if it is missing; it does
+not create or copy the source data. The path becomes the canonical data root
+for `/ping`, writes to `transactions/<coin>/`, stream manifests, and
+derived indexes under `index/`. The service's *code* root continues to be
+`~/mogwai/fileProxy`. SQLite's optional unified indexer remains a separate
+component; specifying a data root does not automatically install that indexer.
+
+`--host`, `--port`, `--data-root`, and `--activity-log` are parsed as CLI arguments and
 passed directly to the listener and handler. They do not require environment
 variable assignments. The service creates the activity log's parent directory
 if necessary. The log is append-only JSONL, private by default, and records
@@ -211,7 +227,7 @@ For a process that survives SSH disconnection, stop the old listener first,
 then launch with all runtime options visible:
 
 ```bash
-nohup python3 -u ~/mogwai/fileProxy/fp.py serve --host 127.0.0.1 --port 47799 --activity-log ~/fileproxy-activity.jsonl > ~/fileproxy-console.log 2>&1 < /dev/null &
+nohup python3 -u ~/mogwai/fileProxy/fp.py serve --host 127.0.0.1 --port 47799 --data-root ~/chisel_data --activity-log ~/fileproxy-activity.jsonl > ~/fileproxy-console.log 2>&1 < /dev/null &
 ```
 
 Check without changing settings:
