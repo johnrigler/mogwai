@@ -43,8 +43,14 @@ if($sb_index){
 	$sb_path = dirname($sb_path);
 	$sb_target = realpath($sb_root . $sb_path);
 }elseif(PHP_SAPI === "cli-server" && is_file($sb_target ?: "")){
-	if(strtolower(pathinfo($sb_path, PATHINFO_EXTENSION)) === "pdf" && !isset($_GET["raw"])){
+	$sb_extension = strtolower(pathinfo($sb_path, PATHINFO_EXTENSION));
+	if(!isset($_GET["raw"]) && $sb_extension === "pdf"){
 		include __DIR__ . "/document.php";
+		exit();
+	}
+	if(!isset($_GET["raw"]) && in_array($sb_extension, ["sh", "bash"], true)){
+		// Display shell source with Bash syntax highlighting, never execute it.
+		include __DIR__ . "/source.php";
 		exit();
 	}
 	return false;
