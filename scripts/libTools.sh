@@ -1894,3 +1894,17 @@ un ()
     shift;
     python3 "$_UN_/unspendable.py" "$_alp_un_prefix" "$*"
 }
+d.removeSpaces () 
+{ 
+    ls | while read t; do
+        u=$(- $t | sed 's/ /_/g');
+        mv "$t" "$u" 2> /dev/null;
+    done
+}
+d.removeParenthesis () 
+{ 
+    ls | while read t; do
+        u=$(- $t | sed 's/(/_/g' | sed 's/)/_/g');
+        mv "$t" "$u" 2> /dev/null;
+    done
+}
