@@ -1875,18 +1875,11 @@ quote_readline ()
     _quote_readline_by_ref "$1" ret;
     printf %s "$ret"
 }
-s () 
+m.start () 
 { 
-    un 9s "$*"
+    php8.2 -S 127.0.0.1:$1 -t . /home/john/mogwai/index.php;
 }
-sb.start () 
-{ 
-    php8.2 -S 127.0.0.1:$1 -t . /home/john/sbshell/cruff/index.php
-}
-t () 
-{ 
-    un 9t "$*"
-}
+
 un () 
 { 
     local _alp_un_prefix=${1:-};
