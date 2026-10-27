@@ -1,4 +1,5 @@
 <?php
+const SB_SHELL_VERSION = "0.9.0";
 // This file also works as the router passed to php -S.
 $sb_root = realpath(($_SERVER["DOCUMENT_ROOT"] ?? "") ?: getcwd());
 require_once dirname(__DIR__, 2) . "/profiles/store.php";
@@ -48,10 +49,13 @@ if($sb_index){
 		include __DIR__ . "/document.php";
 		exit();
 	}
-	if(!isset($_GET["raw"]) && in_array($sb_extension, ["sh", "bash"], true)){
-		// Display shell source with Bash syntax highlighting, never execute it.
-		include __DIR__ . "/source.php";
-		exit();
+	if(!isset($_GET["raw"])){
+		require_once __DIR__ . "/highlight.php";
+		if(sb_code_language($sb_target) === "bash"){
+			// Also recognize checksum-named Bash functions without a .sh extension.
+			include __DIR__ . "/source.php";
+			exit();
+		}
 	}
 	return false;
 }
@@ -164,6 +168,7 @@ foreach(scandir(".") as $file){
 .sb-menu-links a { display:block; padding:10px 14px; color:#135da8; text-decoration:none; }
 .sb-menu-links a:hover, .sb-menu-links a:focus-visible { background:#eef2f6; }
 .sb-menu-links .refresh-control { margin:0; padding:10px 14px; border-top:1px solid #d1d5da; }
+.sb-menu-version { padding:10px 14px; border-top:1px solid #d1d5da; color:#526170; font-size:12px; }
 .sb-menu-links .refresh-control label { display:flex; align-items:flex-start; gap:6px; cursor:pointer; }
 .sb-menu-links .refresh-control input { flex-shrink:0; margin:4px 0 0; }
 .sb-file-controls { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:6px 16px; font:14px/1.5 system-ui,sans-serif; }
@@ -274,6 +279,7 @@ foreach($sb_crumbs as $link => $label){
 <div class="refresh-control">
 <label><input type="checkbox" id="auto-refresh" data-stamp="<?php echo $sb_stamp; ?>" checked><span>Auto-refresh<br><small>Check every 10 seconds</small></span></label>
 </div>
+<div class="sb-menu-version">SB Shell v<?= htmlspecialchars(SB_SHELL_VERSION, ENT_QUOTES, "UTF-8") ?></div>
 </nav>
 </details>
 </div>
@@ -306,7 +312,9 @@ foreach(array_merge($sb_dirs, $sb_files) as $file){
 	if(is_file($file) && sb_preview_type($file)){
 		echo '<details class="sb-entry" data-file="' . htmlspecialchars($file) . '"><summary>' . htmlspecialchars($label);
 		if($label !== $file) echo ' <small>(' . htmlspecialchars($file) . ')</small>';
-		echo '</summary><div class="sb-preview"><p class="sb-file-actions"><a href="' . $link . '">Open file</a>';
+		$is_shell = sb_code_language($file) === "bash";
+		echo '</summary><div class="sb-preview"><p class="sb-file-actions"><a href="' . $link . '">' . ($is_shell ? "Highlighted source page" : "Open file") . '</a>';
+		if($is_shell) echo ' · <a href="' . $link . '?raw=1">Original source</a>';
 		if(sb_preview_type($file) === "pdf") echo ' · <a href="' . $link . '?raw=1" target="_blank" rel="noopener">Open original PDF / print</a>';
 		echo '</p>';
 		sb_preview($file, rawurlencode($file), true);
