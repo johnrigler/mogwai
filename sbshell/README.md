@@ -101,9 +101,16 @@ not modify any files or catalog records.
 
 In a week directory, click a file's disclosure arrow or filename to expand its
 preview in place. PNG and other images display at the available width, PDFs
-embed the original document, Markdown renders basic headings, paragraphs,
-lists, links, quotes and fenced code, and `.unixTs` recordings use the terminal
-viewer. **Expand all** and **Collapse all** control these file previews;
+embed the original document; Markdown renders styled headings, paragraphs,
+lists, links, quotes, strikethrough, pipe tables and syntax-colored fenced code.
+Source files such as `.sh`, `.py`, `.js`, `.php`, `.json`, `.yaml`, `.sql`
+and Godot `.gd` display in a dark, Vim-style highlighted source panel.
+Other small readable files get literal text previews. Executable files with
+a shebang are recognized even without an extension. Inline source previews
+are limited to 512 KiB, and their contents are escaped, never executed.
+Existing `.unixTs`, `.ts`, and `.script` terminal recordings continue to
+use the ANSI transcript viewer; `.tsx` is treated as source code. Highlighting
+is performed by local PHP without a CDN or added package. **Expand all** and **Collapse all** control these file previews;
 subdirectories remain ordinary navigation links. **Open file** keeps the
 original URL available, including the PDF naming page. If a phone's browser
 does not embed PDFs, use **Open original PDF / print**.
@@ -189,7 +196,8 @@ There is no second database or background service. Enable PHP's **SQLite3**
 extension and make the archive directory writable; a failed catalog update
 shows a message while file browsing remains available.
 
-Check scanning and previews with `php8.2 tests/week-directory.php`, the browser
+Check source highlighting and Markdown with `php8.2 tests/source-preview.php`,
+scanning and previews with `php8.2 tests/week-directory.php`, the browser
 polling decisions with `node tests/directory-refresh.mjs`, and naming
 compatibility with `php8.2 tests/document-names.php`.
 
