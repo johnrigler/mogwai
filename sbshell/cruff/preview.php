@@ -68,7 +68,9 @@ function sb_markdown($source){
 		if($paragraph) echo '<p>' . sb_markdown_inline(implode("\n", $paragraph)) . "</p>\n";
 		$paragraph = [];
 	};
-	foreach(explode("\n", str_replace(["\r\n", "\r"], "\n", $source)) as $line){
+	$lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $source));
+	for($i = 0; $i < count($lines); $i++){
+		$line = $lines[$i];
 		if(preg_match('/^\s*(`{3,}|~{3,})(.*)$/', $line, $match)){
 			if($fence === ""){
 				$flush();
@@ -85,6 +87,27 @@ function sb_markdown($source){
 		}
 		if($fence !== ""){
 			$fenceLines[] = $line;
+			continue;
+		}
+		// GitHub-style pipe tables.
+		if(isset($lines[$i+1]) && str_contains($line, "|")
+			&& preg_match('/^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/', $lines[$i+1])){
+			$flush();
+			if($list){ echo "</$list>\n"; $list = ""; }
+			$cells = fn($row) => array_map("trim", explode("|", trim(trim($row), "|")));
+			$header = $cells($line);
+			echo "<table><thead><tr>";
+			foreach($header as $cell) echo "<th>" . sb_markdown_inline($cell) . "</th>";
+			echo "</tr></thead><tbody>\n";
+			$i++;
+			while(isset($lines[$i+1]) && trim($lines[$i+1]) !== "" && str_contains($lines[$i+1], "|")){
+				$i++;
+				$row = $cells($lines[$i]);
+				echo "<tr>";
+				for($j=0; $j<count($header); $j++) echo "<td>" . sb_markdown_inline($row[$j] ?? "") . "</td>";
+				echo "</tr>\n";
+			}
+			echo "</tbody></table>\n";
 			continue;
 		}
 		$item = preg_match('/^\s*(?:([-+*])|\d+[.)])\s+(.+)$/', $line, $match);
