@@ -1,5 +1,5 @@
 <?php
-const SB_SHELL_VERSION = "0.9.0";
+const SB_SHELL_VERSION = "0.9.1";
 // This file also works as the router passed to php -S.
 $sb_root = realpath(($_SERVER["DOCUMENT_ROOT"] ?? "") ?: getcwd());
 require_once dirname(__DIR__, 2) . "/profiles/store.php";
@@ -147,7 +147,7 @@ foreach(scandir(".") as $file){
 <head>
  <meta http-equiv="content-type" content="text/html;charset=UTF-8">
  <meta name="viewport" content="width=device-width,initial-scale=1">
- <title>John Rigler</title>
+ <title><?= htmlspecialchars($sb_target, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8") ?> · SB Shell</title>
  		<link rel="stylesheet" type="text/css" href="/style.css">
 
 </head>
@@ -184,6 +184,7 @@ foreach(scandir(".") as $file){
 .sb-table tbody > tr:nth-child(odd) { background:#fff; }
 .sb-table tbody > tr:nth-child(even) { background:#f1f1f1; }
 .sb-table .sb-selection { width:38px; text-align:center; }
+.sb-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .sb-select-label { display:flex; align-items:center; justify-content:center; min-height:32px; cursor:pointer; }
 .sb-select { width:18px; height:18px; margin:0; cursor:pointer; }
 .sb-table .sb-tags { width:20%; color:#526170; }
@@ -257,7 +258,7 @@ foreach(scandir(".") as $file){
 <div class="sb-toolbar-top">
 <nav class="sb-navigation sb-breadcrumbs" aria-label="Breadcrumbs">
 <?php
-$sb_crumbs = ["/" => basename($sb_root) ?: "Home"];
+$sb_crumbs = ["/" => $sb_root];
 $sb_link = "/";
 foreach($sb_parts as $part){
 	$sb_link .= rawurlencode($part) . "/";
@@ -301,7 +302,7 @@ foreach($sb_crumbs as $link => $label){
 <summary>Files and directories</summary>
 <?php if($sb_dirs || $sb_files){ ?>
 <table class="sb-table" aria-label="Files and directories">
-<thead><tr><th scope="col" class="sb-selection">Select</th><th scope="col">File or directory</th><th scope="col" class="sb-tags">Tags</th></tr></thead>
+<thead><tr><th scope="col" class="sb-selection"><span class="sb-visually-hidden">Select</span></th><th scope="col">File or directory</th><th scope="col" class="sb-tags">Tags</th></tr></thead>
 <tbody>
 <?php
 foreach(array_merge($sb_dirs, $sb_files) as $file){
