@@ -167,9 +167,27 @@ foreach(scandir(".") as $file){
 .sb-image:not([src]) { display:none; }
 .sb-pdf { display:block; width:100%; height:75vh; min-height:320px; border:1px solid #b8c3cf; }
 .sb-pdf-fallback { height:auto; min-height:0; padding:0 12px; box-sizing:border-box; }
-.sb-markdown { color:#172433; font:16px/1.6 system-ui,sans-serif; max-width:85ch; }
+.sb-markdown { box-sizing:border-box; color:#253341; font:16px/1.7 system-ui,sans-serif; max-width:85ch; padding:8px 4px 24px; }
+.sb-markdown h1,.sb-markdown h2,.sb-markdown h3,.sb-markdown h4 { color:#173c5b; line-height:1.3; margin:1.45em 0 .55em; font-weight:700; }
+.sb-markdown h1 { font-size:1.9em; padding-bottom:.25em; border-bottom:2px solid #b5c9d9; }
+.sb-markdown h2 { font-size:1.45em; padding-bottom:.25em; border-bottom:1px solid #d1dce5; }
+.sb-markdown h3 { font-size:1.2em; }
+.sb-markdown p { margin:.85em 0 1.1em; }
+.sb-markdown a { color:#0d63a6; text-decoration-color:#8ab5d4; text-underline-offset:2px; }
+.sb-markdown ul,.sb-markdown ol { margin:.65em 0 1.1em; padding-left:1.8em; }
+.sb-markdown li { padding-left:.12em; }
+.sb-markdown li + li { margin-top:.25em; }
+.sb-markdown :not(pre) > code { color:#873d65; background:#edf1f5; border-radius:3px; padding:.1em .3em; font: .88em ui-monospace,SFMono-Regular,Consolas,monospace; overflow-wrap:anywhere; }
 .sb-markdown pre { padding:12px; background:#eef2f6; overflow:auto; white-space:pre; }
-.sb-markdown blockquote { margin-left:0; padding-left:16px; border-left:3px solid #b8c3cf; }
+.sb-markdown blockquote { margin:1.25em 0; padding:.15em 1.1em; color:#506477; background:#f2f6f9; border-left:4px solid #7ea9c7; }
+.sb-markdown blockquote p { margin:.4em 0; }
+.sb-markdown hr { border:0; border-top:1px solid #cbd7e0; margin:2em 0; }
+.sb-markdown table { border-collapse:collapse; margin:1.2em 0; width:100%; display:block; overflow-x:auto; font-size:.94em; }
+.sb-markdown th,.sb-markdown td { padding:7px 11px; border:1px solid #d0d9e2; text-align:left; }
+.sb-markdown th { color:#173c5b; background:#e9f0f5; }
+.sb-markdown tr:nth-child(even) { background:#f7f9fb; }
+.sb-markdown .sb-code pre { background:transparent; }
+
 .sb-catalog-error { margin:10px 16px; color:#9c2424; font:14px/1.5 system-ui,sans-serif; }
 @media (max-width:500px) {
   .sb-navigation, .sb-toolbar .sb-navigation, .sb-toolbar .refresh-control, .sb-file-controls { margin-left:6px; margin-right:6px; }
