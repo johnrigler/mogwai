@@ -9,7 +9,7 @@ jobs:
   php:
     runs-on: ubuntu-latest
     env:
-      SB_PHP: php8.3
+      SB_PHP: php
     defaults:
       run:
         working-directory: sbshell
@@ -18,10 +18,10 @@ jobs:
       - name: Install local PHP runtime for checks
         run: |
           sudo apt-get update
-          sudo apt-get install -y php8.3-cli php8.3-sqlite3 php8.3-gd
+          sudo apt-get install -y php-cli php-sqlite3 php-gd
           # The runner's Xdebug build crashes while formatting SQLite exceptions.
           # Exercise ordinary PHP exception handling without a debugger extension.
-          sudo phpdismod -v 8.3 -s cli xdebug
+          sudo phpdismod -s cli xdebug || true
       - name: PHP behavior checks
         run: |
           "$SB_PHP" -v
