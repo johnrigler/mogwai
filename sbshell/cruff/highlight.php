@@ -25,6 +25,8 @@ function sb_code_language($file){
 			if(str_contains($head, "node")) return "javascript";
 			return "bash";
 		}
+		// Checksum-named shell functions (e.g. sb.find-43742.1) do not have script extensions.
+		if(is_string($head) && preg_match('/(?m)^[ \\t]*(?:function[ \\t]+)?[A-Za-z_][A-Za-z0-9_.:-]*[ \\t]*\\(\\)[ \\t]*(?:\\{|$)/', $head)) return "bash";
 	}
 	return "text";
 }
