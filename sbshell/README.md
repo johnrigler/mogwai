@@ -51,7 +51,7 @@ incomplete base setup exits with status 1; a ready setup exits with status 0.
 If no archive argument is supplied, it checks the current directory.
 
 Every directory page has a right-hand hamburger menu in its header containing
-**PHP setup** (also available with `?sb-check=1`) and the **Auto-refresh** toggle.
+**PHP setup** (also available with `?sb-check=1`), the **Auto-refresh** toggle, and the SB Shell renderer version (`SB_SHELL_VERSION` in `cruff/index.php`).
 PHP setup checks the PHP process
 actually serving the page, showing
 its version, binary, configuration and archive root. A terminal and web server
@@ -106,7 +106,7 @@ lists, links, quotes, strikethrough, pipe tables and syntax-colored fenced code.
 Source files such as `.sh`, `.py`, `.js`, `.php`, `.json`, `.yaml`, `.sql`
 and Godot `.gd` display in a dark, Vim-style highlighted source panel.
 Other small readable files get literal text previews. Executable files with
-a shebang are recognized even without an extension. Inline source previews
+a shebang are recognized even without an extension. Checksum-named Bash function snapshots such as `sb.find-43742.1` are also detected from their function definition and shown inline as highlighted Bash. Under the PHP router, their full URL displays a highlighted source page; `?raw=1` returns the original file. Inline source previews
 are limited to 512 KiB, and their contents are escaped, never executed.
 Existing `.unixTs`, `.ts`, and `.script` terminal recordings continue to
 use the ANSI transcript viewer; `.tsx` is treated as source code. Highlighting
