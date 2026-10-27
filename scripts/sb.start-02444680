@@ -1,4 +1,9 @@
-sb.start () 
-{ 
-    php8.2 -S 127.0.0.1:$1 -t . /home/john/sbshell/cruff/index.php
+sb.start ()
+{
+    local sb_router="$HOME/mogwai/sbshell/cruff/index.php"
+    if [[ ! -f "$sb_router" ]]; then
+        printf 'sb.start: router missing: %s\n' "$sb_router" >&2
+        return 1
+    fi
+    php8.2 -S "127.0.0.1:${1:-1234}" -t . "$sb_router"
 }
