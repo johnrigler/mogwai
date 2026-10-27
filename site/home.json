@@ -1,0 +1,31 @@
+{
+	"pageTitle":"Mogwai: The Digital Leviathan",
+	"pageBlurb":"Web3 Widecaster",
+	"contactUs":"Contact Us today",
+	"contactZoom":"Follow us on YouTube",
+	"bulletRow": 
+	[
+	{
+	"icon":"eye.svg",
+	"header":"Mass Adoption starts at EthDenver 2025",
+	"body":"Hawk your Wares on our crypto-based 'Forever Wall'"
+	},
+	{
+	"icon":"umbrella.svg",
+	"header":"Safety by design",
+	"body":"No central server to lose your data or spy on you."
+	},
+	{
+        "icon":"thumbs-up.svg",
+        "header":"Together, we have the power",
+        "body":"New Blockchain technology like this website gives us an unstoppable way to collaborate without feeding predatory middlemen."
+        }
+	],
+	"quickStart": 
+	  { 
+	  "header":"The answer is here, and it is easy.",
+	  "body":"To learn more, click the link below to redirect to The Real Web3®",
+	  "cta":"<button id=realWeb3>Supercharge with Web3</button>"
+	  }
+
+}

@@ -1,0 +1,4 @@
+m.cd.downloads () 
+{ 
+    cd ~/downloads
+}

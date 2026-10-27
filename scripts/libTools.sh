@@ -1881,7 +1881,7 @@ s ()
 }
 sb.start () 
 { 
-    php8.2 -S 127.0.0.1:39692 -t . /home/john/sbshell/cruff/index.php
+    php8.2 -S 127.0.0.1:$1 -t . /home/john/sbshell/cruff/index.php
 }
 t () 
 { 

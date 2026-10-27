@@ -1,0 +1,35 @@
+Script started on 2026-10-12 18:33:21-06:00 [TERM="xterm-256color" TTY="/dev/pts/1" COLUMNS="99" LINES="23"]
+[?2004h]0;john@penguin: ~/mogwai/mogwai/scripts-->> pla[K[K[K: please fix these
+[?2004l[?2004h]0;john@penguin: ~/mogwai/mogwai/scripts-->> ls
+[?2004lmogwai-02349399  mogwai.bash  readme.unixTs
+[?2004h]0;john@penguin: ~/mogwai/mogwai/scripts-->> m.[K[Km[K. mow[Kgwai.bash
+[?2004l[?2004h]0;john@penguin: ~/mogwai/mogwai/scripts-->> m.
+m.file.fix  m.pick      
+]0;john@penguin: ~/mogwai/mogwai/scripts-->> m.[K[Ka.f [K[K[K[Kded[Kclare -f m.file.fix
+[?2004lm.file.fix () 
+{ 
+    while read t; do
+        : transforms a windows file into a unix file with best practices. no spaces;
+    done
+}
+[?2004h]0;john@penguin: ~/mogwai/mogwai/scripts-->> ## will receive a pcked [K[K[K[K[Kicks[Ked string from stdin
+[?2004l[?2004h]0;john@penguin: ~/mogwai/mogwai/scripts-->> dec[K[K[K. m.mp[K[Kpick
+[?2004lbash: m.pick: No such file or directory
+[?2004h]0;john@penguin: ~/mogwai/mogwai/scripts-->> ls[K[Km.
+m.file.fix  m.pick      
+]0;john@penguin: ~/mogwai/mogwai/scripts-->> m.
+m.file.fix  m.pick      
+]0;john@penguin: ~/mogwai/mogwai/scripts-->> m.[K[Kdeclare -f m,[K./[K[K.pick
+[?2004lm.pick () 
+{ 
+    while read t; do
+        : df;
+    done
+}
+[?2004h]0;john@penguin: ~/mogwai/mogwai/scripts-->> # this would be a pater [K[K[Ktern similar to a.v or d.v which uses vim, but to pick
+[?2004l[?2004h]0;john@penguin: ~/mogwai/mogwai/scripts-->> you just [K[K[K[K[K[K[K[K[K# you just put a a[K"X" at the end of the file [1@r[1@x[C[C[1P[1P[1P[1P[1P[1P[1@i[1P[1@n[C[1@ [2@"x[C[1@ [1P[1@"[C[C[C[C[C[C[C[C[1@x[1@x[C[C[1@x[C[C[1@x[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[1P [1P [1P [1P [K[1P [1P [1P [K[1P [1P [K[1P [1P [1P [1P [1P [1P [1P b e g i n n i n g [C o f [C t h e [C s e l e c t e d [C l i n e . [C a f t e r [C v i m [C o f [C m . p i c k . # # [C [K[1P [1P $ $ [C t h e n [C g r e p  [A]0;john@penguin: ~/mogwai/mogwai/scripts-->> [C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C
+ a n d [C r e t u r n [C l i n e , [C w h i c h [C c o u l d [C i n c l u d e [C s t [1P p [1P a [1P p a c e s . [C 
+[?2004l[?2004h]0;john@penguin: ~/mogwai/mogwai/scripts-->> exit
+[?2004lexit
+
+Script done on 2026-10-12 18:36:49-06:00 [COMMAND_EXIT_CODE="0"]

@@ -1,0 +1,47 @@
+{
+  "title": "CertLedger composition demo",
+  "blocks": [
+    {
+      "type": "hero",
+      "title": "CertLedger",
+      "lead": "A case may contain source documents, a chronology and a separately authored narrative.",
+      "actions": [
+        {
+          "label": "Overview",
+          "href": "overview.json"
+        }
+      ]
+    },
+    {
+      "type": "markdown",
+      "heading": "Publication versus record",
+      "src": "pieces/certledger.md"
+    },
+    {
+      "type": "table",
+      "heading": "Record elements (example only)",
+      "src": "data/certledger-elements.csv",
+      "columns": [
+        {
+          "key": "element",
+          "label": "Element"
+        },
+        {
+          "key": "source",
+          "label": "Origin"
+        },
+        {
+          "key": "use",
+          "label": "Presentation"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "heading": "Data boundary",
+      "paragraphs": [
+        "This example includes no private DAISY records or actual case allegations. A private DAISY file must be explicitly copied, published, or made available through authorized local tooling."
+      ]
+    }
+  ]
+}

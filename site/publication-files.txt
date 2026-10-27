@@ -1,0 +1,6 @@
+publications/overview.json
+publications/certledger.json
+publications/pieces/approach.md
+publications/pieces/certledger.md
+publications/data/elements.json
+publications/data/certledger-elements.csv

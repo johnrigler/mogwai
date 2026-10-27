@@ -1,0 +1,27 @@
+[
+  {
+    "component": "Hero",
+    "source": "Manifest",
+    "purpose": "Introduction and thesis"
+  },
+  {
+    "component": "Markdown",
+    "source": "Text fragment",
+    "purpose": "Argument and documentation"
+  },
+  {
+    "component": "Table",
+    "source": "JSON / CSV",
+    "purpose": "Structured data within a narrative"
+  },
+  {
+    "component": "Directory",
+    "source": "files.txt",
+    "purpose": "Browse ordered source files"
+  },
+  {
+    "component": "Document",
+    "source": "PDF / HTML / image",
+    "purpose": "View source material"
+  }
+]

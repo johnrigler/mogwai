@@ -1,0 +1,79 @@
+<html>
+<head>
+    <title>Collective Ledgers Login</title>
+<body>
+    <div id="qr-reader"></div>
+    <div id="qr-reader-results"></div>
+    <div id="main">
+      <pre>
+      <div id="address" style="font-size:8em; margin:120px;">
+      </div>
+      </pre>
+</div>	    
+    </div>
+</body>
+<script src="/lib/html5-qrcode.min.js"></script>
+<script src="/lib/ethers-5.7.2.umd.min.js"></script>
+<script>
+
+    async function processTwelveWords(words){
+
+     result=`
+Patient
+Insurance
+<hr>
+BCBS 3421
+$20 copay
+
+01/28/2023
+<hr>
+`
+
+
+     document.getElementById("html5-qrcode-button-camera-stop").click();
+     wallet = new ethers.Wallet.fromMnemonic(words);
+     console.log(wallet)
+     var resultContainer = document.getElementById('qr-reader-results');
+    // resultContainer.innerHTML = "";	    
+     qr_reader = document.getElementById("qr-reader");
+     qr_reader.style.visibility='hidden';
+     addy = document.getElementById("address") 
+//	    alert(wallet.address).then( () => { 
+//		    q_reader.innerHTML="Insurance credentialed for: "; 
+		    addy.innerHTML = result;
+//	    } )
+    }
+
+    function docReady(fn) {
+        // see if DOM is already available
+        if (document.readyState === "complete"
+            || document.readyState === "interactive") {
+            // call on next available tick
+            setTimeout(fn, 1);
+        } else {
+            document.addEventListener("DOMContentLoaded", fn);
+        }
+    }
+
+    docReady( function () {
+        var resultContainer = document.getElementById('qr-reader-results');
+        var lastResult, countResults = 0;
+        function onScanSuccess(decodedText, decodedResult) {
+            if (decodedText !== lastResult) {
+                ++countResults;
+                lastResult = decodedText;
+                // Handle on success condition with the decoded message.
+                console.log(`Scan result ${decodedText}`, decodedResult);
+		if(decodedText.split(" ").length == 12)
+		    processTwelveWords(decodedText);
+            }
+        }
+
+        var html5QrcodeScanner = new Html5QrcodeScanner(
+            "qr-reader", { fps: 10, qrbox: 250 });
+        html5QrcodeScanner.render(onScanSuccess);
+	    console.log(html5QrcodeScanner);
+    });
+</script>
+</head>
+</html>

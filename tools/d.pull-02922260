@@ -1,0 +1,111 @@
+d.pull () 
+{ 
+    if (( $# > 1 )); then
+        printf '%s\n' 'Usage: d.pull [CONFIG_JSON]' 1>&2;
+        return 2;
+    fi;
+    python3 - "$@" <<'PY'
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+try:
+    config_path = Path(sys.argv[1]).expanduser() if len(sys.argv) > 1 else Path.home() / "config.json"
+    projects = json.loads(config_path.read_text(encoding="utf-8"))["projects"]
+    if not isinstance(projects, dict):
+        raise ValueError("projects must be an object")
+    plan = []
+    for key, project in projects.items():
+        if not isinstance(project, dict) or not isinstance(project.get("path"), str) or not project["path"].strip():
+            raise ValueError(f"projects.{key}.path must be a nonempty string")
+        path = Path(project["path"]).expanduser()
+        plan.append((key, (path if path.is_absolute() else Path.home() / path).resolve()))
+    if not shutil.which("git"):
+        raise ValueError("git is not installed")
+except (OSError, UnicodeError, ValueError, KeyError, TypeError, RuntimeError) as error:
+    print(f"d.pull: {error}", file=sys.stderr)
+    sys.exit(2)
+
+counts = dict(updated=0, unchanged=0, skipped=0, failed=0)
+seen = set()
+for key, path in plan:
+    print(f"\n[{key}] {path}", flush=True)
+    if path in seen:
+        print("SAME checkout already handled")
+        continue
+    seen.add(path)
+    if not path.is_dir():
+        print("SKIP: directory does not exist")
+        counts["skipped"] += 1
+        continue
+
+    def git(*args):
+        return subprocess.run(["git", *args], cwd=path, capture_output=True, text=True)
+
+    try:
+        root = git("rev-parse", "--show-toplevel")
+        if root.returncode or Path(root.stdout.strip()).resolve() != path:
+            print("SKIP: path is not the root of a Git checkout")
+            counts["skipped"] += 1
+            continue
+        branch = git("symbolic-ref", "--quiet", "--short", "HEAD")
+        if branch.returncode:
+            print("SKIP: detached HEAD")
+            counts["skipped"] += 1
+            continue
+        active = False
+        for marker in ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply", "sequencer"):
+            marker_path = git("rev-parse", "--git-path", marker)
+            if marker_path.returncode:
+                raise RuntimeError(marker_path.stderr.strip())
+            if (path / marker_path.stdout.strip()).exists():
+                active = True
+                break
+        if active:
+            print("SKIP: a merge, rebase or cherry-pick is in progress")
+            counts["skipped"] += 1
+            continue
+        status = git("status", "--porcelain", "--untracked-files=all")
+        if status.returncode:
+            raise RuntimeError(status.stderr.strip())
+        if status.stdout:
+            print("SKIP: local changes or untracked files")
+            counts["skipped"] += 1
+            continue
+        upstream = git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+        if upstream.returncode:
+            print("SKIP: current branch has no upstream")
+            counts["skipped"] += 1
+            continue
+        before = git("rev-parse", "HEAD").stdout.strip()
+        print(f"{branch.stdout.strip()} <- {upstream.stdout.strip()}", flush=True)
+        # Fetch follows this branch's configured remote. Fast-forward only;
+        # also refuse to overwrite ignored local data with incoming files.
+        fetched = subprocess.run(["git", "fetch"], cwd=path)
+        if fetched.returncode:
+            counts["failed"] += 1
+            print("FAIL: fetch failed", flush=True)
+            continue
+        merged = subprocess.run([
+            "git", "merge", "--ff-only", "--no-autostash",
+            "--no-overwrite-ignore", "@{upstream}"
+        ], cwd=path)
+        if merged.returncode:
+            counts["failed"] += 1
+            print("FAIL: fast-forward refused; local work retained", flush=True)
+            continue
+        after = git("rev-parse", "HEAD").stdout.strip()
+        result = "updated" if before != after else "unchanged"
+        counts[result] += 1
+        print(result.upper(), flush=True)
+    except (OSError, RuntimeError) as error:
+        counts["failed"] += 1
+        print(f"FAIL: {error}", flush=True)
+
+print("\nd.pull: " + ", ".join(f"{value} {key}" for key, value in counts.items()))
+sys.exit(1 if counts["skipped"] or counts["failed"] else 0)
+PY
+
+}
