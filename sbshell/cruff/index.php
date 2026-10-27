@@ -95,7 +95,26 @@ if(isset($_GET["sb-clipboard"])){
 	exit();
 }
 
-$ls = array_values(array_filter(glob("1_*.*") ?: [], "is_file"));
+// A numbered page contains its ordered sections, regardless of the source format.
+$sb_pages = [];
+foreach(glob("[0-9]*_*.*") ?: [] as $file){
+	if(!is_file($file) || !preg_match('/^([0-9]+)_([0-9]+)\\.[^.]+$/', $file, $number)) continue;
+	$sb_pages[(int)$number[1]][(int)$number[2]][] = $file;
+}
+ksort($sb_pages, SORT_NUMERIC);
+foreach($sb_pages as &$sections){
+	ksort($sections, SORT_NUMERIC);
+	foreach($sections as &$files) sort($files, SORT_NATURAL);
+	unset($files);
+}
+unset($sections);
+$sb_page_numbers = array_keys($sb_pages);
+$sb_page = $sb_page_numbers[0] ?? 1;
+if(isset($_GET["page"]) && is_string($_GET["page"]) && ctype_digit($_GET["page"])
+	&& isset($sb_pages[(int)$_GET["page"]])) $sb_page = (int)$_GET["page"];
+$sb_page_at = array_search($sb_page, $sb_page_numbers, true);
+$sb_prev = $sb_page_numbers[$sb_page_at - 1] ?? null;
+$sb_next = $sb_page_numbers[$sb_page_at + 1] ?? null;
 require_once __DIR__ . "/preview.php";
 $sb_dirs = $sb_files = [];
 $sb_names = [];
@@ -189,6 +208,18 @@ foreach(scandir(".") as $file){
 .sb-markdown .sb-code pre { background:transparent; }
 
 .sb-catalog-error { margin:10px 16px; color:#9c2424; font:14px/1.5 system-ui,sans-serif; }
+.sb-document { max-width:960px; margin:20px auto 64px; padding:0 18px; color:#263443; }
+.sb-document > h1 { font:700 26px/1.3 system-ui,sans-serif; margin:12px 0 8px; }
+.sb-page-nav { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin:14px 0; padding:10px 0; font:14px/1.4 system-ui,sans-serif; border-block:1px solid #d1d5da; }
+.sb-page-nav a { color:#135da8; }
+.sb-page-nav [aria-disabled] { color:#84919e; }
+.sb-page-nav strong { font-weight:600; margin-right:auto; }
+.sb-section-nav { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 28px; font:14px system-ui,sans-serif; }
+.sb-section-nav a { display:inline-block; padding:5px 10px; color:#135da8; border:1px solid #c1cdd9; border-radius:4px; text-decoration:none; }
+.sb-numbered-section { margin:28px 0 36px; scroll-margin-top:80px; }
+.sb-numbered-section > h2 { display:flex; align-items:baseline; flex-wrap:wrap; gap:12px; font:600 20px/1.4 system-ui,sans-serif; border-bottom:1px solid #cbd6df; padding-bottom:6px; }
+.sb-numbered-section > h2 small { font:13px/1.4 ui-monospace,monospace; color:#637384; }
+
 @media (max-width:500px) {
   .sb-navigation, .sb-toolbar .sb-navigation, .sb-toolbar .refresh-control, .sb-file-controls { margin-left:6px; margin-right:6px; }
   .sb-menu { margin-right:6px; }
@@ -197,6 +228,10 @@ foreach(scandir(".") as $file){
   .sb-table .sb-tags { width:58px; }
 }
 @media print {
+  .sb-page-nav, .sb-section-nav { display:none !important; }
+  .sb-document { max-width:none; margin:0; padding:0; }
+  .sb-numbered-section { break-inside:auto; }
+  .sb-numbered-section > h2 { break-after:avoid; }
   .sb-toolbar, .sb-assembled-files, .sb-directory > summary, .sb-table thead,
   .sb-selection, .sb-tags, .sb-file-actions, .sb-entry:not([open]), .sb-catalog-error { display:none !important; }
   .sb-directory { margin:0; padding:0; }
@@ -250,7 +285,7 @@ foreach($sb_crumbs as $link => $label){
 <?php if($sb_catalog_error){ ?>
 <p class="sb-catalog-error" role="status">Catalog update failed: <?php echo htmlspecialchars($sb_catalog_error); ?> <a href="<?= $sb_url ?>?sb-check=1">Check PHP setup</a>.</p>
 <?php } ?>
-<details class="sb-navigation sb-directory<?php if($ls) echo ' sb-assembled-files'; ?>" id="sb-directory"<?php if(!$ls) echo " open"; ?>>
+<details class="sb-navigation sb-directory<?php if($sb_pages) echo ' sb-assembled-files'; ?>" id="sb-directory"<?php if(!$sb_pages) echo " open"; ?>>
 <summary>Files and directories</summary>
 <?php if($sb_dirs || $sb_files){ ?>
 <table class="sb-table" aria-label="Files and directories">
@@ -286,14 +321,39 @@ foreach(array_merge($sb_dirs, $sb_files) as $file){
 <?php readfile(__DIR__ . "/directory.js"); ?>
 </script>
 <?php
-foreach($ls as $file){
-	if(sb_preview_type($file)){
-		sb_preview($file, rawurlencode($file));
-	}else{
-		include $file;
-	}
-};
+if($sb_pages){
+	// Previous/Next move between numbered pages; the individual files are sections.
+	$sb_pager = '<nav class="sb-page-nav" aria-label="Page navigation">';
+	$sb_pager .= $sb_prev === null ? '<span aria-disabled="true">← Previous</span>'
+		: '<a href="' . $sb_url . '?page=' . $sb_prev . '">← Previous</a>';
+	$sb_pager .= '<strong>Page ' . $sb_page . ' of ' . count($sb_page_numbers) . '</strong>';
+	$sb_pager .= $sb_next === null ? '<span aria-disabled="true">Next →</span>'
+		: '<a href="' . $sb_url . '?page=' . $sb_next . '">Next →</a>';
+	$sb_pager .= '</nav>';
 ?>
+<article class="sb-document">
+<h1>Page <?= $sb_page ?></h1>
+<?= $sb_pager ?>
+<nav class="sb-section-nav" aria-label="Sections">
+<?php foreach($sb_pages[$sb_page] as $number => $files){ ?>
+<a href="#sb-part-<?= $sb_page ?>-<?= $number ?>"><?= str_pad((string)$number, 2, "0", STR_PAD_LEFT) ?></a>
+<?php } ?>
+</nav>
+<?php foreach($sb_pages[$sb_page] as $number => $files){ ?>
+<section class="sb-numbered-section" id="sb-part-<?= $sb_page ?>-<?= $number ?>">
+<h2><span>Section <?= str_pad((string)$number, 2, "0", STR_PAD_LEFT) ?></span>
+<small><?= htmlspecialchars(implode(" · ", $files), ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8") ?></small></h2>
+<?php foreach($files as $file){
+	// PHP parts are authored output fragments, not highlighted source previews.
+	if(strtolower(pathinfo($file, PATHINFO_EXTENSION)) === "php") include $file;
+	elseif(sb_preview_type($file)) sb_preview($file, rawurlencode($file));
+	else echo '<p><a href="' . htmlspecialchars(rawurlencode($file), ENT_QUOTES) . '">Open ' . htmlspecialchars($file, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8") . '</a></p>';
+} ?>
+</section>
+<?php } ?>
+<?= $sb_pager ?>
+</article>
+<?php } ?>
 </body>
 </html>
 <?php
