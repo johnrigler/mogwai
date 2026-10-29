@@ -26,6 +26,8 @@ jobs:
           node --check /tmp/fileproxy-catalog.js
           python tests/extract_js.py packet.html > /tmp/fileproxy-packet.js
           node --check /tmp/fileproxy-packet.js
+          python tests/extract_js.py record.html > /tmp/fileproxy-record.js
+          node --check /tmp/fileproxy-record.js
       - name: Core and compatibility tests
         run: python -S -m unittest discover -s tests -v
       - name: Install browser test dependency outside the application

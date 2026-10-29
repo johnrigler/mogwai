@@ -26,7 +26,7 @@ class CompatibilityTests(unittest.TestCase):
             str(cli.DEFAULT_CONFIG), cli.DEFAULT_INDEX,
             local=False, host="127.0.0.1", port=47799,
             activity_log="~/fileproxy-activity.jsonl",
-            data_root=None
+            data_root=None, home_config=None, record_token_file=None
         )
 
     def test_server_receives_explicit_listener_and_log_settings(self):

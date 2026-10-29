@@ -23,12 +23,13 @@ sys.path.insert(0, str(_LEGACY_DIR))
 import proxy as chisel  # noqa: E402: bundled unmodified Chisel service
 
 
-def make_handler(config_path, index_path, local=False, activity_log=""):
+def make_handler(config_path, index_path, local=False, activity_log="", home_config=None, record_token=""):
     class Handler(chisel.Handler):
         activity_log_path = str(activity_log or "")
         def local_write_allowed(self):
-            if not local:
-                return False
+            return local and self.same_origin_loopback_request()
+
+        def same_origin_loopback_request(self):
             try:
                 for address in (self.client_address[0], self.server.server_address[0]):
                     ip = ipaddress.ip_address(address)
@@ -52,6 +53,11 @@ def make_handler(config_path, index_path, local=False, activity_log=""):
             origin = self.headers.get("Origin")
             return origin is None or origin.lower() == scheme + "://" + host
 
+        def record_read_allowed(self):
+            supplied = self.headers.get("Authorization", "")
+            return (self.same_origin_loopback_request()
+                    or bool(record_token and hmac.compare_digest(("Bearer " + record_token).encode("utf-8"), supplied.encode("utf-8"))))
+
         def do_OPTIONS(self):
             if urlparse(self.path).path.startswith("/v1/"):
                 self.send_response(204)
@@ -63,6 +69,17 @@ def make_handler(config_path, index_path, local=False, activity_log=""):
                 super().do_OPTIONS()
 
         def response(self, payload, status=200):
+            if urlparse(self.path).path in ("/v1/record", "/v1/record-file"):
+                data = json.dumps(payload).encode("utf-8")
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "private, no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.end_headers()
+                self.wfile.write(data)
+                return
             chisel.send_json(self, payload, status)
 
         def error(self, exc):
@@ -80,8 +97,8 @@ def make_handler(config_path, index_path, local=False, activity_log=""):
 
         def do_GET(self):
             parsed = urlparse(self.path)
-            if parsed.path in ("/", "/index.html", "/catalog", "/packet"):
-                page_name = {"/catalog": "catalog.html", "/packet": "packet.html"}.get(parsed.path, "index.html")
+            if parsed.path in ("/", "/index.html", "/catalog", "/packet", "/record"):
+                page_name = {"/catalog": "catalog.html", "/packet": "packet.html", "/record": "record.html"}.get(parsed.path, "index.html")
                 page = (Path(__file__).resolve().parents[1] / "web" / page_name).read_bytes()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -100,7 +117,32 @@ def make_handler(config_path, index_path, local=False, activity_log=""):
                 query["root"] = [parts[0]]
                 query["path"] = [parts[1] if len(parts) > 1 else "index.html"]
             try:
-                if parsed.path == "/v1/health":
+                if parsed.path in ("/v1/record", "/v1/record-file"):
+                    if not self.record_read_allowed():
+                        self.response({"ok": False, "error": "Open the record on the local FileProxy, or supply its record access token"}, 403)
+                        return
+                    from .records import lookup_record, record_config, resolve_record_file
+                    config = record_config(load_config(config_path), home_config)
+                    identifier = query.get("id", [""])[0]
+                    if parsed.path == "/v1/record":
+                        self.response(lookup_record(config, identifier))
+                    else:
+                        target = resolve_record_file(config, identifier, query.get("root", [""])[0],
+                                                     query.get("path", [""])[0])
+                        data = target.read_bytes()
+                        self.send_response(200)
+                        mime = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+                        if mime in ("text/html", "image/svg+xml", "application/xhtml+xml"):
+                            mime = "text/plain; charset=utf-8"
+                        self.send_header("Content-Type", mime)
+                        self.send_header("Content-Length", str(len(data)))
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                        self.send_header("Cache-Control", "private, no-store")
+                        self.send_header("X-Content-Type-Options", "nosniff")
+                        self.send_header("Content-Security-Policy", "sandbox; default-src 'none'")
+                        self.end_headers()
+                        self.wfile.write(data)
+                elif parsed.path == "/v1/health":
                     names = sorted(roots_from(load_config(config_path)))
                     self.response({"ok": True, "service": "fileproxy", "version": 1, "roots": names,
                                    "defaultDaisyRoot": daisy_destination(names, daisy_date()["year"]),
@@ -246,7 +288,8 @@ def make_handler(config_path, index_path, local=False, activity_log=""):
 
 
 def main(config_path=None, index_path=None, local=False,
-         host="127.0.0.1", port=7799, activity_log="", data_root=None):
+         host="127.0.0.1", port=7799, activity_log="", data_root=None,
+         home_config=None, record_token_file=None):
     if not host or not isinstance(host, str):
         raise ValueError("--host must be a non-empty address")
     if not 1 <= port <= 65535:
@@ -265,9 +308,15 @@ def main(config_path=None, index_path=None, local=False,
         log_path = str(path)
         print("FileProxy activity log:", log_path)
 
-    chisel.Handler = make_handler(config_path, index_path, local=local, activity_log=log_path)
+    record_token = ""
+    if record_token_file:
+        record_token = Path(record_token_file).expanduser().read_text(encoding="utf-8").strip()
+        if not record_token or "\n" in record_token or "\r" in record_token:
+            raise ValueError("Record token file must contain one non-empty line")
+    chisel.Handler = make_handler(config_path, index_path, local=local, activity_log=log_path,
+                                 home_config=home_config, record_token=record_token)
     print("FileProxy Inbox: http://%s:%s/" % (host, port))
-    print("FileProxy v1: /v1/health /v1/roots /v1/index /v1/file /v1/ingest /v1/scan /v1/put")
+    print("FileProxy v1: /v1/health /v1/roots /v1/index /v1/file /v1/ingest /v1/scan /v1/put /v1/record")
     print("Chisel legacy API preserved; bind to loopback unless protected by a trusted reverse proxy")
     chisel.main(host=host, port=port)
 

@@ -80,7 +80,9 @@ projects keep working independently without this file or a Mogwai checkout.
 
 Browser JavaScript cannot directly read `~/config.json`. A browser tool would
 need a file picker or an explicitly exposed subset through FileProxy. No
-shared-config endpoint or automatic loader is introduced by this example.
+general shared-config endpoint is introduced by this example. FileProxy's
+private [paper-label lookup](fileProxy/docs/PHYSICAL-RECORDS.md) now reads
+configured Daisy project paths for record resolution only.
 The original `m.pull` reads the project paths from this file. John also saves
 and loads that command as `d.pull` in Daisy. Other tools can adopt the shared
 values when their integrations are implemented.

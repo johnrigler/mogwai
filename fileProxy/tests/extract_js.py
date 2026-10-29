@@ -5,7 +5,7 @@ import re
 import sys
 
 page = sys.argv[1] if len(sys.argv) > 1 else "index.html"
-if page not in ("index.html", "catalog.html", "packet.html"):
+if page not in ("index.html", "catalog.html", "packet.html", "record.html"):
     raise SystemExit("Unknown website page")
 html = (Path(__file__).resolve().parents[1] / "web" / page).read_text(encoding="utf-8")
 scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", html, flags=re.S | re.I)

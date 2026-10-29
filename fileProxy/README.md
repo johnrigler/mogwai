@@ -1,5 +1,8 @@
 # FileProxy
 
+[Physical folder records](docs/PHYSICAL-RECORDS.md): resolve complete QR
+identifiers through configured Daisy years using `fp.py record ID` or `/record`.
+
 FileProxy is now maintained inside [Mogwai](../README.md), at
 `mogwai/fileProxy/`. See [the consolidation guide](../docs/CONSOLIDATION.md)
 for switching an existing installation. The original GitHub repository retains

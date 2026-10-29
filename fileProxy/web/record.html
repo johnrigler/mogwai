@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Folder record · FileProxy</title>
+<style>
+:root{color-scheme:dark;font:16px/1.5 system-ui,sans-serif;background:#0b0d10;color:#e6edf3}main{max-width:1000px;margin:24px auto;padding:18px}form,.record{padding:18px;border:1px solid #354252;border-radius:10px;background:#11161c;margin:16px 0}form{display:flex;gap:12px;flex-wrap:wrap;align-items:end}label{display:grid;gap:6px}input,button{font:inherit;padding:10px;border-radius:6px;border:1px solid #465262;background:#0a0f14;color:inherit}button{background:#7867ff;cursor:pointer}input{max-width:75vw}#status{color:#ffd166}a{color:#b9adff}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:10px 6px;text-align:left;vertical-align:top;border-bottom:1px solid #354252}code{font-size:11px;overflow-wrap:anywhere}td:first-child{overflow-wrap:anywhere}p{color:#b5c4d2}.tableWrap{overflow-x:auto}img{max-width:100%;max-height:75vh}#preview:empty{display:none}
+</style>
+<main>
+<a href="./">FileProxy</a><h1>Physical folder record</h1>
+<p>Current Daisy ISO year first, then earlier configured years. These are files read from your archive.</p>
+<form id="lookup">
+<label>Folder ID<input id="identifier" pattern="[0-9a-fA-F]{16}" maxlength="16" spellcheck="false" required></label>
+<button>LOOK UP</button>
+<label>Remote access token (if required)<input id="token" type="password" autocomplete="off"></label>
+</form>
+<p id="status" role="status"></p><div id="records"></div><div id="preview"></div>
+</main>
+<script>
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const params = new URL(window.location.href).searchParams;
+  const base = window.location.pathname.replace(/\/record\/?$/, "");
+  let requestNumber = 0;
+  const urls = [];
+  $("identifier").value = params.get("id") || "";
+  function clearUrls() { urls.splice(0).forEach(url => URL.revokeObjectURL(url)); $("preview").replaceChildren(); }
+  async function request(route, query) {
+    const headers = {};
+    if ($("token").value) headers.Authorization = "Bearer " + $("token").value;
+    const response = await fetch(base + route + "?" + new URLSearchParams(query), {headers,cache:"no-store",credentials:"same-origin"});
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw Error(error.error || "FileProxy returned HTTP " + response.status);
+    }
+    return response;
+  }
+  async function openFile(entry, identifier, number) {
+    try {
+      const response = await request("/v1/record-file",{id:identifier,root:entry.root,path:entry.path});
+      const blob = await response.blob();
+      if (number !== requestNumber) return;
+      const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",await blob.arrayBuffer())), b => b.toString(16).padStart(2,"0")).join("");
+      if (digest !== entry.sha256) throw Error("File changed since lookup. Look up the record again.");
+      const url = URL.createObjectURL(blob); urls.push(url);
+      const link = document.createElement("a"); link.href = url; link.download = entry.path.split("/").pop();
+      link.textContent = "Save " + link.download;
+      const content = document.createElement("div"); content.append(link);
+      if (/^image\/(png|jpeg|gif|webp|bmp)$/.test(blob.type)) {
+        const image = document.createElement("img"); image.src = url; image.alt = entry.path; content.append(image);
+      } else if (blob.type === "application/pdf") {
+        const pdf = document.createElement("iframe"); pdf.src = url; pdf.title = entry.path; pdf.style.cssText = "width:100%;height:75vh;border:0"; content.append(pdf);
+      } else if (/^text\//.test(blob.type)) {
+        const text = document.createElement("pre"); text.textContent = await blob.text(); content.append(text);
+      }
+      $("preview").replaceChildren(content);
+      $("preview").scrollIntoView({behavior:"smooth",block:"start"});
+      $("status").textContent = "SHA-256 matches the bytes listed for " + entry.path;
+    } catch (error) { if (number === requestNumber) $("status").textContent = error.message; }
+  }
+  async function lookup(event) {
+    if (event) event.preventDefault();
+    const number = ++requestNumber;
+    clearUrls(); $("records").replaceChildren();
+    try {
+      const identifier = $("identifier").value.trim().toUpperCase();
+      if (!/^[0-9A-F]{16}$/.test(identifier)) throw Error("Enter the complete 16-hex folder ID.");
+      $("status").textContent = "Searching configured Daisy archives…";
+      const result = await (await request("/v1/record",{id:identifier})).json();
+      if (number !== requestNumber) return;
+      const searched = result.searched.map(row => row.isoYear + " (" + row.root + ": " + row.status + ")").join(" → ");
+      $("status").textContent = (result.found ? "Found. " : "No matching folder in available archives. ") + (searched || "No Daisy years are configured. Add their paths to ~/config.json.");
+      for (const record of result.records) {
+        const section = document.createElement("section"); section.className = "record";
+        const title = document.createElement("h2"); title.textContent = record.isoYear + " / " + record.root + ":" + record.path;
+        const description = document.createElement("pre"); description.textContent = record.description;
+        section.append(title,description);
+        const wrap = document.createElement("div"); wrap.className = "tableWrap";
+        const table = document.createElement("table");
+        const heading = document.createElement("tr");
+        for (const label of ["File","Bytes / SHA-256","Read"]) { const th = document.createElement("th"); th.textContent = label; heading.append(th); }
+        table.append(heading);
+        for (const entry of record.entries) {
+          const row = document.createElement("tr"), path = document.createElement("td"), hash = document.createElement("td"), action = document.createElement("td");
+          path.textContent = entry.path; hash.textContent = entry.bytes + " bytes "; const code = document.createElement("code"); code.textContent = entry.sha256; hash.append(document.createElement("br"),code);
+          const button = document.createElement("button"); button.textContent = "View / save";
+          button.onclick = () => openFile(entry,identifier,number); action.append(button); row.append(path,hash,action); table.append(row);
+        }
+        wrap.append(table); section.append(wrap); $("records").append(section);
+      }
+    } catch (error) { if (number === requestNumber) $("status").textContent = error.message; }
+  }
+  $("lookup").onsubmit = lookup;
+  window.addEventListener("beforeunload",clearUrls);
+  if (/^[0-9a-f]{16}$/i.test($("identifier").value)) lookup();
+})();
+</script>
+</html>

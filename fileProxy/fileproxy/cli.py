@@ -16,9 +16,12 @@ def main(argv=None):
     parser.add_argument("--config", default=str(DEFAULT_CONFIG), help="JSON configuration path")
     parser.add_argument("--index", default=DEFAULT_INDEX,
                         help="Explicit shared SQLite catalog (default: catalog.sqlite3 inside each root)")
+    parser.add_argument("--home-config", help="Shared Mogwai project paths (default: ~/config.json; record lookup only)")
     cmd = parser.add_subparsers(dest="command", required=True)
     cmd.add_parser("roots", help="Print registered data roots")
     cmd.add_parser("date", help="Compare ALP and ISO year/week/day")
+    record = cmd.add_parser("record", help="Find an eight-byte paper label in Daisy, current ISO year first")
+    record.add_argument("identifier")
     add = cmd.add_parser("add-root", help="Register an existing local directory")
     add.add_argument("name")
     add.add_argument("directory")
@@ -57,14 +60,20 @@ def main(argv=None):
                          help="Append sanitized per-request JSONL activity records to FILE")
     service.add_argument("--data-root", metavar="DIRECTORY",
                          help="Existing Chisel transaction datastore directory (no files copied)")
+    service.add_argument("--record-token-file", metavar="FILE",
+                         help="Optional private record read token for remote access")
     args = parser.parse_args(argv)
 
     try:
         if args.command == "serve":
             from .server import main as serve
-            return serve(args.config, args.index, local=args.local, host=args.host, port=args.port, activity_log=args.activity_log, data_root=args.data_root)
+            return serve(args.config, args.index, local=args.local, host=args.host, port=args.port, activity_log=args.activity_log, data_root=args.data_root,
+                         home_config=args.home_config, record_token_file=args.record_token_file)
         conf = load_config(args.config)
-        if args.command == "date":
+        if args.command == "record":
+            from .records import lookup_record, record_config
+            print(json.dumps(lookup_record(record_config(conf, args.home_config), args.identifier), indent=2))
+        elif args.command == "date":
             from .daisy_dates import daisy_date
             value = daisy_date()
             old = value["legacy"]

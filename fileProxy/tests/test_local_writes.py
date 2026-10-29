@@ -244,17 +244,17 @@ class LocalListenerTests(unittest.TestCase):
                 handler.headers = {"Host": "localhost:7799"}
                 self.assertEqual(handler.local_write_allowed(), allowed)
 
-    def test_cli_local_mode_forces_loopback_and_default_preserves_configured_host(self):
+    def test_cli_local_mode_forces_loopback_and_explicit_host_is_passed(self):
         base_handler = server.chisel.Handler
-        for args, expected_host in ((["serve", "--local"], "127.0.0.1"),
-                                    (["serve"], "0.0.0.0")):
+        for args, expected_host in ((["serve", "--local", "--host", "0.0.0.0"], "127.0.0.1"),
+                                    (["serve", "--host", "0.0.0.0"], "0.0.0.0"),
+                                    (["serve"], "127.0.0.1")):
             with self.subTest(args=args), patch.object(server.chisel, "HOST", "0.0.0.0"), \
                  patch.object(server.chisel, "Handler", base_handler), \
                  patch.object(server.chisel, "main") as run, \
                  patch("sys.stdout", new_callable=io.StringIO):
                 cli.main(args)
-                run.assert_called_once_with()
-                self.assertEqual(server.chisel.HOST, expected_host)
+                run.assert_called_once_with(host=expected_host, port=7799)
 
 
 if __name__ == "__main__":
