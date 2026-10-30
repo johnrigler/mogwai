@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "Mogwai",
+  "short_name": "Mogwai",
+  "description": "Share a video URL into Chisel with OP_RETURN already filled.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#10171d",
+  "theme_color": "#141b22",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ],
+  "share_target": {
+    "action": "./share",
+    "method": "POST",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {"title": "title", "text": "text", "url": "url"}
+  }
+}

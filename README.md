@@ -15,6 +15,15 @@ external commitment workflow and planned automatic signature inspection.
 control/status window on port 1132 and movable working root on port 39632.
 These are plans; existing runtime entry points below remain unchanged.
 
+## Share to Chisel
+
+[Install the Mogwai share widget](https://johnrigler.github.io/mogwai/app/)
+in Chrome on Android or ChromeOS. Share a YouTube URL to **Mogwai** to open
+Chisel's Send screen with the video link already in OP_RETURN ASCII.
+The [small static app and device test](app/README.md) use the same receiver
+on both platforms. A custom Chisel URL can point to a hosted, local or IPFS
+copy with the new handoff support. FileProxy is not required for this route.
+
 ## Suggestions
 
 [Browser discussions and Bluesky](docs/BROWSER-AND-BLUESKY-SUGGESTIONS.md)

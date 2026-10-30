@@ -1,0 +1,5 @@
+# These historical symlinks have no target in this checkout. Keep them in the
+# source tree, but do not let Jekyll resolve them while publishing the web app.
+exclude:
+  - site/lib
+  - sbshell/myshell/index.html

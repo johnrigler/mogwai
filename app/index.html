@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#141b22">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="Share a YouTube link into Mogwai and open Chisel with OP_RETURN already filled.">
+<title>Mogwai · Share to Chisel</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="app.css">
+<script defer src="core.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+<header><a class="brand" href="./"><img src="icon.svg" width="36" height="36" alt=""><span>Mogwai<small>Share to Chisel · 0.1.0</small></span></a><button id="install" hidden>Install Mogwai</button></header>
+<main>
+  <span class="eyebrow">Share → Mogwai → Chisel</span>
+  <h1>A video link.<br>Ready to chisel.</h1>
+  <p class="intro">Choose Mogwai in your system share menu. Chisel opens with the video URL already in its OP_RETURN field.</p>
+  <section class="panel" aria-labelledby="link-heading">
+    <h2 id="link-heading">Open a shared link</h2>
+    <form id="share-form"><label for="shared-url">Video or page URL</label><input id="shared-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a YouTube link…"><p id="detected" class="hint">YouTube watch, Shorts, live, and short links are supported.</p><button id="open-chisel" class="primary" disabled>Open in Chisel <span aria-hidden="true">↗</span></button></form>
+    <div id="status" role="status" aria-live="polite"></div>
+  </section>
+  <details class="panel"><summary>Install on phone or Chromebook</summary><ol><li>Open this page in Chrome.</li><li>Choose <strong>Install Mogwai</strong>, or use Chrome’s menu to install this app.</li><li>From YouTube, use the system share menu and choose <strong>Mogwai</strong>.</li></ol><p class="hint">If YouTube shows its own sharing panel first, choose its option for more apps to reach the system menu.</p><p id="offline-status" class="hint" role="status">Preparing share receiver…</p></details>
+  <details class="settings"><summary>Chisel address</summary><label for="chisel-url">Hosted, local, or IPFS copy</label><input id="chisel-url" type="url" spellcheck="false" autocomplete="off"><p class="hint">The selected copy needs Chisel 2.8.9 or later.</p></details>
+</main>
+<footer>Vanilla JavaScript · <a href="https://github.com/johnrigler/mogwai">Mogwai source</a> · <a href="https://johnrigler.github.io/chisel/">Chisel</a></footer>
+</body>
+</html>
