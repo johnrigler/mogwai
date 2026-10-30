@@ -1,0 +1,8 @@
+d.f () 
+{ 
+    if [ -z "$1" ]; then
+        printf '%s\n' "usage: d.f function.name" 1>&2;
+        return 1;
+    fi;
+    declare -f -- $(echo -n "$1" | sed 's/-.*//')
+}

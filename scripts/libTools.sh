@@ -1875,11 +1875,6 @@ quote_readline ()
     _quote_readline_by_ref "$1" ret;
     printf %s "$ret"
 }
-m.start () 
-{ 
-    php8.2 -S 127.0.0.1:$1 -t . /home/john/mogwai/index.php;
-}
-
 un () 
 { 
     local _alp_un_prefix=${1:-};
@@ -1900,4 +1895,14 @@ d.removeParenthesis ()
         u=$(- $t | sed 's/(/_/g' | sed 's/)/_/g');
         mv "$t" "$u" 2> /dev/null;
     done
+}
+m.start () 
+{ 
+    php8.2 -S 127.0.0.1:$1 -t . /home/john/mogwai/sbshell/cruff/index.php
+}
+ 
+
+d.f () 
+{ 
+    declare -f -- $(echo -n "$1" | sed 's/-.*//')
 }

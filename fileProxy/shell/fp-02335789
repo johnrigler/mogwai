@@ -1,0 +1,5 @@
+fp () 
+{ 
+    local fileproxy_dir="${FILEPROXY_HOME:-$HOME/mogwai/fileProxy}";
+    python3 "$fileproxy_dir/fp.py" "$@"
+}
