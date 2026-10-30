@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Mogwai",
   "short_name": "Mogwai",
-  "description": "Share a video URL into Chisel with OP_RETURN already filled.",
+  "description": "Receive shared text and web links, inspect what arrived, and prepare Chisel.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

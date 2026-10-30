@@ -1,11 +1,11 @@
 "use strict";
-const CACHE = "mogwai-app-0.1.0";
+const CACHE = "mogwai-app-0.2.0";
 const SHELL = ["./", "index.html", "app.css", "core.js", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 const scope = self.registration.scope;
 const shellURLs = new Set(SHELL.map(path => new URL(path, scope).href));
 
 self.addEventListener("install", event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL.map(path => new Request(new URL(path, scope), {cache: "reload"})))).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith("mogwai-app-") && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));
@@ -16,12 +16,14 @@ self.addEventListener("fetch", event => {
     event.respondWith((async () => {
       try {
         const form = await event.request.formData();
-        const share = {};
-        for (const key of ["title", "text", "url"]) {
-          const value = form.get(key);
-          if (value !== null && typeof value !== "string") throw new Error("Only links and text are supported");
-          share[key] = value || "";
+        const share = {}, extra = [];
+        for (const [name, value] of form.entries()) {
+          if (["title", "text", "url"].includes(name) && typeof value === "string" && !Object.hasOwn(share, name)) share[name] = value;
+          else extra.push(typeof value === "string" ? {name, value} : {name, file: {name: value.name, type: value.type, size: value.size}});
         }
+        // Preserve unhandled fields and unexpected file metadata for the receipt.
+        // File bytes are neither opened nor copied into the redirect.
+        if (extra.length) share.additional_fields = extra;
         if (new TextEncoder().encode(JSON.stringify(share)).byteLength > 70000) throw new Error("Shared text is too large");
         // The fragment stays in the browser, including during offline redirects.
         return Response.redirect(scope + "#share=" + encodeURIComponent(JSON.stringify(share)), 303);

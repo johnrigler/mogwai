@@ -31,8 +31,21 @@
       }
     }
     const chosen = candidates.find(item => item.youtube) || candidates[0];
-    if (!chosen) throw new Error("No web link found. Share or paste a video URL.");
+    if (!chosen) throw new Error("No supported web link found.");
     return chosen;
+  }
+  function describe(share) {
+    const unknown = reason => ({kind: "unknown", content: "", label: "Not recognized", reason});
+    if (!share || typeof share !== "object" || Array.isArray(share)) return unknown("Mogwai expected shared text or a web link. The received data is shown below.");
+    try {
+      const chosen = fromShare(share);
+      return {kind: chosen.youtube ? "youtube" : "link", content: chosen.url, label: chosen.youtube ? "YouTube video" : "Web link", reason: ""};
+    } catch {}
+    if (typeof share.url === "string" && share.url.trim()) return unknown("The shared URL is not a supported HTTP or HTTPS link. The original fields are shown below.");
+    for (const key of ["text", "title"]) {
+      if (typeof share[key] === "string" && share[key].trim()) return {kind: "text", content: share[key], label: "Plain text", reason: ""};
+    }
+    return unknown("Mogwai does not know what to open from these fields. Here is what it received.");
   }
   function chiselURL(endpoint, value) {
     const url = new URL(endpoint);
@@ -43,5 +56,5 @@
     url.searchParams.set("mode", "send");
     return url.href;
   }
-  root.MogwaiShare = Object.freeze({fromShare, link, chiselURL});
+  root.MogwaiShare = Object.freeze({fromShare, describe, link, chiselURL});
 })(typeof window === "object" ? window : globalThis);

@@ -50,14 +50,14 @@ function controller(share, options = {}) {
   const nodes = new Map();
   const ids = [...readFileSync(path.join(base, "index.html"), "utf8").matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   for (const name of ids) nodes.set(name, {value: "", textContent: "", disabled: false, hidden: false, listeners: {}, addEventListener(type, handler) {this.listeners[type] = handler;}});
-  const storage = new Map(), session = new Map(), navigations = [], events = {};
-  const makeStorage = map => ({getItem(key) {if (options.noStorage) throw Error("blocked"); return map.get(key) || null;}, setItem(key, value) {if (options.noStorage) throw Error("blocked"); map.set(key, value);}});
-  const location = {pathname: "/mogwai/app/", search: "", hash: share ? "#share=" + encodeURIComponent(JSON.stringify(share)) : "", replace(target) {navigations.push(target);}};
-  const ctx = vm.createContext({document: {getElementById(id) {assert.ok(nodes.has(id), id); return nodes.get(id);}}, URL, URLSearchParams, TextEncoder, location, navigator: {}, history: {replaceState() {}},
+  const storage = new Map(), session = new Map(options.session || []), navigations = [], events = {}, history = [];
+  const makeStorage = map => ({getItem(key) {if (options.noStorage) throw Error("blocked"); return map.get(key) || null;}, setItem(key, value) {if (options.noStorage) throw Error("blocked"); map.set(key, value);}, removeItem(key) {if (options.noStorage) throw Error("blocked"); map.delete(key);}});
+  const location = {pathname: "/mogwai/app/", search: options.search || "", hash: options.hash ?? (share !== null && share !== undefined ? "#share=" + encodeURIComponent(JSON.stringify(share)) : ""), replace(target) {navigations.push(target);}};
+  const ctx = vm.createContext({document: {getElementById(id) {assert.ok(nodes.has(id), id); return nodes.get(id);}}, URL, URLSearchParams, TextEncoder, location, navigator: options.navigator || {}, history: {replaceState(...args) {history.push(args);}},
     localStorage: makeStorage(storage), sessionStorage: makeStorage(session), addEventListener(type, handler) {events[type] = handler;}});
   ctx.window = ctx;
   vm.runInContext(core + "\n" + app, ctx);
-  return {nodes, navigations, storage, session};
+  return {nodes, navigations, storage, session, history};
 }
 test("a received share immediately opens Chisel with the extracted URL", () => {
   const ui = controller({text: "Watch this " + short + "?si=tracking"});
@@ -75,17 +75,88 @@ test("manual paste uses the same handoff and still works with browser storage bl
   ui.nodes.get("share-form").listeners.submit({preventDefault() {}});
   assert.equal(ui.navigations.length, 1);
 });
-test("malformed shares stay in the widget and report an actionable error", () => {
-  const ui = controller({text: "No URL here"});
+test("plain text stays for review and reaches Chisel byte-for-byte without a YouTube URL", () => {
+  const text = "A note about a conversation.\nKeep café, spaces, and the final newline.\n";
+  const shared = {title: "A note", text};
+  const ui = controller(shared);
   assert.equal(ui.navigations.length, 0);
-  assert.match(ui.nodes.get("status").textContent, /No web link/);
+  assert.equal(ui.nodes.get("received-kind").textContent, "Plain text");
+  assert.equal(ui.nodes.get("shared-url").value, text);
+  assert.deepEqual(JSON.parse(ui.nodes.get("received-data").textContent), shared);
+  ui.nodes.get("share-form").listeners.submit({preventDefault() {}});
+  assert.equal(new URLSearchParams(new URL(ui.navigations[0]).hash.slice(1)).get("opreturn"), text);
+  assert.equal(ui.session.has("mogwai.shared-link.v1"), false);
+});
+test("non-YouTube links preserve their original received fields and wait for a deliberate handoff", () => {
+  const shared = {title: "A shared conversation", text: "An explanation", url: "https://chatgpt.com/share/synthetic-test"};
+  const ui = controller(shared);
+  assert.equal(ui.navigations.length, 0);
+  assert.equal(ui.nodes.get("received-kind").textContent, "Web link");
+  assert.deepEqual(JSON.parse(ui.nodes.get("received-data").textContent), shared);
+  ui.nodes.get("share-form").listeners.submit({preventDefault() {}});
+  assert.equal(new URLSearchParams(new URL(ui.navigations[0]).hash.slice(1)).get("opreturn"), shared.url);
+});
+test("unrecognized fields remain visible and cannot send a stale previous link", () => {
+  const shared = {unexpected: {message: "<img src=x onerror=alert(1)>"}, additional_fields: [{name: "attachment", file: {name: "note.txt", type: "text/plain", size: 12}}]};
+  const ui = controller(shared, {session: [["mogwai.shared-link.v1", short]]});
+  assert.equal(ui.navigations.length, 0);
+  assert.equal(ui.nodes.get("received-kind").textContent, "Not recognized");
+  assert.equal(ui.nodes.get("open-chisel").disabled, true);
+  assert.equal(ui.nodes.get("shared-url").value, "");
+  assert.equal(ui.session.has("mogwai.shared-link.v1"), false);
+  assert.deepEqual(JSON.parse(ui.nodes.get("received-data").textContent), shared);
+  assert.match(ui.nodes.get("status").textContent, /does not know/);
+  assert.deepEqual(ui.history[0], [null, "", "/mogwai/app/"]);
+});
+test("invalid and oversized share envelopes produce an explicit bounded preview", () => {
+  const broken = controller(null, {hash: "#share=" + encodeURIComponent("{broken")});
+  assert.equal(broken.nodes.get("received-kind").textContent, "Could not process this share");
+  assert.equal(JSON.parse(broken.nodes.get("received-data").textContent).unparsed, "{broken");
+  const large = controller({text: "x".repeat(70001)});
+  const shown = JSON.parse(large.nodes.get("received-data").textContent);
+  assert.equal(shown.unparsed.length, 2500);
+  assert.equal(shown.preview_truncated, true);
+  assert.equal(large.navigations.length, 0);
+  assert.match(large.nodes.get("status").textContent, /70,000-byte/);
+});
+test("query shares and title-only shares are inspectable even with blocked browser storage", () => {
+  const ui = controller(null, {noStorage: true, search: "?title=An+observation&text=Plain+words"});
+  assert.equal(ui.nodes.get("received-kind").textContent, "Plain text");
+  assert.deepEqual(JSON.parse(ui.nodes.get("received-data").textContent), {title: "An observation", text: "Plain words"});
+  assert.equal(controller({title: "Title only"}).nodes.get("shared-url").value, "Title only");
+});
+test("system share testing uses a plain-text payload and reports cancellation without claiming receipt", async () => {
+  const shared = [];
+  const ui = controller(null, {navigator: {async share(value) {shared.push(JSON.parse(JSON.stringify(value))); const error = new Error("Canceled"); error.name = "AbortError"; throw error;}}});
+  await ui.nodes.get("system-share-test").listeners.click();
+  assert.equal(shared.length, 1);
+  assert.equal(shared[0].title, "Mogwai sharing test");
+  assert.match(shared[0].text, /plain text/);
+  assert.equal(Object.hasOwn(shared[0], "url"), false);
+  assert.match(ui.nodes.get("system-share-status").textContent, /canceled/);
+  assert.equal(ui.nodes.get("system-share-test").disabled, false);
+  const unavailable = controller(null);
+  assert.equal(unavailable.nodes.get("system-share-test").disabled, true);
+  assert.match(unavailable.nodes.get("system-share-status").textContent, /may still receive/);
+});
+test("a received record can be copied unchanged and cleared without persisting its raw fields", async () => {
+  let copied;
+  const shared = {text: "Synthetic diagnostic note", extra: "unhandled"};
+  const ui = controller(shared, {navigator: {clipboard: {async writeText(value) {copied = value;}}}});
+  await ui.nodes.get("copy-received").listeners.click();
+  assert.deepEqual(JSON.parse(copied), shared);
+  assert.equal(ui.storage.size, 0);
+  ui.nodes.get("clear-received").listeners.click();
+  assert.equal(ui.nodes.get("received-share").hidden, true);
+  assert.equal(ui.nodes.get("received-data").textContent, "");
+  assert.equal(ui.nodes.get("open-chisel").disabled, true);
 });
 
 function worker() {
   const listeners = {}, calls = [], scope = "https://example.test/mogwai/app/";
   const self = {registration: {scope}, addEventListener(name, handler) {listeners[name] = handler;}, skipWaiting() {}, clients: {claim() {}}};
   const caches = {open: async () => ({addAll: async paths => calls.push(...paths), match: async () => new Response("offline shell"), put: async () => {}}), keys: async () => []};
-  vm.runInNewContext(readFileSync(path.join(base, "sw.js"), "utf8"), {self, caches, URL, Response, TextEncoder, fetch: async () => {throw Error("offline");}});
+  vm.runInNewContext(readFileSync(path.join(base, "sw.js"), "utf8"), {self, caches, URL, Request, Response, TextEncoder, fetch: async () => {throw Error("offline");}});
   return {listeners, calls, scope};
 }
 test("the installed POST share receiver redirects locally without forwarding shared content to a server", async () => {
@@ -100,10 +171,27 @@ test("the installed POST share receiver redirects locally without forwarding sha
   const share = JSON.parse(new URLSearchParams(url.hash.slice(1)).get("share"));
   assert.equal(share.text, short); assert.equal(share.title, "A video");
 });
+test("POST shares retain duplicate and unknown fields plus unexpected file metadata for inspection", async () => {
+  const w = worker(); let response;
+  const body = new FormData();
+  body.append("text", "First note"); body.append("text", "Second note"); body.append("custom", "An extra field");
+  body.append("attachment", new Blob(["SYNTHETIC FILE BYTES"], {type: "text/plain"}), "example.txt");
+  w.listeners.fetch({request: new Request(w.scope + "share", {method: "POST", body}), respondWith(value) {response = value;}});
+  const redirect = new URL((await response).headers.get("location"));
+  const share = JSON.parse(new URLSearchParams(redirect.hash.slice(1)).get("share"));
+  assert.equal(share.text, "First note");
+  assert.deepEqual(share.additional_fields, [{name: "text", value: "Second note"}, {name: "custom", value: "An extra field"}, {name: "attachment", file: {name: "example.txt", type: "text/plain", size: 20}}]);
+  assert.equal(redirect.href.includes("SYNTHETIC FILE BYTES"), false);
+  assert.equal(redirect.search, "");
+});
 test("the worker caches the installable shell and leaves unrelated pages untouched", async () => {
   const w = worker(); let installed;
   w.listeners.install({waitUntil(value) {installed = value;}}); await installed;
-  for (const name of w.calls) assert.ok(existsSync(path.join(base, name)), name);
+  for (const request of w.calls) {
+    assert.equal(request.cache, "reload");
+    const name = new URL(request.url).pathname.slice(new URL(w.scope).pathname.length);
+    assert.ok(existsSync(path.join(base, name)), name);
+  }
   let response;
   w.listeners.fetch({request: new Request(w.scope), respondWith(value) {response = value;}});
   assert.equal(await (await response).text(), "offline shell");
