@@ -1,5 +1,6 @@
-# These historical symlinks have no target in this checkout. Keep them in the
-# source tree, but do not let Jekyll resolve them while publishing the web app.
+# Jekyll checks symlink targets before individual file exclusions. Keep these
+# legacy local-viewer directories in the source checkout, outside the Pages
+# build, so their missing historical targets do not block the share widget.
 exclude:
-  - site/lib
-  - sbshell/myshell/index.html
+  - site
+  - sbshell/myshell
