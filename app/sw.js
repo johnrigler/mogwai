@@ -1,5 +1,5 @@
 "use strict";
-const CACHE = "mogwai-app-0.2.2";
+const CACHE = "mogwai-app-0.2.2-header";
 const SHELL = ["./", "index.html", "app.css", "core.js", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 const scope = self.registration.scope;
 const shellURLs = new Set(SHELL.map(path => new URL(path, scope).href));

@@ -6,3 +6,5 @@ textarea{display:block;width:100%;min-width:0;resize:vertical;border:1px solid v
 textarea:focus-visible,pre:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .receipt h2{margin-top:9px}.receipt p{font-size:13px}.receipt pre{margin:18px 0;padding:15px;border:1px solid var(--line);border-radius:7px;background:#10181f;font:12px/1.65 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:330px;overflow:auto;tab-size:2}
 .actions{display:flex;flex-wrap:wrap;gap:10px}.actions button{font-size:12px}.receipt .hint{font-size:11px}
+.header-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.header-actions button{white-space:nowrap;font-size:12px;padding:9px 12px}
+@media(max-width:500px){header{align-items:flex-start;flex-wrap:wrap}.header-actions{margin-left:auto}#install{font-size:12px}}
