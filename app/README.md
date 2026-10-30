@@ -1,7 +1,28 @@
-# Mogwai share receiver · 0.2.2
+# Mogwai share receiver · 0.3.0
+
+## Share console
+
+Open **☰ Tools → Share console** to dump incoming shares immediately. This
+includes original `title`, `text`, `url`, unknown fields, unexpected file
+metadata, and receiver errors. With the console enabled, YouTube links stay
+in Mogwai. **Open in Chisel** still performs the normal handoff when selected.
+
+The toggle is remembered in browser settings. The last 20 receipts, bounded
+to 200,000 UTF-8 bytes, are held in this window's session storage so shares
+that navigate/reload the app do not erase the console. New fragment shares
+are also processed while the same page remains open. These receipts are not
+uploaded. **Clear console** erases its log; **Clear received data** also
+erases it; turning the console off erases it and restores automatic YouTube
+handoff for subsequent shares. Copying the console requires its own button.
+Updating retains the log without appending the restored receipt a second time.
+
+If browser storage is blocked, the toggle and log work for the current page
+only. Cross-window history is not aggregated. The standard share fields still
+cannot identify which app sent a share.
 
 An installed receiver for shared **text and web links**. YouTube video links
-still open Chisel Send automatically with OP_RETURN ASCII filled. Other links
+still open Chisel Send automatically with OP_RETURN ASCII filled when the
+console is off. Other links
 and plain text stay in Mogwai for review. Unrecognized shares show the fields
 received rather than disappearing into a URL error. This remains a small,
 vanilla-JavaScript web app with no build or package dependencies.
@@ -9,7 +30,7 @@ vanilla-JavaScript web app with no build or package dependencies.
 ## The next device test
 
 1. Open <https://johnrigler.github.io/mogwai/app/> online and reload until
-   **Share receiver · 0.2.2** appears at the top.
+   **Share receiver · 0.3.0** appears at the top.
 2. Choose **Open system share test**. This calls the device's system share API
    with a short plain-text message, independently of YouTube.
 3. Choose **Mogwai**, if the system lists it. The receiving window should show
@@ -96,8 +117,9 @@ bytes are not read, uploaded, or retained by the receipt.
 
 The standard share fields do not identify the app that sent them. Mogwai does
 not guess a sender from a page title or hostname. JSON is rendered as text,
-including unrecognized content. A received record is kept in the current
-window, not written to a server or persistent storage. Clearing it also clears
+including unrecognized content. With the console off, a received record stays
+in memory in the current window. With it on, bounded receipts also survive navigation in session storage.
+Records are never written to a server. Clearing it also clears
 the prepared content. A previous session link cannot fill an unknown share.
 
 The receiver envelope has a 70,000-byte limit. Oversized URL-fragment inputs

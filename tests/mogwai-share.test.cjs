@@ -58,7 +58,7 @@ function controller(share, options = {}) {
     localStorage: makeStorage(storage), sessionStorage: makeStorage(session), addEventListener(type, handler) {events[type] = handler;}});
   ctx.window = ctx;
   vm.runInContext(core + "\n" + app, ctx);
-  return {nodes, navigations, storage, session, history, events};
+  return {nodes, navigations, storage, session, history, events, location};
 }
 test("a received share immediately opens Chisel with the extracted URL", () => {
   const ui = controller({text: "Watch this " + short + "?si=tracking"});
@@ -66,6 +66,65 @@ test("a received share immediately opens Chisel with the extracted URL", () => {
   const url = new URL(ui.navigations[0]);
   assert.equal(url.origin, "https://johnrigler.github.io"); assert.equal(url.pathname, "/chisel/");
   assert.equal(new URLSearchParams(url.hash.slice(1)).get("opreturn"), short);
+});
+test("the share console dumps a YouTube receipt and waits for an explicit Chisel handoff", () => {
+  const shared = {text: "Watch " + short, custom: "<script>synthetic</script>"};
+  const ui = controller(shared, {storage: [["mogwai.share-console.v1", "1"]]});
+  assert.equal(ui.nodes.get("share-console").hidden, false);
+  assert.equal(ui.navigations.length, 0);
+  const entries = JSON.parse(ui.session.get("mogwai.share-console-log.v1"));
+  assert.deepEqual(entries[0].fields, shared);
+  assert.match(ui.nodes.get("console-data").textContent, /synthetic/);
+  assert.doesNotMatch(ui.nodes.get("status").textContent, /Opening Chisel/);
+  ui.nodes.get("share-form").listeners.submit({preventDefault() {}});
+  assert.equal(ui.navigations.length, 1);
+});
+test("Tools enables the console, remembers the setting, and receives further shares in the same window", () => {
+  const ui = controller({text: "First note"});
+  const toggle = ui.nodes.get("console-enabled");
+  toggle.checked = true; toggle.listeners.change();
+  assert.equal(ui.storage.get("mogwai.share-console.v1"), "1");
+  assert.equal(ui.nodes.get("console-count").textContent, "1");
+  const second = {title: "Second note", text: "Another share", additional_fields: [{name: "custom", value: "Kept"}]};
+  ui.location.hash = "#share=" + encodeURIComponent(JSON.stringify(second));
+  ui.events.hashchange();
+  const entries = JSON.parse(ui.session.get("mogwai.share-console-log.v1"));
+  assert.equal(entries.length, 2);assert.deepEqual(entries[1].fields, second);
+  assert.equal(ui.nodes.get("shared-url").value, "Another share");
+  const restored = controller(null, {storage: [...ui.storage], session: [...ui.session]});
+  assert.equal(restored.nodes.get("console-count").textContent, "2");
+  toggle.checked = false;toggle.listeners.change();
+  assert.equal(ui.nodes.get("share-console").hidden, true);
+  assert.equal(ui.session.has("mogwai.share-console-log.v1"), false);
+});
+test("console history is bounded, includes receiver errors, and clears independently of the current receipt", () => {
+  const ui = controller(null, {storage: [["mogwai.share-console.v1", "1"]]});
+  for (let i = 0; i < 25; i++) {
+    ui.location.hash = "#share=" + encodeURIComponent(JSON.stringify({text: "Note " + i}));
+    ui.events.hashchange();
+  }
+  assert.equal(JSON.parse(ui.session.get("mogwai.share-console-log.v1")).length, 20);
+  ui.location.hash = "#share-error=Could+not+decode";ui.events.hashchange();
+  const entries = JSON.parse(ui.session.get("mogwai.share-console-log.v1"));
+  assert.equal(entries.at(-1).error, "Could not decode");
+  ui.nodes.get("clear-console").listeners.click();
+  assert.equal(ui.nodes.get("console-data").textContent, "");
+  assert.equal(ui.nodes.get("received-share").hidden, false);
+  assert.equal(ui.session.has("mogwai.share-console-log.v1"), false);
+});
+test("large receipts respect the console byte limit, updates do not duplicate logs, and clearing removes them", async () => {
+  const shared = {text: "é".repeat(30000)};
+  const ui = controller(shared, {storage: [["mogwai.share-console.v1", "1"]]});
+  for (let i = 0; i < 5; i++) {
+    ui.location.hash = "#share=" + encodeURIComponent(JSON.stringify(shared));ui.events.hashchange();
+  }
+  assert.ok(Buffer.byteLength(ui.session.get("mogwai.share-console-log.v1")) <= 200000);
+  await ui.nodes.get("update-app").listeners.click();
+  const updated = controller(null, {storage: [...ui.storage], session: [...ui.session], hash: new URL(ui.navigations[0]).hash});
+  assert.equal(updated.nodes.get("console-count").textContent, ui.nodes.get("console-count").textContent);
+  updated.nodes.get("clear-received").listeners.click();
+  assert.equal(updated.session.has("mogwai.share-console-log.v1"), false);
+  assert.equal(updated.nodes.get("console-data").textContent, "");
 });
 test("manual paste uses the same handoff and still works with browser storage blocked", () => {
   const ui = controller(null, {noStorage: true});
@@ -188,7 +247,7 @@ test("an update failure leaves content in place and allows retry", async () => {
 });
 test("existing default Chisel settings receive the fresh compatible page without replacing custom hosts", () => {
   const old = controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/"]]});
-  assert.equal(old.nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.10");
+  assert.equal(old.nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.11");
   const custom = "https://local.example/chisel/?coin=ltc";
   assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", custom]]}).nodes.get("chisel-url").value, custom);
 });

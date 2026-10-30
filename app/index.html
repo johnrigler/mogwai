@@ -10,16 +10,23 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="app.css?v=0.2.2-header">
-<script defer src="core.js?v=0.2.2"></script>
-<script defer src="app.js?v=0.2.2"></script>
+<link rel="stylesheet" href="app.css?v=0.3.0">
+<script defer src="core.js?v=0.3.0"></script>
+<script defer src="app.js?v=0.3.0"></script>
 </head>
 <body>
-<header><div class="brand"><img src="icon.svg" width="36" height="36" alt=""><span>Mogwai<small>Share receiver · 0.2.2</small></span></div><div class="header-actions"><button id="install" type="button">Install Mogwai</button><button id="update-app" type="button">Update app</button></div></header>
+<header><div class="brand"><img src="icon.svg" width="36" height="36" alt=""><span>Mogwai<small>Share receiver · 0.3.0</small></span></div><div class="header-actions"><button id="install" type="button">Install Mogwai</button><button id="update-app" type="button">Update app</button><details id="tools"><summary>☰ Tools</summary><div class="tools-menu"><label class="console-toggle"><input id="console-enabled" type="checkbox"> Share console</label><p class="hint">Keep incoming shares on screen, including YouTube links.</p></div></details></div></header>
 <main>
+  <section id="share-console" class="panel receipt" aria-labelledby="console-heading" hidden>
+    <span class="eyebrow">Incoming shares · <span id="console-count">0</span> entries</span>
+    <h2 id="console-heading">Share console</h2>
+    <pre id="console-data" tabindex="0" role="log" aria-live="polite" aria-label="Incoming shared fields"></pre>
+    <div class="actions"><button id="copy-console" type="button">Copy console</button><button id="clear-console" type="button">Clear console</button></div>
+    <p class="hint">The last 20 receipts, up to 200 KB, stay in this app window’s session. Disable the console or clear received data to erase the log. Choose Open in Chisel when ready.</p>
+  </section>
   <span class="eyebrow">Share → Mogwai → Chisel</span>
   <h1>A link. A note.<br>See what arrived.</h1>
-  <p class="intro">Choose Mogwai in your system share menu. YouTube videos open Chisel automatically. Other links and text stay here for review, with the received fields visible.</p>
+  <p class="intro">Choose Mogwai in your system share menu. YouTube videos open Chisel automatically unless Share console is enabled. Other links and text stay here for review, with the received fields visible.</p>
   <section id="received-share" class="panel receipt" aria-labelledby="received-heading" hidden>
     <span id="received-kind" class="eyebrow"></span><h2 id="received-heading">What Mogwai received</h2>
     <p id="received-note"></p><pre id="received-data" tabindex="0" aria-label="Original received fields"></pre>
@@ -32,7 +39,7 @@
     <div id="status" role="status" aria-live="polite"></div>
   </section>
   <section class="panel" aria-labelledby="system-share-heading"><h2 id="system-share-heading">Test the system share menu</h2><p class="hint">This button asks your phone or Chromebook to open its own app chooser. Choose Mogwai, if listed. It sends a plain-text test message, without YouTube.</p><button id="system-share-test" type="button">Open system share test</button><p id="system-share-status" class="hint" role="status" aria-live="polite"></p></section>
-  <details id="install-help" class="panel"><summary>Install or update on phone or Chromebook</summary><p id="install-status" class="hint" role="status"></p><ol><li>Open this page in Chrome and confirm <strong>0.2.2</strong> appears at the top. Use <strong>Update app</strong> for a fresh online load.</li><li>Choose <strong>Install Mogwai</strong>, or use Chrome’s menu to install this app.</li><li>From an app's <strong>system</strong> share menu, choose <strong>Mogwai</strong>.</li></ol><p class="hint">Updating keeps the current receipt and prepared text in this window. YouTube’s social-network panel is its own menu. Installing Mogwai does not add a button to that panel. The test above opens system sharing directly where supported.</p><p id="offline-status" class="hint" role="status">Preparing share receiver…</p></details>
+  <details id="install-help" class="panel"><summary>Install or update on phone or Chromebook</summary><p id="install-status" class="hint" role="status"></p><ol><li>Open this page in Chrome and confirm <strong>0.3.0</strong> appears at the top. Use <strong>Update app</strong> for a fresh online load.</li><li>Choose <strong>Install Mogwai</strong>, or use Chrome’s menu to install this app.</li><li>From an app's <strong>system</strong> share menu, choose <strong>Mogwai</strong>.</li></ol><p class="hint">Updating keeps the current receipt and prepared text in this window. YouTube’s social-network panel is its own menu. Installing Mogwai does not add a button to that panel. The test above opens system sharing directly where supported.</p><p id="offline-status" class="hint" role="status">Preparing share receiver…</p></details>
   <details class="settings"><summary>Chisel address</summary><label for="chisel-url">Hosted, local, or IPFS copy</label><input id="chisel-url" type="url" spellcheck="false" autocomplete="off"><p class="hint">Use Chisel 2.8.10 or later to preserve paragraph breaks.</p></details>
 </main>
 <footer>Vanilla JavaScript · <a href="https://github.com/johnrigler/mogwai">Mogwai source</a> · <a href="https://johnrigler.github.io/chisel/">Chisel</a></footer>

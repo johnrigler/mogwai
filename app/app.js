@@ -2,20 +2,70 @@
 const $ = id => document.getElementById(id);
 const CHISEL = "mogwai.chisel-url.v1";
 const LAST = "mogwai.shared-link.v1";
-const DEFAULT_CHISEL = "https://johnrigler.github.io/chisel/?v=2.8.10";
+const CONSOLE = "mogwai.share-console.v1";
+const CONSOLE_LOG = "mogwai.share-console-log.v1";
+const DEFAULT_CHISEL = "https://johnrigler.github.io/chisel/?v=2.8.11";
 const SYSTEM_TEST = {title: "Mogwai sharing test", text: "Mogwai system-share test: this is plain text, with no YouTube link."};
 let selected = null, installPrompt = null, receiptText = "";
+let consoleEnabled = false, consoleEntries = [];
+
+function renderConsole() {
+  $("console-enabled").checked = consoleEnabled;
+  $("share-console").hidden = !consoleEnabled;
+  $("console-data").textContent = consoleEntries.map(entry => JSON.stringify(entry, null, 2)).join("\n\n");
+  $("console-count").textContent = String(consoleEntries.length);
+  $("console-data").scrollTop = $("console-data").scrollHeight;
+}
+function clearConsole() {
+  consoleEntries = [];
+  try { sessionStorage.removeItem(CONSOLE_LOG); } catch {}
+  renderConsole();
+}
+function recordConsole(fields, error = "") {
+  if (!consoleEnabled) return;
+  consoleEntries.push({received_at: new Date().toISOString(), ...(error ? {error} : {}), fields});
+  while (consoleEntries.length > 20 || (consoleEntries.length > 1 && new TextEncoder().encode(JSON.stringify(consoleEntries)).byteLength > 200000)) consoleEntries.shift();
+  try { sessionStorage.setItem(CONSOLE_LOG, JSON.stringify(consoleEntries)); } catch {}
+  renderConsole();
+}
+try {
+  consoleEnabled = localStorage.getItem(CONSOLE) === "1";
+  if (!consoleEnabled) sessionStorage.removeItem(CONSOLE_LOG);
+  const saved = consoleEnabled ? sessionStorage.getItem(CONSOLE_LOG) : null;
+  if (saved && new TextEncoder().encode(saved).byteLength <= 200000) {
+    const parsed = JSON.parse(saved);
+    if (Array.isArray(parsed)) consoleEntries = parsed.slice(-20);
+  }
+} catch {}
+renderConsole();
+$("console-enabled").addEventListener("change", () => {
+  consoleEnabled = $("console-enabled").checked;
+  try { localStorage.setItem(CONSOLE, consoleEnabled ? "1" : "0"); } catch {}
+  if (!consoleEnabled) clearConsole();
+  else if (receiptText && !consoleEntries.length) recordConsole(JSON.parse(receiptText));
+  renderConsole();
+  status(consoleEnabled ? "Share console enabled. Incoming shares stay here for inspection." : "Share console disabled and its log cleared.");
+});
+$("clear-console").addEventListener("click", clearConsole);
+$("copy-console").addEventListener("click", async () => {
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+    await navigator.clipboard.writeText($("console-data").textContent);
+    status("Console copied.");
+  } catch { status("Select and copy the console text directly.", true); }
+});
 
 function status(message = "", error = false) {
   $("status").textContent = message;
   $("status").className = error ? "error" : "";
 }
-function receipt(value, description, error = "") {
+function receipt(value, description, error = "", logReceipt = true) {
   receiptText = JSON.stringify(value, null, 2);
   $("received-share").hidden = false;
   $("received-kind").textContent = error ? "Could not process this share" : description.label;
   $("received-note").textContent = error || description.reason || "These are the original fields Mogwai received. Review the content below before opening Chisel.";
   $("received-data").textContent = receiptText;
+  if (logReceipt) recordConsole(value, error);
 }
 function preview() {
   selected = null; $("open-chisel").disabled = true;
@@ -63,6 +113,7 @@ $("clear-received").addEventListener("click", () => {
   receiptText = ""; $("received-data").textContent = ""; $("received-share").hidden = true;
   $("shared-url").value = "";
   try { sessionStorage.removeItem(LAST); } catch {}
+  clearConsole();
   status(); preview();
 });
 $("system-share-test").addEventListener("click", async () => {
@@ -116,39 +167,44 @@ window.addEventListener("appinstalled", () => { installPrompt = null; $("install
 $("chisel-url").value = DEFAULT_CHISEL;
 try {
   const savedChisel = localStorage.getItem(CHISEL);
-  $("chisel-url").value = !savedChisel || savedChisel === "https://johnrigler.github.io/chisel/" ? DEFAULT_CHISEL : savedChisel;
+  $("chisel-url").value = !savedChisel || ["https://johnrigler.github.io/chisel/", "https://johnrigler.github.io/chisel/?v=2.8.10"].includes(savedChisel) ? DEFAULT_CHISEL : savedChisel;
   $("shared-url").value = sessionStorage.getItem(LAST) || "";
 } catch {}
-const fragment = new URLSearchParams(location.hash.slice(1));
-const query = new URLSearchParams(location.search);
-const hasShare = fragment.has("share") || ["title", "text", "url"].some(key => query.has(key));
-let incoming = null, received = null;
-if (hasShare) {
-  // A new receipt must not inherit a previous link from this browser session.
-  $("shared-url").value = "";
-  try { sessionStorage.removeItem(LAST); } catch {}
-  const raw = fragment.has("share") ? fragment.get("share") : JSON.stringify(Object.fromEntries(["title", "text", "url"].filter(key => query.has(key)).map(key => [key, query.get(key)])));
-  try {
-    if (new TextEncoder().encode(raw).byteLength > 70000) throw new Error("Shared data exceeds the 70,000-byte receiver limit. Only a preview is shown.");
-    incoming = JSON.parse(raw);
-    received = MogwaiShare.describe(incoming);
-    receipt(incoming, received);
-    $("shared-url").value = received.content;
-    status(received.reason || (received.kind === "youtube" ? "YouTube link received. Opening Chisel…" : received.label + " received. Review it, then choose Open in Chisel."), received.kind === "unknown");
-  } catch (error) {
-    receipt({unparsed: raw.slice(0, 2500), preview_truncated: raw.length > 2500}, null, error.message);
-    status(error.message, true);
+function receiveFromLocation() {
+  const fragment = new URLSearchParams(location.hash.slice(1));
+  const query = new URLSearchParams(location.search);
+  const hasShare = fragment.has("share") || ["title", "text", "url"].some(key => query.has(key));
+  let incoming = null, received = null;
+  if (hasShare) {
+    // A new receipt must not inherit a previous link from this browser session.
+    $("shared-url").value = "";
+    try { sessionStorage.removeItem(LAST); } catch {}
+    const raw = fragment.has("share") ? fragment.get("share") : JSON.stringify(Object.fromEntries(["title", "text", "url"].filter(key => query.has(key)).map(key => [key, query.get(key)])));
+    try {
+      if (new TextEncoder().encode(raw).byteLength > 70000) throw new Error("Shared data exceeds the 70,000-byte receiver limit. Only a preview is shown.");
+      incoming = JSON.parse(raw);
+      received = MogwaiShare.describe(incoming);
+      receipt(incoming, received, "", !fragment.has("review"));
+      $("shared-url").value = received.content;
+      status(received.reason || (received.kind === "youtube" && !consoleEnabled && !fragment.has("review") ? "YouTube link received. Opening Chisel…" : received.label + " received. Review it, then choose Open in Chisel."), received.kind === "unknown");
+    } catch (error) {
+      receipt({unparsed: raw.slice(0, 2500), preview_truncated: raw.length > 2500}, null, error.message, !fragment.has("review"));
+      status(error.message, true);
+    }
   }
+  if (fragment.has("share-error")) {
+    $("shared-url").value = "";
+    const error = fragment.get("share-error").slice(0, 2500);
+    receipt({receiver_error: error}, null, error);
+    status(error, true);
+  }
+  if (fragment.has("draft")) $("shared-url").value = fragment.get("draft");
+  if (hasShare || fragment.has("share-error") || fragment.has("draft") || fragment.has("review")) history.replaceState(null, "", location.pathname);
+  preview();
+  if (received?.kind === "youtube" && selected && !fragment.has("review") && !consoleEnabled) openChisel();
 }
-if (fragment.has("share-error")) {
-  $("shared-url").value = "";
-  receipt({receiver_error: fragment.get("share-error")}, null, fragment.get("share-error"));
-  status(fragment.get("share-error"), true);
-}
-if (fragment.has("draft")) $("shared-url").value = fragment.get("draft");
-if (hasShare || fragment.has("share-error") || fragment.has("draft") || fragment.has("review")) history.replaceState(null, "", location.pathname);
-preview();
-if (received?.kind === "youtube" && selected && !fragment.has("review")) openChisel();
+receiveFromLocation();
+window.addEventListener("hashchange", receiveFromLocation);
 if ("serviceWorker" in navigator && window.isSecureContext) {
-  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.2.2. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
+  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.3.0. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
 } else $("offline-status").textContent = "Use HTTPS or localhost to install the share receiver.";
