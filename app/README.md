@@ -1,4 +1,4 @@
-# Mogwai share receiver · 0.2.0
+# Mogwai share receiver · 0.2.2
 
 An installed receiver for shared **text and web links**. YouTube video links
 still open Chisel Send automatically with OP_RETURN ASCII filled. Other links
@@ -9,7 +9,7 @@ vanilla-JavaScript web app with no build or package dependencies.
 ## The next device test
 
 1. Open <https://johnrigler.github.io/mogwai/app/> online and reload until
-   **Share receiver · 0.2.0** appears at the top.
+   **Share receiver · 0.2.2** appears at the top.
 2. Choose **Open system share test**. This calls the device's system share API
    with a short plain-text message, independently of YouTube.
 3. Choose **Mogwai**, if the system lists it. The receiving window should show
@@ -23,6 +23,17 @@ is the useful check. If this browser cannot open system sharing from a page,
 the button reports that limitation; receiving shares from another app may still
 work. YouTube's social-network panel has its own list and need not open the
 system chooser.
+
+**Update app** is always visible in the header. It checks the service-worker
+registration, requests a fresh page with a unique update URL, and restores the
+current receipt and prepared text through a temporary fragment. An update does
+not automatically hand a restored YouTube link to Chisel. The version label is
+plain text, not a home or update link.
+
+**Install Mogwai** also stays visible. When Chrome supplies an installation
+prompt, the button opens it; otherwise it opens installation instructions.
+Chrome may stop offering a prompt once the app is installed. Installation and
+updating are separate actions.
 
 ## Install and test on a device
 
@@ -43,8 +54,12 @@ target. If it is missing, confirm the PWA was installed using Chrome.
 
 The manual text field exercises the same URL conversion and Chisel handoff.
 **Chisel address** can select a local or IPFS-hosted copy. That copy needs
-Chisel 2.8.9 or later. The default is the public Chisel GitHub Pages app.
+Chisel 2.8.10 or later for paragraph text. The default is the public Chisel GitHub Pages app.
 No FileProxy, Crostini, or Termux process is required for this share path.
+
+The default hosted Chisel link includes a version marker for a fresh compatible
+page load. An earlier saved default is migrated; custom hosts are retained.
+Paragraphs require Chisel 2.8.10 or later.
 
 ## Handoff
 
@@ -66,7 +81,10 @@ URL openers. No cross-origin storage or messaging is required.
 Plain text can use the same handoff after an explicit button press. Paragraphs,
 Unicode, and final newlines are retained. The displayed UTF-8 byte count warns
 when content exceeds 80 bytes; Chisel applies the selected chain's actual
-payload rules. The widget does not truncate text or send a transaction.
+payload rules. Handoff is disabled above Chisel's 4,096-byte URL-import limit,
+while the full receipt remains available. Use Chisel 2.8.10 or later to retain
+paragraph breaks in its ASCII field. The widget does not truncate text or send
+a transaction.
 
 ## Received fields
 

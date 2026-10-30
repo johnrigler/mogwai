@@ -50,14 +50,15 @@ function controller(share, options = {}) {
   const nodes = new Map();
   const ids = [...readFileSync(path.join(base, "index.html"), "utf8").matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   for (const name of ids) nodes.set(name, {value: "", textContent: "", disabled: false, hidden: false, listeners: {}, addEventListener(type, handler) {this.listeners[type] = handler;}});
-  const storage = new Map(), session = new Map(options.session || []), navigations = [], events = {}, history = [];
+  const storage = new Map(options.storage || []), session = new Map(options.session || []), navigations = [], events = {}, history = [];
   const makeStorage = map => ({getItem(key) {if (options.noStorage) throw Error("blocked"); return map.get(key) || null;}, setItem(key, value) {if (options.noStorage) throw Error("blocked"); map.set(key, value);}, removeItem(key) {if (options.noStorage) throw Error("blocked"); map.delete(key);}});
   const location = {pathname: "/mogwai/app/", search: options.search || "", hash: options.hash ?? (share !== null && share !== undefined ? "#share=" + encodeURIComponent(JSON.stringify(share)) : ""), replace(target) {navigations.push(target);}};
-  const ctx = vm.createContext({document: {getElementById(id) {assert.ok(nodes.has(id), id); return nodes.get(id);}}, URL, URLSearchParams, TextEncoder, location, navigator: options.navigator || {}, history: {replaceState(...args) {history.push(args);}},
+  location.href = "https://example.test" + location.pathname + location.search + location.hash;
+  const ctx = vm.createContext({document: {getElementById(id) {assert.ok(nodes.has(id), id); return nodes.get(id);}}, URL, URLSearchParams, TextEncoder, location, navigator: options.navigator || {}, history: {replaceState(...args) {history.push(args); location.href = new URL(args[2], location.href).href;}},
     localStorage: makeStorage(storage), sessionStorage: makeStorage(session), addEventListener(type, handler) {events[type] = handler;}});
   ctx.window = ctx;
   vm.runInContext(core + "\n" + app, ctx);
-  return {nodes, navigations, storage, session, history};
+  return {nodes, navigations, storage, session, history, events};
 }
 test("a received share immediately opens Chisel with the extracted URL", () => {
   const ui = controller({text: "Watch this " + short + "?si=tracking"});
@@ -125,6 +126,15 @@ test("query shares and title-only shares are inspectable even with blocked brows
   assert.deepEqual(JSON.parse(ui.nodes.get("received-data").textContent), {title: "An observation", text: "Plain words"});
   assert.equal(controller({title: "Title only"}).nodes.get("shared-url").value, "Title only");
 });
+test("Chisel's import byte limit disables handoff without truncating the received text", () => {
+  assert.equal(controller({text: "é".repeat(2048)}).nodes.get("open-chisel").disabled, false);
+  const shared = {text: "é".repeat(2049)};
+  const ui = controller(shared);
+  assert.equal(ui.nodes.get("open-chisel").disabled, true);
+  assert.deepEqual(JSON.parse(ui.nodes.get("received-data").textContent), shared);
+  assert.match(ui.nodes.get("detected").textContent, /4,096 bytes/);
+  assert.equal(ui.navigations.length, 0);
+});
 test("system share testing uses a plain-text payload and reports cancellation without claiming receipt", async () => {
   const shared = [];
   const ui = controller(null, {navigator: {async share(value) {shared.push(JSON.parse(JSON.stringify(value))); const error = new Error("Canceled"); error.name = "AbortError"; throw error;}}});
@@ -150,6 +160,50 @@ test("a received record can be copied unchanged and cleared without persisting i
   assert.equal(ui.nodes.get("received-share").hidden, true);
   assert.equal(ui.nodes.get("received-data").textContent, "");
   assert.equal(ui.nodes.get("open-chisel").disabled, true);
+});
+test("updating uses a fresh page request and restores the receipt and edited draft without an automatic handoff", async () => {
+  let updates = 0;
+  const shared = {text: "Original shared note", custom: "Keep this field"};
+  const ui = controller(shared, {navigator: {serviceWorker: {async getRegistration() {return {async update() {updates++;}};}}}});
+  const edited = "An edited note\nwith another line.";
+  ui.nodes.get("shared-url").value = edited;
+  await ui.nodes.get("update-app").listeners.click();
+  assert.equal(updates, 1);
+  const next = new URL(ui.navigations[0]);
+  assert.ok(next.searchParams.get("update"));
+  assert.equal(next.pathname, "/mogwai/app/");
+  const restored = controller(null, {hash: next.hash});
+  assert.deepEqual(JSON.parse(restored.nodes.get("received-data").textContent), shared);
+  assert.equal(restored.nodes.get("shared-url").value, edited);
+  assert.equal(restored.navigations.length, 0);
+  assert.equal(controller(null, {hash: "#review=1&share=" + encodeURIComponent(JSON.stringify({url: short}))}).navigations.length, 0);
+});
+test("an update failure leaves content in place and allows retry", async () => {
+  const ui = controller({text: "Keep my note"}, {navigator: {serviceWorker: {async getRegistration() {throw Error("Offline");}}}});
+  await ui.nodes.get("update-app").listeners.click();
+  assert.equal(ui.navigations.length, 0);
+  assert.equal(ui.nodes.get("shared-url").value, "Keep my note");
+  assert.equal(ui.nodes.get("update-app").disabled, false);
+  assert.match(ui.nodes.get("status").textContent, /current content is still here/);
+});
+test("existing default Chisel settings receive the fresh compatible page without replacing custom hosts", () => {
+  const old = controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/"]]});
+  assert.equal(old.nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.10");
+  const custom = "https://local.example/chisel/?coin=ltc";
+  assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", custom]]}).nodes.get("chisel-url").value, custom);
+});
+test("install stays available for a browser prompt or installation instructions", async () => {
+  const ui = controller(null);
+  await ui.nodes.get("install").listeners.click();
+  assert.equal(ui.nodes.get("install-help").open, true);
+  assert.match(ui.nodes.get("install-status").textContent, /Update app/);
+  let prompted = 0;
+  ui.events.beforeinstallprompt({preventDefault() {}, async prompt() {prompted++;}, userChoice: Promise.resolve({outcome: "accepted"})});
+  await ui.nodes.get("install").listeners.click();
+  assert.equal(prompted, 1);
+  ui.events.appinstalled();
+  assert.equal(ui.nodes.get("install").hidden, false);
+  assert.equal(ui.nodes.get("install").disabled, false);
 });
 
 function worker() {

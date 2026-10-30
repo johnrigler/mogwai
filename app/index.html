@@ -10,12 +10,12 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="app.css?v=0.2.0">
-<script defer src="core.js?v=0.2.0"></script>
-<script defer src="app.js?v=0.2.0"></script>
+<link rel="stylesheet" href="app.css?v=0.2.2">
+<script defer src="core.js?v=0.2.2"></script>
+<script defer src="app.js?v=0.2.2"></script>
 </head>
 <body>
-<header><a class="brand" href="./"><img src="icon.svg" width="36" height="36" alt=""><span>Mogwai<small>Share receiver · 0.2.0</small></span></a><button id="install" hidden>Install Mogwai</button></header>
+<header><div class="brand"><img src="icon.svg" width="36" height="36" alt=""><span>Mogwai<small>Share receiver · 0.2.2</small></span></div><div class="header-actions"><button id="install" type="button">Install Mogwai</button><button id="update-app" type="button">Update app</button></div></header>
 <main>
   <span class="eyebrow">Share → Mogwai → Chisel</span>
   <h1>A link. A note.<br>See what arrived.</h1>
@@ -32,8 +32,8 @@
     <div id="status" role="status" aria-live="polite"></div>
   </section>
   <section class="panel" aria-labelledby="system-share-heading"><h2 id="system-share-heading">Test the system share menu</h2><p class="hint">This button asks your phone or Chromebook to open its own app chooser. Choose Mogwai, if listed. It sends a plain-text test message, without YouTube.</p><button id="system-share-test" type="button">Open system share test</button><p id="system-share-status" class="hint" role="status" aria-live="polite"></p></section>
-  <details class="panel"><summary>Install or update on phone or Chromebook</summary><ol><li>Open this page in Chrome and confirm <strong>0.2.0</strong> appears at the top. Reload online if it shows an earlier version.</li><li>Choose <strong>Install Mogwai</strong>, or use Chrome’s menu to install this app.</li><li>From an app's <strong>system</strong> share menu, choose <strong>Mogwai</strong>.</li></ol><p class="hint">YouTube’s social-network panel is its own menu. Installing Mogwai does not add a button to that panel. The test above opens system sharing directly where supported.</p><p id="offline-status" class="hint" role="status">Preparing share receiver…</p></details>
-  <details class="settings"><summary>Chisel address</summary><label for="chisel-url">Hosted, local, or IPFS copy</label><input id="chisel-url" type="url" spellcheck="false" autocomplete="off"><p class="hint">The selected copy needs Chisel 2.8.9 or later.</p></details>
+  <details id="install-help" class="panel"><summary>Install or update on phone or Chromebook</summary><p id="install-status" class="hint" role="status"></p><ol><li>Open this page in Chrome and confirm <strong>0.2.2</strong> appears at the top. Use <strong>Update app</strong> for a fresh online load.</li><li>Choose <strong>Install Mogwai</strong>, or use Chrome’s menu to install this app.</li><li>From an app's <strong>system</strong> share menu, choose <strong>Mogwai</strong>.</li></ol><p class="hint">Updating keeps the current receipt and prepared text in this window. YouTube’s social-network panel is its own menu. Installing Mogwai does not add a button to that panel. The test above opens system sharing directly where supported.</p><p id="offline-status" class="hint" role="status">Preparing share receiver…</p></details>
+  <details class="settings"><summary>Chisel address</summary><label for="chisel-url">Hosted, local, or IPFS copy</label><input id="chisel-url" type="url" spellcheck="false" autocomplete="off"><p class="hint">Use Chisel 2.8.10 or later to preserve paragraph breaks.</p></details>
 </main>
 <footer>Vanilla JavaScript · <a href="https://github.com/johnrigler/mogwai">Mogwai source</a> · <a href="https://johnrigler.github.io/chisel/">Chisel</a></footer>
 </body>
