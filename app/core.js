@@ -1,5 +1,12 @@
 (function (root) {
   "use strict";
+  const MAX_OP_RETURN_BYTES = 80;
+  function opReturnBytes(value) {
+    if (typeof value !== "string" || !value.trim()) throw new Error("OP_RETURN needs text or a link.");
+    const bytes = new TextEncoder().encode(value).byteLength;
+    if (bytes > MAX_OP_RETURN_BYTES) throw new Error("OP_RETURN is " + bytes + " bytes; the limit is " + MAX_OP_RETURN_BYTES + " UTF-8 bytes. Shorten the content or use a compact link. The original receipt is unchanged.");
+    return bytes;
+  }
   function seconds(value) {
     if (/^\d+s?$/.test(value)) return String(Number(value.replace(/s$/, "")));
     const match = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(value);
@@ -48,6 +55,7 @@
     return unknown("Mogwai does not know what to open from these fields. Here is what it received.");
   }
   function chiselURL(endpoint, value, record = null) {
+    opReturnBytes(value);
     const url = new URL(endpoint);
     if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("Use an HTTP or HTTPS Chisel address without embedded credentials.");
     const fragment = new URLSearchParams(url.hash.slice(1));
@@ -89,5 +97,5 @@
     if (typeof metadata.title === "string" && metadata.title) summary.title = metadata.title;
     return {schema: "chisel-shared-record-v1", opReturnText: description.content, summary, metadata};
   }
-  root.MogwaiShare = Object.freeze({fromShare, describe, link, chiselURL, portalPreview, integrityData, sharedRecord});
+  root.MogwaiShare = Object.freeze({fromShare, describe, link, chiselURL, portalPreview, integrityData, sharedRecord, opReturnBytes, MAX_OP_RETURN_BYTES});
 })(typeof window === "object" ? window : globalThis);

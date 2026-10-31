@@ -307,14 +307,35 @@ test("query shares and title-only shares are inspectable even with blocked brows
   assert.deepEqual(JSON.parse(ui.nodes.get("received-data").textContent), {title: "An observation", text: "Plain words"});
   assert.equal(controller({title: "Title only"}).nodes.get("shared-url").value, "Title only");
 });
-test("Chisel's import byte limit disables handoff without truncating the received text", () => {
-  assert.equal(controller({text: "é".repeat(2048)}).nodes.get("open-chisel").disabled, false);
-  const shared = {text: "é".repeat(2049)};
-  const ui = controller(shared);
-  assert.equal(ui.nodes.get("open-chisel").disabled, true);
-  assert.deepEqual(JSON.parse(ui.nodes.get("received-data").textContent), shared);
-  assert.match(ui.nodes.get("detected").textContent, /4,096 bytes/);
-  assert.equal(ui.navigations.length, 0);
+test("the 80-byte OP_RETURN limit enables exact-fit text and blocks overflow without truncating the receipt", () => {
+  for (const text of ["a".repeat(80), "é".repeat(40), "😀".repeat(20), "a".repeat(79) + "\n"]) {
+    const ui = controller({text});
+    assert.equal(ui.nodes.get("open-chisel").disabled, false);
+    assert.match(ui.nodes.get("detected").textContent, /80 \/ 80 bytes/);
+    ui.nodes.get("share-form").listeners.submit({preventDefault() {}});
+    assert.equal(new URLSearchParams(new URL(ui.navigations[0]).hash.slice(1)).get("opreturn"), text);
+  }
+  for (const text of ["a".repeat(81), "é".repeat(41), "😀".repeat(21), "é".repeat(2049)]) {
+    const shared = {text};
+    const ui = controller(shared);
+    assert.equal(ui.nodes.get("open-chisel").disabled, true);
+    assert.deepEqual(JSON.parse(ui.nodes.get("received-data").textContent), shared);
+    assert.match(ui.nodes.get("detected").textContent, /limit is 80 UTF-8 bytes/);
+    assert.equal(ui.nodes.get("shared-url").value, text);
+    ui.nodes.get("share-form").listeners.submit({preventDefault() {}});
+    assert.equal(ui.navigations.length, 0);
+  }
+});
+
+test("the URL builder enforces the payload limit even when called outside the form", () => {
+  assert.equal(C.opReturnBytes("é".repeat(40)), 80);
+  assert.throws(() => C.chiselURL("https://chisel.example/", "é".repeat(41)), /82 bytes.*80 UTF-8 bytes/);
+  assert.throws(() => C.chiselURL("https://chisel.example/", " "), /needs text/);
+  const content = "x".repeat(80);
+  const record = C.sharedRecord({kind: "text", content}, {title: "Metadata beyond the on-chain byte budget"});
+  const url = new URL(C.chiselURL("https://chisel.example/", content, record));
+  assert.equal(new URLSearchParams(url.hash.slice(1)).get("opreturn"), content);
+  assert.equal(JSON.parse(new URLSearchParams(url.hash.slice(1)).get("record")).metadata.title, record.metadata.title);
 });
 test("system share testing uses a plain-text payload and reports cancellation without claiming receipt", async () => {
   const shared = [];
@@ -369,9 +390,10 @@ test("an update failure leaves content in place and allows retry", async () => {
 });
 test("existing default Chisel settings receive the fresh compatible page without replacing custom hosts", () => {
   const old = controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/"]]});
-  assert.equal(old.nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.13");
-  assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/?v=2.8.12"]]}).nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.13");
-  assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/?v=2.8.11"]]}).nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.13");
+  assert.equal(old.nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.14");
+  assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/?v=2.8.13"]]}).nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.14");
+  assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/?v=2.8.12"]]}).nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.14");
+  assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/?v=2.8.11"]]}).nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.14");
   const custom = "https://local.example/chisel/?coin=ltc";
   assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", custom]]}).nodes.get("chisel-url").value, custom);
 });

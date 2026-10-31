@@ -4,7 +4,7 @@ const CHISEL = "mogwai.chisel-url.v1";
 const LAST = "mogwai.shared-link.v1";
 const CONSOLE = "mogwai.share-console.v1";
 const CONSOLE_LOG = "mogwai.share-console-log.v1";
-const DEFAULT_CHISEL = "https://johnrigler.github.io/chisel/?v=2.8.13";
+const DEFAULT_CHISEL = "https://johnrigler.github.io/chisel/?v=2.8.14";
 const METADATA_URL = "https://rigler.org/fileproxy/youtube-metadata";
 const SYSTEM_TEST = {title: "Mogwai sharing test", text: "Mogwai system-share test: this is plain text, with no YouTube link."};
 let selected = null, installPrompt = null, receiptText = "";
@@ -229,11 +229,10 @@ function preview() {
   try {
     const description = MogwaiShare.describe({text: $("shared-url").value});
     if (!description.content) throw new Error("Share or paste text or an HTTP(S) link.");
-    const bytes = new TextEncoder().encode(description.content).byteLength;
-    if (bytes > 4096) throw new Error("Chisel's share import accepts at most 4,096 bytes. Edit the content before opening; the original receipt is unchanged.");
+    const bytes = MogwaiShare.opReturnBytes(description.content);
     MogwaiShare.chiselURL($("chisel-url").value, description.content);
     selected = description;
-    $("detected").textContent = selected.label + " · " + bytes + " bytes in OP_RETURN" + (bytes > 80 ? " · check the selected chain’s payload limit in Chisel" : "");
+    $("detected").textContent = selected.label + " · " + bytes + " / " + MogwaiShare.MAX_OP_RETURN_BYTES + " bytes in OP_RETURN";
     $("open-chisel").disabled = false;
     try {
       if (selected.kind === "youtube" || selected.kind === "link") sessionStorage.setItem(LAST, selected.content);
@@ -327,7 +326,7 @@ window.addEventListener("appinstalled", () => { installPrompt = null; $("install
 $("chisel-url").value = DEFAULT_CHISEL;
 try {
   const savedChisel = localStorage.getItem(CHISEL);
-  $("chisel-url").value = !savedChisel || ["https://johnrigler.github.io/chisel/", "https://johnrigler.github.io/chisel/?v=2.8.10", "https://johnrigler.github.io/chisel/?v=2.8.11", "https://johnrigler.github.io/chisel/?v=2.8.12"].includes(savedChisel) ? DEFAULT_CHISEL : savedChisel;
+  $("chisel-url").value = !savedChisel || ["https://johnrigler.github.io/chisel/", "https://johnrigler.github.io/chisel/?v=2.8.10", "https://johnrigler.github.io/chisel/?v=2.8.11", "https://johnrigler.github.io/chisel/?v=2.8.12", "https://johnrigler.github.io/chisel/?v=2.8.13"].includes(savedChisel) ? DEFAULT_CHISEL : savedChisel;
   $("shared-url").value = sessionStorage.getItem(LAST) || "";
 } catch {}
 function receiveFromLocation() {
@@ -365,5 +364,5 @@ function receiveFromLocation() {
 receiveFromLocation();
 window.addEventListener("hashchange", receiveFromLocation);
 if ("serviceWorker" in navigator && window.isSecureContext) {
-  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.4.2. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
+  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.4.3. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
 } else $("offline-status").textContent = "Use HTTPS or localhost to install the share receiver.";
