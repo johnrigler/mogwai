@@ -1,4 +1,9 @@
-# Mogwai share receiver · 0.4.3
+# Mogwai share receiver · 0.4.4
+
+The shared item appears first, followed by a large **Send to Chisel** button.
+Received fields, metadata checks, and the TX portal JSON remain available in
+collapsed details below the main action. Sending opens Chisel's prepared record;
+the transaction is still reviewed and sent there.
 
 Mogwai now limits outgoing OP_RETURN text to 80 UTF-8 bytes. Oversized content
 stays visible for editing and cannot open Chisel. Metadata stays separate
@@ -9,7 +14,7 @@ defaults are migrated; custom Chisel hosts are retained.
 ## Metadata and TX Portal preview
 
 YouTube shares now stay in Mogwai for review. The URL still fills OP_RETURN
-when **Open in Chisel** is selected. The handoff also carries the reviewed
+when **Send to Chisel** is selected. The handoff also carries the reviewed
 Portal summary, media cards and retrieved metadata to Chisel 2.8.14's expanded
 record preview above **SEND**. Before that handoff, the app calls
 `https://rigler.org/fileproxy/youtube-metadata?url=...` with only the normalized
@@ -77,7 +82,7 @@ between GitHub Pages, IPFS hosts and devices. Hashing does not encrypt data.
 
 Open **☰ Tools → Share console** to dump incoming shares immediately. This
 includes original `title`, `text`, `url`, unknown fields, unexpected file
-metadata, and receiver errors. **Open in Chisel** performs the handoff when selected.
+metadata, and receiver errors. **Send to Chisel** performs the handoff when selected.
 
 The toggle is remembered in browser settings. The last 20 receipts, bounded
 to 200,000 UTF-8 bytes, are held in this window's session storage so shares
@@ -100,13 +105,13 @@ vanilla-JavaScript web app with no build or package dependencies.
 ## The next device test
 
 1. Open <https://johnrigler.github.io/mogwai/app/> online and reload until
-   **Share receiver · 0.4.3** appears at the top.
+   **Share receiver · 0.4.4** appears at the top.
 2. Choose **Open system share test**. This calls the device's system share API
    with a short plain-text message, independently of YouTube.
 3. Choose **Mogwai**, if the system lists it. The receiving window should show
    **What Mogwai received**, **Plain text**, and the test message.
 4. Share a YouTube video. Check the metadata and TX Portal preview, then choose
-   **Open in Chisel**. Share it again to check its saved SHA-256; change data
+   **Send to Chisel**. Share it again to check its saved SHA-256; change data
    only through the explicit acceptance control. **Copy received fields**
    retains the original receipt for troubleshooting.
 
@@ -135,7 +140,7 @@ updating are separate actions.
 2. Use an app or page that opens the **system** share menu. YouTube's own
    social-network panel is not evidence that the system chooser was opened.
 3. Choose **Mogwai**. Review the receipt, metadata and TX preview, then choose
-   **Open in Chisel**.
+   **Send to Chisel**.
 4. Confirm the visible URL matches the chosen video. Normal funding, review,
    signing and sending remain in Chisel.
 

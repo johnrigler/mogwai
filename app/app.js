@@ -30,6 +30,7 @@ function renderUserData() {
   };
   $("check-status").textContent = currentCheck?.error || labels[currentCheck?.status] || (media?.state === "ready" ? "Computing SHA-256…" : "A data check becomes available after a successful metadata lookup.");
   $("check-status").className = currentCheck?.status === "changed" || currentCheck?.error ? "hint error" : "hint";
+  if (currentCheck?.status === "changed" || currentCheck?.error) $("metadata-details").open = true;
   $("storage-note").textContent = !state.enabled ? "Remembering is off; its saved checks and cookie are erased." : !state.indexSaved && !state.cookieSaved ? "Storage is unavailable. Checks last only in this window." : "At most 100 SHA-256 baselines stay in this browser. One first-party cookie remembers the most recent accepted check for 180 days. Export checks to carry them to another host or device.";
 }
 async function syncIntegrity() {
@@ -96,19 +97,20 @@ function renderPortal() {
   $("tx-preview").hidden = !selected;
   $("portal-data").textContent = selected ? JSON.stringify(MogwaiShare.portalPreview(selected, media?.state === "ready" ? media.cards : []), null, 2) : "";
   $("youtube-preview").hidden = selected?.kind !== "youtube";
+  $("metadata-details").hidden = selected?.kind !== "youtube";
   $("metadata-image").hidden = true;
   $("metadata-title").textContent = "";
   $("metadata-author").textContent = "";
   $("metadata-source").textContent = "";
   renderUserData();
   if (!media || selected?.kind !== "youtube") return;
-  $("metadata-status").textContent = media.state === "loading" ? "Loading metadata via rigler.org…" : media.state === "ready" ? "Metadata via rigler.org · " + (media.cached ? "cached lookup" : "fresh lookup") : media.error;
+  $("metadata-status").textContent = media.state === "loading" ? "Loading preview…" : media.state === "ready" ? "" : media.error;
   $("metadata-status").className = media.state === "error" ? "hint error" : "hint";
   $("retry-metadata").disabled = media.state === "loading";
   if (media.state !== "ready") return;
   $("metadata-title").textContent = media.metadata.title;
   $("metadata-author").textContent = media.metadata.authorName || "Channel not supplied";
-  $("metadata-source").textContent = "YouTube · " + media.metadata.videoId + " · fetched " + media.metadata.fetchedAt;
+  $("metadata-source").textContent = "YouTube · " + media.metadata.videoId + " · fetched " + media.metadata.fetchedAt + " via rigler.org · " + (media.cached ? "cached lookup" : "fresh lookup");
   try {
     const thumbnail = new URL(media.metadata.thumbnailUrl);
     if (thumbnail.protocol === "https:" && ["i.ytimg.com", "img.youtube.com"].includes(thumbnail.hostname) && !thumbnail.username && !thumbnail.password) {
@@ -146,7 +148,7 @@ function syncMetadata(force = false) {
       media = {content, state: "ready", metadata: data.metadata, cards: data.mediaCards, cached: !!data.cached};
     } catch (error) {
       if (serial !== metadataSerial) return;
-      media = {content, state: "error", error: "Metadata unavailable: " + (error.name === "AbortError" ? "request timed out" : error.message) + ". Retry the lookup, or continue with the URL. No metadata has been added to the preview."};
+      media = {content, state: "error", error: "Preview unavailable: " + (error.name === "AbortError" ? "request timed out" : error.message) + ". Send the link, or retry in Metadata details."};
     } finally {
       clearTimeout(timeout);
       if (serial === metadataSerial) {
@@ -219,6 +221,7 @@ function status(message = "", error = false) {
 function receipt(value, description, error = "", logReceipt = true) {
   receiptText = JSON.stringify(value, null, 2);
   $("received-share").hidden = false;
+  if (error || description?.kind === "unknown") $("received-share").open = true;
   $("received-kind").textContent = error ? "Could not process this share" : description.label;
   $("received-note").textContent = error || description.reason || "These are the original fields Mogwai received. Review the content below before opening Chisel.";
   $("received-data").textContent = receiptText;
@@ -251,7 +254,7 @@ function openChisel(event) {
     const record = MogwaiShare.sharedRecord(selected, ready ? media.metadata : {}, ready ? media.cards : []);
     const target = MogwaiShare.chiselURL($("chisel-url").value, selected.content, record);
     try { localStorage.setItem(CHISEL, $("chisel-url").value); } catch {}
-    status("Opening Chisel with the complete record preview above Send…");
+    status("Opening Chisel…");
     location.replace(target);
   } catch (error) { status(error.message, true); }
 }
@@ -345,7 +348,7 @@ function receiveFromLocation() {
       received = MogwaiShare.describe(incoming);
       receipt(incoming, received, "", !fragment.has("review"));
       $("shared-url").value = received.content;
-      status(received.reason || received.label + " received. Review the metadata and TX portal preview, then choose Open in Chisel.", received.kind === "unknown");
+      status(received.reason || "", received.kind === "unknown");
     } catch (error) {
       receipt({unparsed: raw.slice(0, 2500), preview_truncated: raw.length > 2500}, null, error.message, !fragment.has("review"));
       status(error.message, true);
@@ -364,5 +367,5 @@ function receiveFromLocation() {
 receiveFromLocation();
 window.addEventListener("hashchange", receiveFromLocation);
 if ("serviceWorker" in navigator && window.isSecureContext) {
-  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.4.3. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
+  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.4.4. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
 } else $("offline-status").textContent = "Use HTTPS or localhost to install the share receiver.";
