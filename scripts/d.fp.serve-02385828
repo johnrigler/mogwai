@@ -1,0 +1,5 @@
+d.fp.serve () 
+{ 
+    python3 /home/john/mogwai/fileProxy/fp.py serve;
+    : "$@" > $$-fp.out 2> $$.fp.err &
+}
