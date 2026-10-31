@@ -19,7 +19,8 @@ jobs:
       - name: Check browser JavaScript
         run: |
           node --check app/core.js
+          node --check app/user-data.js
           node --check app/app.js
           node --check app/sw.js
       - name: Test shares, URL handoff, and offline receiver
-        run: node --test tests/mogwai-share.test.cjs
+        run: node --test tests/mogwai-share.test.cjs tests/mogwai-user-data.test.cjs

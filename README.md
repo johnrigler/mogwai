@@ -18,11 +18,15 @@ These are plans; existing runtime entry points below remain unchanged.
 ## Share to Chisel
 
 [Install the Mogwai share widget](https://johnrigler.github.io/mogwai/app/)
-in Chrome on Android or ChromeOS. Share a YouTube URL to **Mogwai** to open
-Chisel's Send screen with the video link already in OP_RETURN ASCII.
+in Chrome on Android or ChromeOS. Share a YouTube URL to **Mogwai** to review
+metadata fetched through rigler.org, the OP_RETURN bytes and the TX Portal
+media record, then open Chisel's Send screen with the URL already filled.
+User-controlled cookies and an exportable SHA-256 history detect changes on
+return visits; changed baselines require explicit acceptance.
 The [small static app and device test](app/README.md) use the same receiver
 on both platforms. A custom Chisel URL can point to a hosted, local or IPFS
-copy with the new handoff support. FileProxy is not required for this route.
+copy with the handoff support. FileProxy supplies metadata; URL handoff also
+works when that service is unavailable.
 
 ## Suggestions
 

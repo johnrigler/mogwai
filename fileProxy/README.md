@@ -296,6 +296,22 @@ October 12, 2026. Examples: `/ping`, `/config`, `/list`, `/load`,
 `/import-jist-feed`, `/save-evm-tx`, `/save-evm-batch` and
 other Chisel endpoints.
 
+`GET /youtube-metadata?url=https%3A%2F%2Fyoutu.be%2FVIDEO_ID` adds a
+public display-metadata lookup for the Mogwai share app. It requests YouTube
+oEmbed from a fixed HTTPS host, with an eight-second timeout and a 256 KiB
+response limit. The response contains `metadata`, `mediaCards` and `cached`.
+No video, audio, embed HTML or transcript is downloaded. Successes are cached
+for six hours under `index/youtube-metadata/` in the active data root. Add
+`&refresh=1` for an explicit fresh upstream request. The same cached fields
+enrich subsequently generated transaction media cards; reindex older cached
+transaction summaries explicitly if needed. This endpoint creates no transaction.
+
+To enable this through `https://rigler.org/fileproxy`, pull this Mogwai
+revision on that server and restart its existing FileProxy process with the
+same listener, data root and reverse-proxy configuration. `/ping` advertises
+`capabilities.youtubeMetadata`. The service can run through either entry point
+below; there is no new daemon or dependency.
+
 To run *only* the original Chisel service from this repository, use
 `python3 tools/fileProxy/proxy.py`. To serve Chisel **and** the general
 API on one port, use `python3 fp.py serve`. Do not run both simultaneously

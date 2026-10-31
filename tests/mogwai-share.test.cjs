@@ -6,7 +6,9 @@ const test = require("node:test");
 const base = path.join(__dirname, "../app");
 const core = readFileSync(path.join(base, "core.js"), "utf8");
 const app = readFileSync(path.join(base, "app.js"), "utf8");
-const context = vm.createContext({URL, URLSearchParams});
+const userData = readFileSync(path.join(base, "user-data.js"), "utf8");
+const {webcrypto} = require("node:crypto");
+const context = vm.createContext({URL, URLSearchParams, TextEncoder});
 vm.runInContext(core, context);
 const C = context.MogwaiShare;
 const id = "jNQXAC9IVRw", short = "https://youtu.be/" + id;
@@ -52,20 +54,117 @@ function controller(share, options = {}) {
   for (const name of ids) nodes.set(name, {value: "", textContent: "", disabled: false, hidden: false, listeners: {}, addEventListener(type, handler) {this.listeners[type] = handler;}});
   const storage = new Map(options.storage || []), session = new Map(options.session || []), navigations = [], events = {}, history = [];
   const makeStorage = map => ({getItem(key) {if (options.noStorage) throw Error("blocked"); return map.get(key) || null;}, setItem(key, value) {if (options.noStorage) throw Error("blocked"); map.set(key, value);}, removeItem(key) {if (options.noStorage) throw Error("blocked"); map.delete(key);}});
-  const location = {pathname: "/mogwai/app/", search: options.search || "", hash: options.hash ?? (share !== null && share !== undefined ? "#share=" + encodeURIComponent(JSON.stringify(share)) : ""), replace(target) {navigations.push(target);}};
+  const location = {protocol: "https:", pathname: "/mogwai/app/", search: options.search || "", hash: options.hash ?? (share !== null && share !== undefined ? "#share=" + encodeURIComponent(JSON.stringify(share)) : ""), replace(target) {navigations.push(target);}};
   location.href = "https://example.test" + location.pathname + location.search + location.hash;
-  const ctx = vm.createContext({document: {getElementById(id) {assert.ok(nodes.has(id), id); return nodes.get(id);}}, URL, URLSearchParams, TextEncoder, location, navigator: options.navigator || {}, history: {replaceState(...args) {history.push(args); location.href = new URL(args[2], location.href).href;}},
+  const ctx = vm.createContext({document: {cookie: options.cookie || "", getElementById(id) {assert.ok(nodes.has(id), id); return nodes.get(id);}}, crypto: webcrypto, URL, URLSearchParams, TextEncoder, AbortController, setTimeout, clearTimeout, fetch: options.fetch || (async () => {throw Error("Offline");}), location, navigator: options.navigator || {}, history: {replaceState(...args) {history.push(args); location.href = new URL(args[2], location.href).href;}},
     localStorage: makeStorage(storage), sessionStorage: makeStorage(session), addEventListener(type, handler) {events[type] = handler;}});
   ctx.window = ctx;
-  vm.runInContext(core + "\n" + app, ctx);
+  vm.runInContext(core + "\n" + userData + "\n" + app, ctx);
   return {nodes, navigations, storage, session, history, events, location};
 }
-test("a received share immediately opens Chisel with the extracted URL", () => {
+test("a received YouTube share stays for metadata and TX review before opening Chisel", () => {
   const ui = controller({text: "Watch this " + short + "?si=tracking"});
+  assert.equal(ui.navigations.length, 0);
+  assert.equal(ui.nodes.get("youtube-preview").hidden, false);
+  assert.equal(ui.nodes.get("tx-preview").hidden, false);
+  ui.nodes.get("share-form").listeners.submit({preventDefault() {}});
   assert.equal(ui.navigations.length, 1);
   const url = new URL(ui.navigations[0]);
   assert.equal(url.origin, "https://johnrigler.github.io"); assert.equal(url.pathname, "/chisel/");
   assert.equal(new URLSearchParams(url.hash.slice(1)).get("opreturn"), short);
+});
+
+const metadataFixture = {
+  ok: true, cached: false,
+  metadata: {videoId: id, title: "Synthetic video <script>text</script>", authorName: "Synthetic channel", thumbnailUrl: "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg", provider: "YouTube", metadataSource: "https://www.youtube.com/oembed", fetchedAt: "2026-10-31T12:00:00+00:00"},
+  mediaCards: [{kind: "youtube", url: "https://www.youtube.com/watch?v=" + id + "&t=90s", sourceUrl: short + "?t=90", title: "Synthetic video <script>text</script>", videoId: id, authorName: "Synthetic channel"}]
+};
+const settleMetadata = () => new Promise(resolve => setImmediate(resolve));
+test("metadata travels only through rigler.org and the portal preview retains exact ledger bytes", async () => {
+  const calls = [];
+  let copied;
+  const shared = {title: "Private receipt title", text: short + "?t=1m30s&si=tracking", custom: "Not uploaded"};
+  const ui = controller(shared, {navigator: {clipboard: {async writeText(value) {copied = value;}}}, fetch: async (url, options) => {
+    calls.push({url, options});
+    return {ok: true, json: async () => metadataFixture};
+  }});
+  await settleMetadata();
+  assert.equal(calls.length, 1);
+  const request = new URL(calls[0].url);
+  assert.equal(request.origin + request.pathname, "https://rigler.org/fileproxy/youtube-metadata");
+  assert.deepEqual([...request.searchParams], [["url", short + "?t=90"]]);
+  assert.equal(calls[0].options.credentials, "omit");
+  assert.equal(calls[0].options.cache, "no-store");
+  assert.equal(ui.nodes.get("metadata-title").textContent, metadataFixture.metadata.title);
+  assert.equal(ui.nodes.get("metadata-author").textContent, "Synthetic channel");
+  assert.equal(ui.nodes.get("metadata-image").hidden, false);
+  const draft = JSON.parse(ui.nodes.get("portal-data").textContent);
+  assert.equal(draft.portal.txid, null); assert.equal(draft.portal.coin, null);
+  assert.equal(draft.ledger.opReturnText, short + "?t=90");
+  assert.equal(draft.ledger.opReturnHex, Buffer.from(short + "?t=90").toString("hex"));
+  assert.deepEqual(draft.portal.summary.mediaCards, metadataFixture.mediaCards);
+  await ui.nodes.get("copy-portal").listeners.click();
+  assert.deepEqual(JSON.parse(copied), draft);
+  assert.equal(ui.navigations.length, 0);
+  ui.nodes.get("share-form").listeners.submit({preventDefault() {}});
+  assert.equal(new URLSearchParams(new URL(ui.navigations[0]).hash.slice(1)).get("opreturn"), short + "?t=90");
+});
+test("a failed lookup leaves an explicit error, no invented metadata, and a working retry", async () => {
+  let calls = 0;
+  const ui = controller({url: short}, {fetch: async () => ++calls === 1 ? {ok: false, status: 503} : {ok: true, json: async () => metadataFixture}});
+  await settleMetadata();
+  assert.match(ui.nodes.get("metadata-status").textContent, /HTTP 503/);
+  assert.equal(ui.nodes.get("metadata-title").textContent, "");
+  const cards = JSON.parse(ui.nodes.get("portal-data").textContent).portal.summary.mediaCards;
+  assert.equal(cards.length, 1);
+  assert.equal(Object.hasOwn(cards[0], "metadataSource"), false);
+  assert.equal(cards[0].sourceUrl, short);
+  assert.equal(ui.nodes.get("open-chisel").disabled, false);
+  ui.nodes.get("retry-metadata").listeners.click(); await settleMetadata();
+  assert.equal(calls, 2);
+  assert.equal(ui.nodes.get("metadata-title").textContent, metadataFixture.metadata.title);
+});
+test("late metadata cannot replace the preview after an edit or a new share", async () => {
+  let finish;
+  const ui = controller({url: short}, {fetch: () => new Promise(resolve => {finish = resolve;})});
+  ui.nodes.get("shared-url").value = "A different note\n";
+  ui.nodes.get("shared-url").listeners.input();
+  finish({ok: true, json: async () => metadataFixture}); await settleMetadata();
+  assert.equal(ui.nodes.get("youtube-preview").hidden, true);
+  assert.deepEqual(JSON.parse(ui.nodes.get("portal-data").textContent).portal.summary.mediaCards, []);
+  assert.equal(JSON.parse(ui.nodes.get("portal-data").textContent).ledger.opReturnText, "A different note\n");
+});
+test("plain text and other web links never trigger a metadata upload", () => {
+  for (const shared of [{text: "Private note"}, {url: "https://example.test/path"}]) {
+    const ui = controller(shared, {fetch: () => assert.fail("Unexpected metadata request")});
+    assert.equal(ui.nodes.get("youtube-preview").hidden, true);
+    assert.equal(ui.nodes.get("tx-preview").hidden, false);
+  }
+});
+test("the visible data check preserves a changed baseline until the user accepts it", async () => {
+  let changed = false;
+  const calls = [];
+  const ui = controller({url: short}, {fetch: async url => {
+    calls.push(url);
+    return {ok: true, json: async () => ({...metadataFixture, metadata: {...metadataFixture.metadata, title: changed ? "Changed synthetic title" : metadataFixture.metadata.title}})};
+  }});
+  const waitFor = async pattern => {
+    for (let attempt = 0; attempt < 100 && !pattern.test(ui.nodes.get("check-status").textContent); attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.match(ui.nodes.get("check-status").textContent, pattern);
+  };
+  await waitFor(/First lookup/);
+  const original = JSON.parse(ui.storage.get("mogwai.user-data.v1"))[0].hash;
+  changed = true; ui.nodes.get("retry-metadata").listeners.click();
+  await waitFor(/Changed:/);
+  assert.equal(new URL(calls[1]).searchParams.get("refresh"), "1");
+  assert.equal(JSON.parse(ui.storage.get("mogwai.user-data.v1"))[0].hash, original);
+  assert.equal(ui.nodes.get("accept-check").hidden, false);
+  ui.nodes.get("accept-check").listeners.click();
+  assert.match(ui.nodes.get("check-status").textContent, /Matches/);
+  assert.notEqual(JSON.parse(ui.storage.get("mogwai.user-data.v1"))[0].hash, original);
+  ui.nodes.get("erase-data").listeners.click();
+  assert.equal(ui.nodes.get("saved-count").textContent, "0");
+  assert.equal(ui.storage.has("mogwai.user-data.v1"), false);
 });
 test("the share console dumps a YouTube receipt and waits for an explicit Chisel handoff", () => {
   const shared = {text: "Watch " + short, custom: "<script>synthetic</script>"};

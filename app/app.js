@@ -5,9 +5,166 @@ const LAST = "mogwai.shared-link.v1";
 const CONSOLE = "mogwai.share-console.v1";
 const CONSOLE_LOG = "mogwai.share-console-log.v1";
 const DEFAULT_CHISEL = "https://johnrigler.github.io/chisel/?v=2.8.11";
+const METADATA_URL = "https://rigler.org/fileproxy/youtube-metadata";
 const SYSTEM_TEST = {title: "Mogwai sharing test", text: "Mogwai system-share test: this is plain text, with no YouTube link."};
 let selected = null, installPrompt = null, receiptText = "";
 let consoleEnabled = false, consoleEntries = [];
+let media = null, metadataRequest = null, metadataSerial = 0;
+const userData = MogwaiUserData.create();
+let currentCheck = null, checkSerial = 0;
+
+function renderUserData() {
+  $("saved-data").textContent = JSON.stringify(userData.exportData(), null, 2);
+  const state = userData.state();
+  $("remember-data").checked = state.enabled;
+  $("saved-count").textContent = String(state.count);
+  $("accept-check").hidden = currentCheck?.status !== "changed";
+  $("forget-check").hidden = !currentCheck?.savedHash;
+  $("check-hashes").textContent = currentCheck?.currentHash ? "Current SHA-256: " + currentCheck.currentHash + "\nSaved SHA-256:   " + (currentCheck.savedHash || "none") : "";
+  const labels = {
+    saved: "First lookup: saved this SHA-256 as the baseline on this device.",
+    match: "Matches this device’s saved SHA-256. The compared data is unchanged.",
+    changed: "Changed: the returned data differs from this device’s saved hash. The saved baseline has been kept.",
+    off: "Remembering is disabled. This lookup will not save a cookie or baseline.",
+    forgotten: "Saved check erased. A later lookup can establish a new baseline."
+  };
+  $("check-status").textContent = currentCheck?.error || labels[currentCheck?.status] || (media?.state === "ready" ? "Computing SHA-256…" : "A data check becomes available after a successful metadata lookup.");
+  $("check-status").className = currentCheck?.status === "changed" || currentCheck?.error ? "hint error" : "hint";
+  $("storage-note").textContent = !state.enabled ? "Remembering is off; its saved checks and cookie are erased." : !state.indexSaved && !state.cookieSaved ? "Storage is unavailable. Checks last only in this window." : "At most 100 SHA-256 baselines stay in this browser. One first-party cookie remembers the most recent accepted check for 180 days. Export checks to carry them to another host or device.";
+}
+async function syncIntegrity() {
+  const serial = ++checkSerial;
+  currentCheck = null;
+  renderPortal();
+  if (media?.state !== "ready" || selected?.kind !== "youtube") return;
+  const content = selected.content, metadata = media.metadata;
+  try {
+    let check = await userData.inspect(content, MogwaiShare.integrityData(content, metadata, media.cards));
+    if (serial !== checkSerial || media?.content !== content || media?.metadata !== metadata) return;
+    if (check.status === "new" || check.status === "match") check = userData.remember(check);
+    currentCheck = check;
+  } catch (error) {
+    if (serial !== checkSerial) return;
+    currentCheck = {error: error.message};
+  }
+  renderPortal();
+}
+$("remember-data").addEventListener("change", () => {
+  userData.setEnabled($("remember-data").checked);
+  syncIntegrity();
+});
+$("accept-check").addEventListener("click", () => {
+  if (currentCheck?.status !== "changed") return;
+  currentCheck = userData.remember(currentCheck, true);
+  renderPortal();
+});
+$("forget-check").addEventListener("click", () => {
+  if (!currentCheck?.subjectHash) return;
+  checkSerial++;
+  userData.forget(currentCheck.subjectHash);
+  currentCheck = {...currentCheck, status: "forgotten", savedHash: null};
+  renderPortal();
+});
+$("erase-data").addEventListener("click", () => {
+  checkSerial++;
+  userData.clear();
+  currentCheck = currentCheck ? {...currentCheck, status: "forgotten", savedHash: null} : null;
+  $("data-status").textContent = "Saved data checks and their cookie erased.";
+  renderPortal();
+});
+$("export-data").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(userData.exportData(), null, 2) + "\n"], {type: "application/json"});
+  const url = URL.createObjectURL(blob), anchor = document.createElement("a");
+  anchor.href = url; anchor.download = "mogwai-data-checks.json";
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  $("data-status").textContent = "Export contains hashes and saved times, with no video titles, URLs, receipt text, or keys.";
+});
+$("import-data").addEventListener("change", async event => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    if (file.size > 256000) throw new Error("Data-check export is too large");
+    const count = userData.importData(JSON.parse(await file.text()));
+    $("data-status").textContent = count + " saved checks available. Imported hashes are user-supplied baselines.";
+    await syncIntegrity();
+  } catch (error) { $("data-status").textContent = "Could not import checks: " + error.message; }
+  finally { event.target.value = ""; }
+});
+
+function renderPortal() {
+  $("tx-preview").hidden = !selected;
+  $("portal-data").textContent = selected ? JSON.stringify(MogwaiShare.portalPreview(selected, media?.state === "ready" ? media.cards : []), null, 2) : "";
+  $("youtube-preview").hidden = selected?.kind !== "youtube";
+  $("metadata-image").hidden = true;
+  $("metadata-title").textContent = "";
+  $("metadata-author").textContent = "";
+  $("metadata-source").textContent = "";
+  renderUserData();
+  if (!media || selected?.kind !== "youtube") return;
+  $("metadata-status").textContent = media.state === "loading" ? "Loading metadata via rigler.org…" : media.state === "ready" ? "Metadata via rigler.org · " + (media.cached ? "cached lookup" : "fresh lookup") : media.error;
+  $("metadata-status").className = media.state === "error" ? "hint error" : "hint";
+  $("retry-metadata").disabled = media.state === "loading";
+  if (media.state !== "ready") return;
+  $("metadata-title").textContent = media.metadata.title;
+  $("metadata-author").textContent = media.metadata.authorName || "Channel not supplied";
+  $("metadata-source").textContent = "YouTube · " + media.metadata.videoId + " · fetched " + media.metadata.fetchedAt;
+  try {
+    const thumbnail = new URL(media.metadata.thumbnailUrl);
+    if (thumbnail.protocol === "https:" && ["i.ytimg.com", "img.youtube.com"].includes(thumbnail.hostname) && !thumbnail.username && !thumbnail.password) {
+      $("metadata-image").src = thumbnail.href;
+      $("metadata-image").hidden = false;
+    }
+  } catch {}
+}
+function syncMetadata(force = false) {
+  const content = selected?.kind === "youtube" ? selected.content : "";
+  if (!force && content && content === media?.content) { renderPortal(); return; }
+  metadataSerial++;
+  checkSerial++;
+  currentCheck = null;
+  metadataRequest?.abort();
+  metadataRequest = null;
+  media = null;
+  if (!content) { renderPortal(); return; }
+  const serial = metadataSerial;
+  const abort = new AbortController();
+  metadataRequest = abort;
+  media = {content, state: "loading"};
+  renderPortal();
+  const timeout = setTimeout(() => abort.abort(), 12000);
+  (async () => {
+    try {
+      const endpoint = new URL(METADATA_URL);
+      endpoint.searchParams.set("url", content);
+      if (force) endpoint.searchParams.set("refresh", "1");
+      const response = await fetch(endpoint.href, {signal: abort.signal, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer"});
+      if (!response.ok) throw new Error("rigler.org returned HTTP " + response.status);
+      const data = await response.json();
+      if (!data.ok || data.metadata?.videoId !== new URL(content).pathname.slice(1) || typeof data.metadata?.title !== "string" || !Array.isArray(data.mediaCards) || !data.mediaCards.every(card => card && typeof card === "object" && !Array.isArray(card))) throw new Error(data.error || "Invalid metadata response");
+      if (serial !== metadataSerial) return;
+      media = {content, state: "ready", metadata: data.metadata, cards: data.mediaCards, cached: !!data.cached};
+    } catch (error) {
+      if (serial !== metadataSerial) return;
+      media = {content, state: "error", error: "Metadata unavailable: " + (error.name === "AbortError" ? "request timed out" : error.message) + ". Retry the lookup, or continue with the URL. No metadata has been added to the preview."};
+    } finally {
+      clearTimeout(timeout);
+      if (serial === metadataSerial) {
+        metadataRequest = null;
+        if (media?.state === "ready") syncIntegrity();
+        else renderPortal();
+      }
+    }
+  })();
+}
+$("retry-metadata").addEventListener("click", () => syncMetadata(true));
+$("copy-portal").addEventListener("click", async () => {
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+    await navigator.clipboard.writeText($("portal-data").textContent);
+    status("TX portal preview copied.");
+  } catch { status("Select and copy the TX portal preview directly.", true); }
+});
 
 function renderConsole() {
   $("console-enabled").checked = consoleEnabled;
@@ -85,6 +242,7 @@ function preview() {
   } catch (error) {
     $("detected").textContent = $("shared-url").value.trim() ? error.message : "Text and web links are supported. YouTube links are shortened automatically.";
   }
+  syncMetadata();
 }
 function openChisel(event) {
   if (event) event.preventDefault();
@@ -186,7 +344,7 @@ function receiveFromLocation() {
       received = MogwaiShare.describe(incoming);
       receipt(incoming, received, "", !fragment.has("review"));
       $("shared-url").value = received.content;
-      status(received.reason || (received.kind === "youtube" && !consoleEnabled && !fragment.has("review") ? "YouTube link received. Opening Chisel…" : received.label + " received. Review it, then choose Open in Chisel."), received.kind === "unknown");
+      status(received.reason || received.label + " received. Review the metadata and TX portal preview, then choose Open in Chisel.", received.kind === "unknown");
     } catch (error) {
       receipt({unparsed: raw.slice(0, 2500), preview_truncated: raw.length > 2500}, null, error.message, !fragment.has("review"));
       status(error.message, true);
@@ -201,10 +359,9 @@ function receiveFromLocation() {
   if (fragment.has("draft")) $("shared-url").value = fragment.get("draft");
   if (hasShare || fragment.has("share-error") || fragment.has("draft") || fragment.has("review")) history.replaceState(null, "", location.pathname);
   preview();
-  if (received?.kind === "youtube" && selected && !fragment.has("review") && !consoleEnabled) openChisel();
 }
 receiveFromLocation();
 window.addEventListener("hashchange", receiveFromLocation);
 if ("serviceWorker" in navigator && window.isSecureContext) {
-  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.3.0. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
+  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.4.0. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
 } else $("offline-status").textContent = "Use HTTPS or localhost to install the share receiver.";

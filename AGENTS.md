@@ -2,6 +2,17 @@
 
 Keep the existing user's architecture; don't replace it with generic software scaffolding.
 
+## User-owned application data
+
+Mogwai is a collection of tools serving the user. Persisted browser data must
+be inspectable, portable and erasable through the interface. Keep cookies
+first-party and limited to the feature the user selected; do not add tracking
+or turn a remembered hash into an identity claim. The share app's
+`app/user-data.js` provides a bounded hash-baseline store with cookie fallback,
+JSON export/import and explicit acceptance of changed data. A SHA-256 match
+establishes consistency with a saved baseline, not authenticity of a provider.
+Preserve those distinctions when adding decentralized features.
+
 - `a.*` is ALP, `d.*` is Daisy, `m.*` is Mogwai. Bash functions are native inspectable/persistable artifacts. `declare -f` is the canonical serialized function definition, retaining the original function name.
 - Save function snapshots with ALP/Daisy **content-derived Shoctal/checksum names**, optionally suffixed by source byte count. Short hashes are intentionally collision-capable; do not lengthen them merely to eliminate collisions. Full SHA-256 belongs in FileProxy's catalog, not every filename.
 - Daisy is standalone; a saved `daisy()` can load a particular hard-coded set of `d.*` functions. Mogwai supplies tools/UI but must not become a mandatory Daisy dependency.

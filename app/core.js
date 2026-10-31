@@ -56,5 +56,27 @@
     url.searchParams.set("mode", "send");
     return url.href;
   }
-  root.MogwaiShare = Object.freeze({fromShare, describe, link, chiselURL});
+  function portalPreview(description, mediaCards = []) {
+    const content = description.content;
+    const bytes = new TextEncoder().encode(content);
+    const urls = ["youtube", "link"].includes(description.kind) ? [content] : [];
+    if (description.kind === "youtube" && !mediaCards.length) {
+      const parsed = new URL(content), videoId = parsed.pathname.slice(1), start = parsed.searchParams.get("t");
+      const url = "https://www.youtube.com/watch?v=" + videoId + (start ? "&t=" + start + "s" : "");
+      mediaCards = [{kind: "youtube", url, sourceUrl: content, title: url, text: content, videoId, thumbnailUrl: "https://i.ytimg.com/vi/" + videoId + "/hqdefault.jpg"}];
+    }
+    return {
+      stage: "transaction draft — not broadcast or saved",
+      ledger: {opReturnText: content, opReturnHex: Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join(""), bytes: bytes.length},
+      portal: {txid: null, coin: null, summary: {opReturnText: content, opReturnUrls: urls, primaryUrl: urls[0] || "", mediaCards}}
+    };
+  }
+  function integrityData(content, metadata, mediaCards = []) {
+    // Retrieval times and cache flags change on a fresh lookup; compare the actual display data.
+    const fields = ["videoId", "title", "authorName", "authorUrl", "thumbnailUrl", "provider", "metadataSource"];
+    return {format: "mogwai-youtube-check-v1", opReturnText: content,
+      metadata: Object.fromEntries(fields.map(key => [key, metadata[key] || ""])),
+      mediaCards: mediaCards.map(card => Object.fromEntries(Object.entries(card).filter(([key]) => key !== "fetchedAt")))};
+  }
+  root.MogwaiShare = Object.freeze({fromShare, describe, link, chiselURL, portalPreview, integrityData});
 })(typeof window === "object" ? window : globalThis);

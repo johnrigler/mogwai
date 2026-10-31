@@ -932,6 +932,11 @@ def tiktok_oembed_metadata(url):
         return {}
 
 
+def youtube_cached_metadata(url):
+    import youtube_metadata
+    return youtube_metadata.cached_metadata(url, data_path("index", "youtube-metadata"))
+
+
 def build_media_cards(raw_values, words=None, overrides=None):
     words = [w for w in unique_strings(words or []) if w]
     raw_text = "\n".join(str(x or "") for x in raw_values or [] if x is not None)
@@ -958,6 +963,13 @@ def build_media_cards(raw_values, words=None, overrides=None):
         if video_id:
             card["videoId"] = video_id
             card["thumbnailUrl"] = youtube_thumbnail_url(video_id)
+            metadata = youtube_cached_metadata(url)
+            if metadata:
+                if title == normalized:
+                    card["title"] = metadata["title"]
+                for key in ("authorName", "authorUrl", "thumbnailUrl", "provider", "metadataSource", "fetchedAt"):
+                    if metadata.get(key):
+                        card[key] = metadata[key]
         elif tiktok_url:
             metadata = tiktok_oembed_metadata(tiktok_url)
             card["tiktokUrl"] = tiktok_url
@@ -2728,6 +2740,7 @@ class Handler(BaseHTTPRequestHandler):
                         "unifiedSqliteIndex": load_chisel_indexer() is not None,
                         "mainThunderwordCatalog": True,
                         "tiktokThumbnails": True,
+                        "youtubeMetadata": True,
                     },
                 })
                 return
@@ -2792,6 +2805,22 @@ class Handler(BaseHTTPRequestHandler):
                     send_json(self, {"ok": False, "error": "TikTok thumbnail is unavailable", "url": clean_url}, 404)
                     return
                 send_redirect(self, thumbnail)
+                return
+
+            if parsed.path == "/youtube-metadata":
+                import youtube_metadata
+                source_url = query.get("url", [""])[0]
+                try:
+                    youtube_metadata.video_id(source_url)
+                except ValueError as exc:
+                    send_json(self, {"ok": False, "error": str(exc)}, 400)
+                    return
+                try:
+                    payload = youtube_metadata.lookup(source_url, data_path("index", "youtube-metadata"), atomic_write_text, refresh=query.get("refresh") == ["1"])
+                    payload["mediaCards"] = build_media_cards([source_url])
+                    send_json(self, payload)
+                except Exception:
+                    send_json(self, {"ok": False, "error": "YouTube metadata is unavailable. Retry the lookup; the OP_RETURN URL is unchanged."}, 502)
                 return
 
             if parsed.path == "/account-index":
