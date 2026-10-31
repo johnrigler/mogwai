@@ -1,10 +1,14 @@
-# Mogwai share receiver · 0.4.1
+# Mogwai share receiver · 0.4.2
+
+The default Chisel link now loads 2.8.13, which redirects successful sends to
+Portal with a navy pending record and changes it to black after a matching
+live ledger read. Existing saved 2.8.12 defaults are migrated.
 
 ## Metadata and TX Portal preview
 
 YouTube shares now stay in Mogwai for review. The URL still fills OP_RETURN
 when **Open in Chisel** is selected. The handoff also carries the reviewed
-Portal summary, media cards and retrieved metadata to Chisel 2.8.12's expanded
+Portal summary, media cards and retrieved metadata to Chisel 2.8.13's expanded
 record preview above **SEND**. Before that handoff, the app calls
 `https://rigler.org/fileproxy/youtube-metadata?url=...` with only the normalized
 video URL, retaining a supplied start time. Original receipt fields and plain
@@ -94,7 +98,7 @@ vanilla-JavaScript web app with no build or package dependencies.
 ## The next device test
 
 1. Open <https://johnrigler.github.io/mogwai/app/> online and reload until
-   **Share receiver · 0.4.1** appears at the top.
+   **Share receiver · 0.4.2** appears at the top.
 2. Choose **Open system share test**. This calls the device's system share API
    with a short plain-text message, independently of YouTube.
 3. Choose **Mogwai**, if the system lists it. The receiving window should show
@@ -167,7 +171,7 @@ conflicting HEX input, opens Send and focuses the ASCII field. The marker is
 removed after consumption. Query-form `?opreturn=...` is also supported for
 URL openers. No cross-origin storage or messaging is required.
 
-Version 0.4.1 also supplies a `record` fragment parameter containing JSON:
+Version 0.4.2 also supplies a `record` fragment parameter containing JSON:
 `{schema:"chisel-shared-record-v1", opReturnText, summary, metadata}`. The
 summary is the Portal preview's summary, with a retrieved title when available;
 the original share receipt, cookies and saved integrity baselines are excluded.

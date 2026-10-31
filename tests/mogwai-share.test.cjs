@@ -369,8 +369,9 @@ test("an update failure leaves content in place and allows retry", async () => {
 });
 test("existing default Chisel settings receive the fresh compatible page without replacing custom hosts", () => {
   const old = controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/"]]});
-  assert.equal(old.nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.12");
-  assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/?v=2.8.11"]]}).nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.12");
+  assert.equal(old.nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.13");
+  assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/?v=2.8.12"]]}).nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.13");
+  assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/?v=2.8.11"]]}).nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.13");
   const custom = "https://local.example/chisel/?coin=ltc";
   assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", custom]]}).nodes.get("chisel-url").value, custom);
 });

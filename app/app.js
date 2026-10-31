@@ -4,7 +4,7 @@ const CHISEL = "mogwai.chisel-url.v1";
 const LAST = "mogwai.shared-link.v1";
 const CONSOLE = "mogwai.share-console.v1";
 const CONSOLE_LOG = "mogwai.share-console-log.v1";
-const DEFAULT_CHISEL = "https://johnrigler.github.io/chisel/?v=2.8.12";
+const DEFAULT_CHISEL = "https://johnrigler.github.io/chisel/?v=2.8.13";
 const METADATA_URL = "https://rigler.org/fileproxy/youtube-metadata";
 const SYSTEM_TEST = {title: "Mogwai sharing test", text: "Mogwai system-share test: this is plain text, with no YouTube link."};
 let selected = null, installPrompt = null, receiptText = "";
@@ -327,7 +327,7 @@ window.addEventListener("appinstalled", () => { installPrompt = null; $("install
 $("chisel-url").value = DEFAULT_CHISEL;
 try {
   const savedChisel = localStorage.getItem(CHISEL);
-  $("chisel-url").value = !savedChisel || ["https://johnrigler.github.io/chisel/", "https://johnrigler.github.io/chisel/?v=2.8.10", "https://johnrigler.github.io/chisel/?v=2.8.11"].includes(savedChisel) ? DEFAULT_CHISEL : savedChisel;
+  $("chisel-url").value = !savedChisel || ["https://johnrigler.github.io/chisel/", "https://johnrigler.github.io/chisel/?v=2.8.10", "https://johnrigler.github.io/chisel/?v=2.8.11", "https://johnrigler.github.io/chisel/?v=2.8.12"].includes(savedChisel) ? DEFAULT_CHISEL : savedChisel;
   $("shared-url").value = sessionStorage.getItem(LAST) || "";
 } catch {}
 function receiveFromLocation() {
@@ -365,5 +365,5 @@ function receiveFromLocation() {
 receiveFromLocation();
 window.addEventListener("hashchange", receiveFromLocation);
 if ("serviceWorker" in navigator && window.isSecureContext) {
-  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.4.1. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
+  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.4.2. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
 } else $("offline-status").textContent = "Use HTTPS or localhost to install the share receiver.";
