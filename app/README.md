@@ -1,9 +1,11 @@
-# Mogwai share receiver · 0.4.0
+# Mogwai share receiver · 0.4.1
 
 ## Metadata and TX Portal preview
 
 YouTube shares now stay in Mogwai for review. The URL still fills OP_RETURN
-when **Open in Chisel** is selected. Before that handoff, the app calls
+when **Open in Chisel** is selected. The handoff also carries the reviewed
+Portal summary, media cards and retrieved metadata to Chisel 2.8.12's expanded
+record preview above **SEND**. Before that handoff, the app calls
 `https://rigler.org/fileproxy/youtube-metadata?url=...` with only the normalized
 video URL, retaining a supplied start time. Original receipt fields and plain
 text are not uploaded. The thumbnail loads from YouTube's image host.
@@ -92,7 +94,7 @@ vanilla-JavaScript web app with no build or package dependencies.
 ## The next device test
 
 1. Open <https://johnrigler.github.io/mogwai/app/> online and reload until
-   **Share receiver · 0.4.0** appears at the top.
+   **Share receiver · 0.4.1** appears at the top.
 2. Choose **Open system share test**. This calls the device's system share API
    with a short plain-text message, independently of YouTube.
 3. Choose **Mogwai**, if the system lists it. The receiving window should show
@@ -139,7 +141,9 @@ target. If it is missing, confirm the PWA was installed using Chrome.
 The manual text field exercises the same URL conversion and Chisel handoff.
 **Chisel address** can select a local or IPFS-hosted copy. That copy needs
 Chisel 2.8.10 or later for paragraph text. The default is the public Chisel GitHub Pages app.
-No local FileProxy, Crostini, or Termux process is required for the URL handoff.
+Use Chisel 2.8.12 or later for the full picture and metadata preview. Older
+copies still import the OP_RETURN text. No local FileProxy, Crostini, or
+Termux process is required for the URL handoff.
 The metadata lookup uses the FileProxy service on rigler.org.
 
 The default hosted Chisel link includes a version marker for a fresh compatible
@@ -162,6 +166,15 @@ Chisel consumes `opreturn` through its existing text draft loader, clears
 conflicting HEX input, opens Send and focuses the ASCII field. The marker is
 removed after consumption. Query-form `?opreturn=...` is also supported for
 URL openers. No cross-origin storage or messaging is required.
+
+Version 0.4.1 also supplies a `record` fragment parameter containing JSON:
+`{schema:"chisel-shared-record-v1", opReturnText, summary, metadata}`. The
+summary is the Portal preview's summary, with a retrieved title when available;
+the original share receipt, cookies and saved integrity baselines are excluded.
+The record must fit Chisel's 65,536-byte limit. Its metadata is for display;
+it does not enlarge OP_RETURN or set transaction outputs, keys or fees.
+Chisel consumes both markers and scrolls to the expanded record above Send.
+The transport stays browser-only and works with custom static/IPFS hosts.
 
 Plain text can use the same handoff after an explicit button press. Paragraphs,
 Unicode, and final newlines are retained. The displayed UTF-8 byte count warns

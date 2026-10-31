@@ -47,11 +47,17 @@
     }
     return unknown("Mogwai does not know what to open from these fields. Here is what it received.");
   }
-  function chiselURL(endpoint, value) {
+  function chiselURL(endpoint, value, record = null) {
     const url = new URL(endpoint);
     if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("Use an HTTP or HTTPS Chisel address without embedded credentials.");
     const fragment = new URLSearchParams(url.hash.slice(1));
     fragment.set("opreturn", value);
+    fragment.delete("record");
+    if (record) {
+      const json = JSON.stringify(record);
+      if (new TextEncoder().encode(json).length > 65536) throw new Error("The rich record exceeds Chisel’s 65,536-byte preview limit.");
+      fragment.set("record", json);
+    }
     url.hash = fragment.toString();
     url.searchParams.set("mode", "send");
     return url.href;
@@ -78,5 +84,10 @@
       metadata: Object.fromEntries(fields.map(key => [key, metadata[key] || ""])),
       mediaCards: mediaCards.map(card => Object.fromEntries(Object.entries(card).filter(([key]) => key !== "fetchedAt")))};
   }
-  root.MogwaiShare = Object.freeze({fromShare, describe, link, chiselURL, portalPreview, integrityData});
+  function sharedRecord(description, metadata = {}, mediaCards = []) {
+    const summary = portalPreview(description, mediaCards).portal.summary;
+    if (typeof metadata.title === "string" && metadata.title) summary.title = metadata.title;
+    return {schema: "chisel-shared-record-v1", opReturnText: description.content, summary, metadata};
+  }
+  root.MogwaiShare = Object.freeze({fromShare, describe, link, chiselURL, portalPreview, integrityData, sharedRecord});
 })(typeof window === "object" ? window : globalThis);

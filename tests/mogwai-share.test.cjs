@@ -107,7 +107,30 @@ test("metadata travels only through rigler.org and the portal preview retains ex
   assert.deepEqual(JSON.parse(copied), draft);
   assert.equal(ui.navigations.length, 0);
   ui.nodes.get("share-form").listeners.submit({preventDefault() {}});
-  assert.equal(new URLSearchParams(new URL(ui.navigations[0]).hash.slice(1)).get("opreturn"), short + "?t=90");
+  const handoff = new URLSearchParams(new URL(ui.navigations[0]).hash.slice(1));
+  assert.equal(handoff.get("opreturn"), short + "?t=90");
+  const rich = JSON.parse(handoff.get("record"));
+  assert.equal(rich.schema, "chisel-shared-record-v1");
+  assert.equal(rich.opReturnText, short + "?t=90");
+  assert.equal(rich.summary.opReturnText, rich.opReturnText);
+  assert.equal(rich.summary.title, metadataFixture.metadata.title);
+  assert.deepEqual(rich.summary.mediaCards, metadataFixture.mediaCards);
+  assert.deepEqual(rich.metadata, metadataFixture.metadata);
+  assert.doesNotMatch(handoff.get("record"), /Private receipt title|Not uploaded|currentHash|savedHash|cookie/);
+  assert.equal(new URL(ui.navigations[0]).searchParams.has("record"), false);
+});
+
+test("rich handoffs retain pictures and full text without enlarging OP_RETURN, reject oversize records and erase stale fragment metadata", () => {
+  const description = {kind: "youtube", content: short + "?t=90"};
+  const record = C.sharedRecord(description, metadataFixture.metadata, metadataFixture.mediaCards);
+  const target = new URL(C.chiselURL("https://gateway.example/ipfs/bafyfixture/#keep=here&record=stale", description.content, record));
+  const fragment = new URLSearchParams(target.hash.slice(1));
+  assert.equal(fragment.get("opreturn"), description.content);
+  assert.equal(fragment.get("keep"), "here");
+  assert.equal(JSON.parse(fragment.get("record")).metadata.thumbnailUrl, metadataFixture.metadata.thumbnailUrl);
+  assert.throws(() => C.chiselURL(target.href, description.content, {...record, extra: "é".repeat(32769)}), /65,536/);
+  assert.equal(new URLSearchParams(new URL(C.chiselURL(target.href, "Another note")).hash.slice(1)).has("record"), false);
+  assert.equal(C.sharedRecord({kind: "text", content: "Line one\nLine two\n"}).opReturnText, "Line one\nLine two\n");
 });
 test("a failed lookup leaves an explicit error, no invented metadata, and a working retry", async () => {
   let calls = 0;
@@ -346,7 +369,8 @@ test("an update failure leaves content in place and allows retry", async () => {
 });
 test("existing default Chisel settings receive the fresh compatible page without replacing custom hosts", () => {
   const old = controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/"]]});
-  assert.equal(old.nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.11");
+  assert.equal(old.nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.12");
+  assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", "https://johnrigler.github.io/chisel/?v=2.8.11"]]}).nodes.get("chisel-url").value, "https://johnrigler.github.io/chisel/?v=2.8.12");
   const custom = "https://local.example/chisel/?coin=ltc";
   assert.equal(controller(null, {storage: [["mogwai.chisel-url.v1", custom]]}).nodes.get("chisel-url").value, custom);
 });
