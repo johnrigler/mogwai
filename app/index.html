@@ -10,13 +10,13 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="app.css?v=0.4.0">
-<script defer src="core.js?v=0.4.0"></script>
-<script defer src="user-data.js?v=0.4.0"></script>
-<script defer src="app.js?v=0.4.0"></script>
+<link rel="stylesheet" href="app.css?v=0.4.1">
+<script defer src="core.js?v=0.4.1"></script>
+<script defer src="user-data.js?v=0.4.1"></script>
+<script defer src="app.js?v=0.4.1"></script>
 </head>
 <body>
-<header><div class="brand"><img src="icon.svg" width="36" height="36" alt=""><span>Mogwai<small>Share receiver · 0.4.0</small></span></div><div class="header-actions"><button id="install" type="button">Install Mogwai</button><button id="update-app" type="button">Update app</button><details id="tools"><summary>☰ Tools</summary><div class="tools-menu"><label class="console-toggle"><input id="console-enabled" type="checkbox"> Share console</label><p class="hint">Dump incoming share fields and keep the last 20 receipts.</p></div></details></div></header>
+<header><div class="brand"><img src="icon.svg" width="36" height="36" alt=""><span>Mogwai<small>Share receiver · 0.4.1</small></span></div><div class="header-actions"><button id="install" type="button">Install Mogwai</button><button id="update-app" type="button">Update app</button><details id="tools"><summary>☰ Tools</summary><div class="tools-menu"><label class="console-toggle"><input id="console-enabled" type="checkbox"> Share console</label><p class="hint">Dump incoming share fields and keep the last 20 receipts.</p></div></details></div></header>
 <main>
   <section id="share-console" class="panel receipt" aria-labelledby="console-heading" hidden>
     <span class="eyebrow">Incoming shares · <span id="console-count">0</span> entries</span>
@@ -69,7 +69,7 @@
     <p id="data-status" class="hint" role="status" aria-live="polite"></p>
   </details>
   <section class="panel" aria-labelledby="system-share-heading"><h2 id="system-share-heading">Test the system share menu</h2><p class="hint">This button asks your phone or Chromebook to open its own app chooser. Choose Mogwai, if listed. It sends a plain-text test message, without YouTube.</p><button id="system-share-test" type="button">Open system share test</button><p id="system-share-status" class="hint" role="status" aria-live="polite"></p></section>
-  <details id="install-help" class="panel"><summary>Install or update on phone or Chromebook</summary><p id="install-status" class="hint" role="status"></p><ol><li>Open this page in Chrome and confirm <strong>0.4.0</strong> appears at the top. Use <strong>Update app</strong> for a fresh online load.</li><li>Choose <strong>Install Mogwai</strong>, or use Chrome’s menu to install this app.</li><li>From an app's <strong>system</strong> share menu, choose <strong>Mogwai</strong>.</li></ol><p class="hint">Updating keeps the current receipt and prepared text in this window. YouTube’s social-network panel is its own menu. Installing Mogwai does not add a button to that panel. The test above opens system sharing directly where supported.</p><p id="offline-status" class="hint" role="status">Preparing share receiver…</p></details>
+  <details id="install-help" class="panel"><summary>Install or update on phone or Chromebook</summary><p id="install-status" class="hint" role="status"></p><ol><li>Open this page in Chrome and confirm <strong>0.4.1</strong> appears at the top. Use <strong>Update app</strong> for a fresh online load.</li><li>Choose <strong>Install Mogwai</strong>, or use Chrome’s menu to install this app.</li><li>From an app's <strong>system</strong> share menu, choose <strong>Mogwai</strong>.</li></ol><p class="hint">Updating keeps the current receipt and prepared text in this window. YouTube’s social-network panel is its own menu. Installing Mogwai does not add a button to that panel. The test above opens system sharing directly where supported.</p><p id="offline-status" class="hint" role="status">Preparing share receiver…</p></details>
   <details class="settings"><summary>Chisel address</summary><label for="chisel-url">Hosted, local, or IPFS copy</label><input id="chisel-url" type="url" spellcheck="false" autocomplete="off"><p class="hint">Use Chisel 2.8.10 or later to preserve paragraph breaks.</p></details>
 </main>
 <footer>Vanilla JavaScript · <a href="https://github.com/johnrigler/mogwai">Mogwai source</a> · <a href="https://johnrigler.github.io/chisel/">Chisel</a></footer>
