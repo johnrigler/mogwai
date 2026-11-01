@@ -15,9 +15,44 @@ FileProxy does not automatically move them into this Git repository.
 
 **Current status:** command-first Python tools with archive-local SQLite
 catalogs and an optional HTTP service. Chisel's original HTTP
-implementation is copied unchanged under `tools/fileProxy/`; the new
+compatibility implementation is maintained under `tools/fileProxy/`; the new
 `fileproxy/` package adds a Bash-friendly CLI and general-purpose `/v1`
 filesystem catalog API.
+
+## Chisel interaction history
+
+`POST /interactions` appends dated page arrivals, selections, engagements and
+comments. `GET /interactions` reads newest-first pages, with `before`, `after`,
+`subject` and `kind` filters. `/interactions/event?id=ID` downloads one original
+JSON document, retaining a signed comment's proof at the bottom of the file.
+The active data root owns `chisel-interactions.sqlite3`; no transaction or
+editable note files are replaced. Repeating an identical event ID is
+idempotent; changing its content conflicts. Database triggers and the generic
+public save/delete guards prevent updates through these APIs.
+
+Comments may be unsigned or carry Chisel's existing `chisel-signed-v1`
+`chisel-comment-v1` envelope. The API validates the payload shape and digest,
+then preserves the proof. Browser readers verify secp256k1 and the Litecoin
+author-address binding before labeling an author as verified. FileProxy does
+not receive private keys or assert that it performed that curve verification.
+Events do not include IP addresses, user agents, referrers or browser form/key
+fields; ordinary HTTP/diagnostic logs are separate.
+
+This is a shared append-only application journal, controlled by its filesystem
+owner, rather than a ledger timestamp authority. Chisel offers activity
+pause, local export/clear and an endpoint-bound outbox when this API is
+unavailable. The server retains complete history; visitors can page backward
+without newer arrivals shifting their older cursor.
+
+To enable it on rigler.org or a local device, pull the updated Mogwai checkout
+and restart its existing FileProxy process with the same port, data-root and
+TLS arguments. `/ping` then advertises
+`capabilities.appendOnlyInteractions: true`. Publishing Chisel or Mogwai's
+static website does not restart the private API service. Chisel queues locally
+and shows the unavailable shared service until that restart is complete.
+
+The protocol and client behavior are documented in
+[Chisel interaction history](https://github.com/johnrigler/chisel/blob/main/docs/INTERACTION_HISTORY.md).
 
 ## Persistent notes and publication
 

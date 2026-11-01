@@ -17,6 +17,7 @@ import urllib.request
 import time
 
 from text_editor import TextEditor
+import interactions
 
 HOST = os.environ.get("CHISEL_FILE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("CHISEL_FILE_PORT", "7799"))
@@ -238,6 +239,8 @@ def send_json(handler, obj, status=200):
     handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     handler.send_header("Access-Control-Allow-Headers", "Content-Type")
     handler.send_header("Content-Length", str(len(data)))
+    if urllib.parse.urlparse(handler.path).path.startswith("/interactions"):
+        handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
     handler.wfile.write(data)
 
@@ -2714,6 +2717,33 @@ class Handler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
 
         try:
+            if parsed.path == "/interactions":
+                try:
+                    payload = interactions.read(data_path(interactions.DATABASE), query)
+                except (ValueError, TypeError) as error:
+                    send_json(self, {"ok": False, "error": str(error)}, 400)
+                    return
+                send_json(self, payload)
+                return
+
+            if parsed.path == "/interactions/event":
+                identifier = query.get("id", [""])[0]
+                try:
+                    data = interactions.download(data_path(interactions.DATABASE), identifier)
+                except (ValueError, FileNotFoundError) as error:
+                    send_json(self, {"ok": False, "error": str(error)}, 404 if isinstance(error, FileNotFoundError) else 400)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Content-Disposition", 'attachment; filename="chisel-interaction-' + identifier + '.json"')
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
             if parsed.path == "/text-editor":
                 TEXT_EDITOR.send_page(self)
                 return
@@ -2741,6 +2771,7 @@ class Handler(BaseHTTPRequestHandler):
                         "mainThunderwordCatalog": True,
                         "tiktokThumbnails": True,
                         "youtubeMetadata": True,
+                        "appendOnlyInteractions": True,
                     },
                 })
                 return
@@ -2934,14 +2965,29 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, {"ok": False, "error": "Unknown endpoint"}, 404)
 
         except Exception as e:
-            send_json(self, {"ok": False, "error": str(e)}, 500)
+            send_json(self, {"ok": False, "error": str(e)}, 400 if parsed.path == "/interactions" and isinstance(e, (ValueError, TypeError, UnicodeError)) else 500)
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
         try:
             length = int(self.headers.get("Content-Length", "0"))
+            if parsed.path == "/interactions" and (length < 0 or length > interactions.MAX_REQUEST):
+                send_json(self, {"ok": False, "error": "Interaction request is too large"}, 413)
+                return
             raw = self.rfile.read(length).decode("utf-8")
             body = json.loads(raw) if raw else {}
+
+            if parsed.path == "/interactions":
+                try:
+                    payload = interactions.append(data_path(interactions.DATABASE), body)
+                except FileExistsError as error:
+                    send_json(self, {"ok": False, "error": str(error)}, 409)
+                    return
+                except (ValueError, TypeError, UnicodeError) as error:
+                    send_json(self, {"ok": False, "error": str(error)}, 400)
+                    return
+                send_json(self, payload, 200 if payload["duplicate"] else 201)
+                return
 
             if parsed.path == "/editor/save":
                 payload, status = TEXT_EDITOR.save(self.headers, body)
@@ -2991,6 +3037,9 @@ class Handler(BaseHTTPRequestHandler):
                     send_json(self, {"ok": False, "error": "Missing path"}, 400)
                     return
                 p = safe_path(rel)
+                if interactions.protected_path(p):
+                    send_json(self, {"ok": False, "error": "Interaction history cannot be replaced through /save"}, 403)
+                    return
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(text, encoding="utf-8")
                 send_json(self, {"ok": True, "path": rel_path(p), "size": p.stat().st_size})
@@ -3177,6 +3226,9 @@ class Handler(BaseHTTPRequestHandler):
                     send_json(self, {"ok": False, "error": "Missing path"}, 400)
                     return
                 p = safe_path(rel)
+                if interactions.protected_path(p):
+                    send_json(self, {"ok": False, "error": "Interaction history cannot be deleted through /delete"}, 403)
+                    return
                 if p.is_dir():
                     send_json(self, {"ok": False, "error": "Refusing to delete directory"}, 400)
                     return
@@ -3187,7 +3239,7 @@ class Handler(BaseHTTPRequestHandler):
 
             send_json(self, {"ok": False, "error": "Unknown endpoint"}, 404)
         except Exception as e:
-            send_json(self, {"ok": False, "error": str(e)}, 500)
+            send_json(self, {"ok": False, "error": str(e)}, 400 if parsed.path == "/interactions" and isinstance(e, (ValueError, TypeError, UnicodeError)) else 500)
 
 
 def main(host=None, port=None):
@@ -3211,7 +3263,7 @@ def main(host=None, port=None):
 
     print(f"chisel-fileproxy running at {scheme}://{listen_host}:{listen_port}")
     print(f"root: {ROOT}")
-    print("endpoints: /ping /config /main-streams /txids /tx-index /evm-stream-status /evm-local-catalog /evm-image-catalog /reindex /tx /ipfs /find-assets /raw /tiktok-thumbnail /list /load /save /text-editor /editor/status /editor/load /editor/save /main-stream /import-jist-feed /save-tx /save-evm-tx /save-evm-batch /import-legacy-evm-images")
+    print("endpoints: /ping /config /interactions /interactions/event /main-streams /txids /tx-index /evm-stream-status /evm-local-catalog /evm-image-catalog /reindex /tx /ipfs /find-assets /raw /tiktok-thumbnail /list /load /save /text-editor /editor/status /editor/load /editor/save /main-stream /import-jist-feed /save-tx /save-evm-tx /save-evm-batch /import-legacy-evm-images")
     try:
         server.serve_forever()
     finally:
