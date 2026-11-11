@@ -6,7 +6,7 @@ from pathlib import Path
 from fileproxy.inventory import export_inventory
 from fileproxy.names import canonical_filename, require_no_space_path
 from fileproxy.core import (
-    dated_parts, load_index, put, query_index, resolve_file, scan, sha256_file
+    dated_parts, load_index, put, put_file, query_index, resolve_file, scan, sha256_file
 )
 
 
@@ -43,7 +43,43 @@ class TestFileProxy(unittest.TestCase):
         self.assertEqual(rows[0]["isoDay"], 1)
         self.assertEqual(query_index(load_index(self.index), text="RECEIPT")[0]["sha256"], record["sha256"])
 
+
+    def test_put_file_streams_without_overwriting_source(self):
+        import hashlib
+        source = self.base / "large-media.ogg"
+        payload = b"0123456789abcdef" * 300000  # More than four 1 MiB chunks.
+        source.write_bytes(payload)
+        expected = hashlib.sha256(payload).hexdigest()
+        result = put_file(self.config, "daisy", "calls/original.ogg", source)
+        target = self.daisy / "calls" / "original.ogg"
+        self.assertEqual(result["sha256"], expected)
+        self.assertEqual(result["size"], len(payload))
+        self.assertEqual(sha256_file(target), expected)
+        self.assertEqual(source.read_bytes(), payload)
+        with self.assertRaises(FileExistsError):
+            put_file(self.config, "daisy", "calls/original.ogg", source)
+        with self.assertRaises(ValueError):
+            put_file(self.config, "daisy", "calls/original.ogg", target, overwrite=True)
+        with self.assertRaises(ValueError):
+            put_file(self.config, "daisy", "../escape.ogg", source)
+        result = put_file(self.config, "daisy", "calls/original.ogg", source, overwrite=True)
+        self.assertEqual(result["sha256"], expected)
+        scan(self.config, path=self.index)
+        rows = load_index(self.index)["entries"]
+        self.assertEqual(rows[0]["sha256"], expected)
+        self.assertEqual(rows[0]["bytes"], len(payload))
+
+    def test_put_file_rejects_symlink_source(self):
+        source = self.base / "source.ogg"
+        source.write_bytes(b"source")
+        shortcut = self.base / "alias.ogg"
+        shortcut.symlink_to(source)
+        with self.assertRaises(ValueError):
+            put_file(self.config, "daisy", "calls/alias.ogg", shortcut)
+        self.assertFalse((self.daisy / "calls" / "alias.ogg").exists())
+
     def test_hidden_and_symlink_exclusions(self):
+
         (self.daisy / ".private").write_text("secret")
         (self.daisy / ".git").mkdir()
         (self.daisy / ".git" / "config").write_text("secret")
