@@ -19,6 +19,10 @@ compatibility implementation is maintained under `tools/fileProxy/`; the new
 `fileproxy/` package adds a Bash-friendly CLI and general-purpose `/v1`
 filesystem catalog API.
 
+## Large-media preservation and server replication
+
+The [large-media storage design](docs/LARGE-MEDIA-STORE.md) distinguishes current functionality from a proposed streaming HTTP media service. Today FileProxy's scan path hashes existing files in chunks and catalogs their SHA-256 and size, while the `fp put` CLI, JSON `/v1/put` route and `/v1/file` response do not stream large files end-to-end. To preserve audio or video immediately, copy exact bytes into a private registered FileProxy root by filesystem/SSH transfer, scan, and verify the complete digest on a separately controlled second server. This does not imply replication, an online upload route, public file serving, IPFS pinning or chain publication has happened automatically.
+
 ## Chisel interaction history
 
 `POST /interactions` appends dated page arrivals, selections, engagements and
