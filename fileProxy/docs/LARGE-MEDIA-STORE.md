@@ -12,7 +12,7 @@ The current code paths behave differently:
 | --- | --- | --- |
 | Commons PDF artifact-intake page | 64 MiB source cap and PDF-specific inspection | Not a general-purpose audio/video ingestion route |
 | FileProxy `fileproxy.core.sha256_file` and `scan_root` | Reads files in 1 MiB chunks when hashing | Already suitable for hashing larger files without reading them all into RAM |
-| FileProxy `fp put` CLI | Calls `Path.read_bytes()` before `put` | Copies the entire input into memory |
+| FileProxy `fp put` CLI (this proposed code change) | Streams in 1 MiB chunks to a temporary file while hashing | Removes full-file RAM usage for local CLI copies after installation |
 | FileProxy `POST /v1/put` | JSON text/base64, 12 MiB request ceiling, whole-body parse | Not suitable for multi-gigabyte media |
 | FileProxy `GET /v1/file` | Calls `target.read_bytes()` | Whole file in memory; no dedicated HTTP range streaming for media |
 | `static_publish.py` | Checks `MAX_BYTES` and uses `read_bytes()` | Designed for smaller portable static artifacts, not arbitrary media |
@@ -22,7 +22,7 @@ These limits are not a reason to normalize or recompress evidence. The server mu
 
 ## Use existing capabilities immediately (no code changes)
 
-1. Copy the original file into a **private** registered FileProxy root using a direct filesystem copy, SSH/SCP or rsync. Use the original bytes without editing or renaming in place; filenames can be catalog aliases.
+1. Copy the original file into a **private** registered FileProxy root using a direct filesystem copy, SSH/SCP or rsync. With the revised CLI installed, `fp put ROOT /path/to/source relative/name.ogg` also performs a chunked local copy. Use the original bytes without editing or renaming in place; filenames can be catalog aliases.
 2. Run `fp scan ROOT`. The catalog's SHA-256 is calculated incrementally and stored as a **32-byte BLOB** in SQLite; file length and path are recorded as well.
 3. Verify the digest separately on the source device with `sha256sum /path/to/source`, and on the receiving machine with `sha256sum /path/to/stored-copy`. Match full 64-character lowercase hex digests *and* sizes.
 4. Keep original audio, exported SRT, corrected transcript, Recast project JSON and later MP4 as **distinct** records; a project file or MP4 does not replace an original source.
@@ -32,9 +32,10 @@ These limits are not a reason to normalize or recompress evidence. The server mu
 Simple Linux example (adapt paths and root names to the actual machines, and only register directories that already exist):
 
 ```bash
-# On the rigler.org host, after an authenticated copy placed the file in its private root:
+# On the rigler.org host, if the CLI update has been installed:
 cd ~/mogwai/fileProxy
 python3 fp.py add-root commons_private /srv/private/commons
+python3 fp.py put commons_private /path/to/original.ogg calls/original.ogg
 python3 fp.py scan commons_private
 sha256sum /srv/private/commons/calls/original.ogg
 
@@ -88,4 +89,4 @@ Capture time, archive intake time, replica verification time, later IPFS pin tim
 - Confirm that old `/v1/put`, old Chisel routes, static artifact publishing, and the existing FileProxy catalog continue to work.
 - Deploy on one private endpoint first; a GitHub commit does **not** restart the server or publish the stored object.
 
-**Status:** architecture specification and documented immediate workaround only. No new HTTP upload route, media storage root, replication service, public media, IPFS pin or Litecoin broadcast is claimed.
+**Status:** this change set includes a bounded-memory implementation for the **local CLI put command** plus an architecture specification. The new CLI behavior requires installation on the target host and passing tests. No new HTTP upload route, live media storage root, replication service, public media, IPFS pin or Litecoin broadcast is claimed.
