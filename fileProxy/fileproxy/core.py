@@ -95,6 +95,55 @@ def put(config, root, path, data, overwrite=False):
             "sha256": hashlib.sha256(data).hexdigest()}
 
 
+
+def put_file(config, root, path, source, overwrite=False):
+    """Copy and SHA-256 a local file in bounded chunks, without loading it into RAM.
+
+    Like put(), this is a local-file operation; HTTP /v1/put remains a
+    deliberately separate small JSON endpoint. The source is never modified.
+    """
+    from .names import require_no_space_path
+    require_no_space_path(path)
+    source = Path(source).expanduser()
+    if source.is_symlink() or not source.is_file():
+        raise ValueError("Source must be an existing regular non-symlink file")
+    destination = resolve_file(config, root, path)
+    if destination.exists():
+        if source.samefile(destination):
+            raise ValueError("Source and destination are the same file")
+        if not overwrite:
+            raise FileExistsError(str(destination))
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".fileproxy-", dir=str(destination.parent))
+    digest = hashlib.sha256()
+    size = 0
+    try:
+        with source.open("rb") as input_file, os.fdopen(fd, "wb") as output_file:
+            initial = os.fstat(input_file.fileno())
+            while True:
+                chunk = input_file.read(1024 * 1024)
+                if not chunk:
+                    break
+                digest.update(chunk)
+                output_file.write(chunk)
+                size += len(chunk)
+            final = os.fstat(input_file.fileno())
+            if ((initial.st_size, initial.st_mtime_ns) !=
+                    (final.st_size, final.st_mtime_ns)):
+                raise ValueError("Source changed during copy; refusing to promote partial snapshot")
+            output_file.flush()
+            os.fsync(output_file.fileno())
+        # Keep the same overwrite semantics as put(), using an atomic promotion.
+        if destination.exists() and not overwrite:
+            raise FileExistsError(str(destination))
+        os.replace(temporary, destination)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return {"root": root, "path": path, "size": size,
+            "sha256": digest.hexdigest()}
+
+
 def sha256_file(path):
     digest = hashlib.sha256()
     with path.open("rb") as stream:
