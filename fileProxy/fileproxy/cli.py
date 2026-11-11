@@ -7,7 +7,7 @@ import sqlite3
 
 from .core import (
     DEFAULT_CONFIG, DEFAULT_INDEX, ROOT_NAME, load_config, load_catalog,
-    put, query_index, resolve_file, roots_from, scan, write_config
+    put, put_file, query_index, resolve_file, roots_from, scan, write_config
 )
 
 
@@ -114,8 +114,7 @@ def main(argv=None):
         elif args.command == "cat":
             sys.stdout.buffer.write(resolve_file(conf, args.root, args.path).read_bytes())
         elif args.command == "put":
-            data = Path(args.source).expanduser().read_bytes()
-            print(json.dumps(put(conf, args.root, args.path, data, args.overwrite), indent=2))
+            print(json.dumps(put_file(conf, args.root, args.path, args.source, args.overwrite), indent=2))
         return 0
     except (OSError, ValueError, KeyError, json.JSONDecodeError, sqlite3.DatabaseError) as exc:
         print("fileproxy: " + str(exc), file=sys.stderr)
