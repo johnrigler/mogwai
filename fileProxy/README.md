@@ -21,7 +21,7 @@ filesystem catalog API.
 
 ## Large-media preservation and server replication
 
-The [large-media storage design](docs/LARGE-MEDIA-STORE.md) distinguishes current functionality from a proposed streaming HTTP media service. Today FileProxy's scan path hashes existing files in chunks and catalogs their SHA-256 and size, while the `fp put` CLI, JSON `/v1/put` route and `/v1/file` response do not stream large files end-to-end. To preserve audio or video immediately, copy exact bytes into a private registered FileProxy root by filesystem/SSH transfer, scan, and verify the complete digest on a separately controlled second server. This does not imply replication, an online upload route, public file serving, IPFS pinning or chain publication has happened automatically.
+The [large-media storage design](docs/LARGE-MEDIA-STORE.md) distinguishes current functionality from a proposed streaming HTTP media service. The FileProxy scan path hashes existing files in chunks and catalogs their SHA-256 and size. In this change the local `fp put` CLI also streams copies in 1 MiB chunks, but the JSON `/v1/put` route and `/v1/file` response do not stream large files end-to-end. After installing this change, `fp put` can place original audio or video into a private registered root without whole-file memory buffering. Or copy exact bytes by filesystem/SSH transfer. Scan and verify the complete digest on a separately controlled second server. This does not imply replication, an online upload route, public file serving, IPFS pinning or chain publication has happened automatically.
 
 ## Chisel interaction history
 
