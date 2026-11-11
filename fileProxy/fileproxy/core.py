@@ -118,7 +118,7 @@ def put_file(config, root, path, source, overwrite=False):
     digest = hashlib.sha256()
     size = 0
     try:
-        with source.open("rb") as input_file, os.fdopen(fd, "wb") as output_file:
+        with os.fdopen(fd, "wb") as output_file, source.open("rb") as input_file:
             initial = os.fstat(input_file.fileno())
             while True:
                 chunk = input_file.read(1024 * 1024)
