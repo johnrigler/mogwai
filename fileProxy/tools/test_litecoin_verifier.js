@@ -5,7 +5,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const {verify} = require("./verify_litecoin.js");
 const bundle = process.env.CHISEL_ELLIPTIC_PATH;
-if (!bundle) throw Error("Set CHISEL_ELLIPTIC_PATH to the local Chisel chisel.js");
+if (!bundle) throw Error("Set CHISEL_ELLIPTIC_PATH to the local Chisel vendor/elliptic-6-6-1.min.js");
 const elliptic = require(path.resolve(bundle));
 const ec = new elliptic.ec("secp256k1");
 const key = ec.keyFromPrivate("1".padStart(64, "0"), "hex");
