@@ -142,6 +142,13 @@ def make_handler(config_path, index_path, local=False, activity_log="", home_con
                         self.send_header("Content-Security-Policy", "sandbox; default-src 'none'")
                         self.end_headers()
                         self.wfile.write(data)
+                elif parsed.path == "/v1/url":
+                    from .url_catalog import database_path, lookup
+                    record = lookup(database_path(config_path), query.get("url", [""])[0])
+                    if record is None:
+                        self.response({"ok": False, "error": "Resource not cataloged"}, 404)
+                    else:
+                        self.response({"ok": True, "resource": record})
                 elif parsed.path == "/v1/health":
                     names = sorted(roots_from(load_config(config_path)))
                     self.response({"ok": True, "service": "fileproxy", "version": 1, "roots": names,
@@ -244,6 +251,9 @@ def make_handler(config_path, index_path, local=False, activity_log="", home_con
                     payload = intake(load_config(config_path), content,
                                      tag or dest, body.get("note", ""), index_path=index_path)
                     self.response(payload)
+                elif parsed.path == "/v1/url":
+                    from .url_catalog import database_path, resolve
+                    self.response(resolve(database_path(config_path), body.get("url", "")))
                 elif parsed.path == "/v1/scan":
                     names = body.get("roots")
                     if names is not None and not isinstance(names, list):
