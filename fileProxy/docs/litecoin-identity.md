@@ -1,6 +1,6 @@
 # FileProxy Litecoin identity namespaces (experimental)
 
-Branch: `feature/fileproxy-litecoin-identity-namespaces`. Not enabled unless `FILEPROXY_IDENTITY_ROOT` is set. No Python crypto dependency is required. Install Node.js and set `CHISEL_ELLIPTIC_PATH` to an absolute path to the existing Chisel `chisel.js` (which embeds elliptic 6.6.1). The server returns 503 if this path is unset. Do not expose publicly before testing with real Litecoin wallet signatures.
+Branch: `feature/fileproxy-litecoin-identity-namespaces`. Not enabled unless `FILEPROXY_IDENTITY_ROOT` is set. No Python crypto dependency is required. Install Node.js and set `CHISEL_ELLIPTIC_PATH` to an absolute path to the existing Chisel `vendor/elliptic-6-6-1.min.js` (which embeds elliptic 6.6.1). The server returns 503 if this path is unset. Do not expose publicly before testing with real Litecoin wallet signatures.
 
 ## Policy
 
@@ -60,9 +60,9 @@ The Python unit tests mock public-key recovery. A Node.js signing/recovery round
 From `fileProxy/`, with Chisel checked out locally:
 
 ```sh
-export CHISEL_ELLIPTIC_PATH="$HOME/chisel/chisel.js"
+export CHISEL_ELLIPTIC_PATH="$HOME/chisel/vendor/elliptic-6-6-1.min.js"
 node tools/test_litecoin_verifier.js
 python3 -m unittest discover -s tests -p 'test_identity.py' -v
 ```
 
-Node.js uses the exact `chisel.js` elliptic bundle, without a Noble dependency. Do not point `CHISEL_ELLIPTIC_PATH` at an untrusted or user-writable JavaScript file. Keep the verifier local and under operator control.
+Node.js uses the same vendored elliptic library used by `chisel.js`, without a Noble dependency. Do not point `CHISEL_ELLIPTIC_PATH` at an untrusted or user-writable JavaScript file. Keep the verifier local and under operator control.
