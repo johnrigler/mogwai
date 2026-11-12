@@ -1,12 +1,13 @@
 """Litecoin P2PKH signed-request identities for isolated FileProxy records.
 
-Requires coincurve for secp256k1 public-key recovery. No token fallback here.
+Uses Chisel's elliptic bundle via Node.js. No token fallback here.
 Only legacy Litecoin P2PKH addresses (L...) are supported initially.
 """
 import base64
 import hashlib
 import json
 import os
+import subprocess
 from pathlib import Path
 import sqlite3
 import time
@@ -52,23 +53,26 @@ def canonical_message(method, path, timestamp, nonce, body):
             + str(timestamp) + "\n" + nonce + "\n" + digest).encode("ascii")
 
 def recover_address(message, signature):
+    if not isinstance(signature, str) or len(signature) > 128:
+        raise ValueError('Invalid Litecoin signature')
+    verifier = Path(__file__).resolve().parents[1] / 'tools' / 'verify_litecoin.js'
+    if not os.environ.get('CHISEL_ELLIPTIC_PATH'):
+        raise RuntimeError('CHISEL_ELLIPTIC_PATH must point to Chisel chisel.js')
     try:
-        from coincurve import PublicKey
-    except ImportError as exc:
-        raise RuntimeError("Litecoin signatures require the coincurve Python package") from exc
+        result = subprocess.run(['node', str(verifier)],
+            input=json.dumps({'message': message.decode('utf-8'), 'signature': signature}),
+            capture_output=True, text=True, timeout=5, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError('Litecoin verifier unavailable') from exc
+    if result.returncode != 0:
+        raise ValueError('Invalid Litecoin signature')
     try:
-        raw = base64.b64decode(signature, validate=True)
-        if len(raw) != 65 or not 27 <= raw[0] <= 34:
-            raise ValueError("Invalid Litecoin compact signature")
-        header = raw[0] - 27
-        compressed = bool(header & 4)
-        recovery_id = header & 3
-        payload = PREFIX + varint(len(message)) + message
-        digest = sha256d(payload)
-        key = PublicKey.from_signature_and_message(raw[1:] + bytes([recovery_id]), digest, hasher=None)
-        return address_for_pubkey(key.format(compressed=compressed))
-    except (ValueError, TypeError) as exc:
-        raise ValueError("Invalid Litecoin signature") from exc
+        address = json.loads(result.stdout)['address']
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ValueError('Invalid verifier response') from exc
+    if not isinstance(address, str):
+        raise ValueError('Invalid verifier address')
+    return address
 
 def authenticate(envelope, method, path, now=None):
     if not isinstance(envelope, dict) or set(envelope) != {"address", "timestamp", "nonce", "body", "signature"}:
