@@ -1,0 +1,23 @@
+#!/usr/bin/env node
+"use strict";
+const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
+const path = require("node:path");
+const {verify} = require("./verify_litecoin.js");
+const bundle = process.env.CHISEL_ELLIPTIC_PATH;
+if (!bundle) throw Error("Set CHISEL_ELLIPTIC_PATH to the local Chisel chisel.js");
+const elliptic = require(path.resolve(bundle));
+const ec = new elliptic.ec("secp256k1");
+const key = ec.keyFromPrivate("1".padStart(64, "0"), "hex");
+const message = "FileProxy Litecoin Identity v1\nPOST\n/v1/identity/records\n1700000000\n0123456789abcdef\n" + crypto.createHash("sha256").update("{}").digest("hex");
+const data = Buffer.from(message);
+const prefix = Buffer.from("\x19Litecoin Signed Message:\n");
+const payload = Buffer.concat([prefix, Buffer.from([data.length]), data]);
+const hash = x => crypto.createHash("sha256").update(x).digest();
+const digest = hash(hash(payload));
+const sig = key.sign(digest, {canonical:true});
+const compact = Buffer.concat([Buffer.from([27 + sig.recoveryParam + 4]), Buffer.from(sig.r.toArray("be",32)), Buffer.from(sig.s.toArray("be",32))]).toString("base64");
+const address = verify(message, compact, bundle);
+assert.ok(address.startsWith("L"), address);
+assert.notEqual(verify(message + "x", compact, bundle), address, "Tampered message must not authenticate as original identity");
+console.log("Chisel elliptic Litecoin recovery:", address);
