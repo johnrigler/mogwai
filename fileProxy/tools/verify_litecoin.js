@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 // Verifies Litecoin compact signed messages using Chisel's existing elliptic bundle.
-// CHISEL_ELLIPTIC_PATH points at the checked-out Chisel chisel.js.
+// CHISEL_ELLIPTIC_PATH points at the checked-out Chisel vendor/elliptic-6-6-1.min.js.
 const fs = require("node:fs");
 const crypto = require("node:crypto");
 const path = require("node:path");
@@ -41,7 +41,7 @@ function verify(message, signature, bundle) {
 }
 function main() {
   const bundle = process.env.CHISEL_ELLIPTIC_PATH;
-  if (!bundle) throw Error("CHISEL_ELLIPTIC_PATH must point to Chisel chisel.js");
+  if (!bundle) throw Error("CHISEL_ELLIPTIC_PATH must point to Chisel vendor/elliptic-6-6-1.min.js");
   const input = JSON.parse(fs.readFileSync(0, "utf8"));
   if (typeof input.message !== "string" || typeof input.signature !== "string")
     throw Error("Invalid verifier input");
