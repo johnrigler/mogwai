@@ -225,6 +225,31 @@ def make_handler(config_path, index_path, local=False, activity_log="", home_con
             parsed = urlparse(self.path)
             if not parsed.path.startswith("/v1/"):
                 return super().do_POST()
+            if parsed.path == "/v1/identity/records":
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                    if not 0 < length <= 65536:
+                        self.response({"ok": False, "error": "Invalid signed request size"}, 413)
+                        return
+                    envelope = json.loads(self.rfile.read(length))
+                    from .identity import authenticate, write_record
+                    address = authenticate(envelope, "POST", parsed.path)
+                    base = os.environ.get("FILEPROXY_IDENTITY_ROOT")
+                    if not base:
+                        self.response({"ok": False, "error": "Identity storage not configured"}, 503)
+                        return
+                    self.response(write_record(base, address, envelope["nonce"], envelope["body"], envelope["timestamp"]), 201)
+                except PermissionError:
+                    self.response({"ok": False, "error": "Identity blocked"}, 403)
+                except FileExistsError:
+                    self.response({"ok": False, "error": "Signed request already used"}, 409)
+                except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+                    self.response({"ok": False, "error": "Invalid signed request"}, 400)
+                except RuntimeError:
+                    self.response({"ok": False, "error": "Signature verifier unavailable"}, 503)
+                except Exception:
+                    self.response({"ok": False, "error": "Identity storage error"}, 500)
+                return
             secret = os.environ.get("FILEPROXY_WRITE_TOKEN", "")
             supplied = self.headers.get("X-FileProxy-Token", "")
             auth = self.headers.get("Authorization", "")
