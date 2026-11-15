@@ -76,12 +76,15 @@ from real source records; do not infer them from a catalog path.
 
 ## Chisel compatibility
 
-`tools/fileProxy/proxy.py` and the editor assets are copied verbatim from
-`johnrigler/chisel`. The `fileproxy/server.py` handler subclasses the Chisel
-handler and adds `/v1` routes. The legacy namespace remains completely
-unchanged (`/ping`, `/save-tx`, `/tx`, `/txids`, `/main-stream`,
-`/save-links`, `/list`, `/load`, `/save`, `/import-jist-feed`,
-`/reindex`, etc.).
+`tools/fileProxy/proxy.py` originated as a compatibility copy from
+`johnrigler/chisel`, but the two files have diverged. Mogwai now extends that
+handler with `/interactions`, `/account-index`, `/youtube-metadata` and other
+project features. The `fileproxy/server.py` handler subclasses Mogwai's local
+compatibility implementation and adds general `/v1` routes. The original
+Chisel URLs such as `/ping`, `/save-tx`, `/tx`, `/txids`, `/main-stream`,
+`/save-links`, `/list`, `/load`, `/save`, `/import-jist-feed`, and `/reindex`
+remain compatibility requirements. Do not overwrite this evolved handler
+with the older Chisel copy.
 
 When running the unified service for an existing Chisel installation, set:
 
