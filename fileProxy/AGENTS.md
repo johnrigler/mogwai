@@ -7,7 +7,7 @@ Read [the migration guide](../docs/CONSOLIDATION.md). Runtime configs and
 archive catalogs stay outside the tools tree.
 
 ## Which FileProxy?
-This repository (`johnrigler/fileProxy`) is the **new standalone Python FileProxy**. The older Chisel implementation is preserved at `johnrigler/chisel/tools/fileProxy/` and copied into this repository under `tools/fileProxy/` for compatibility. Do not confuse them or modify Chisel's legacy API as part of catalog work.
+This directory (`johnrigler/mogwai/fileProxy/`) is the current maintained Python FileProxy. The original `johnrigler/fileProxy` repository retains history and previously published data. The older Chisel implementation remains at `johnrigler/chisel/tools/fileProxy/`; Mogwai carries an **evolved** compatibility implementation under `fileProxy/tools/fileProxy/`, including additional interaction and catalog routes. These copies are not byte-identical. Do not overwrite Mogwai's running legacy handler with Chisel's copy, or treat GitHub permissions as FileProxy HTTP authorization. Review route-level and local-root behavior before synchronization.
 
 ## SQLite -> GitHub -> Python
 The user runs FileProxy and SQLite on their own machines (Termux, Linux, macOS).
