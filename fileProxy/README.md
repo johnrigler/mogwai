@@ -63,11 +63,12 @@ The protocol and client behavior are documented in
 Read [AGENTS.md](AGENTS.md) before changing function naming, Shoctal identity,
 FileProxy responsibilities, or publication conventions.
 
-**Two FileProxies:** this is the new standalone `johnrigler/fileProxy`
-implementation. The old Chisel implementation lives under
-`johnrigler/chisel/tools/fileProxy/` (a compatibility copy lives here in
-`tools/fileProxy/`). This SQLite catalog change does not replace its legacy
-routes.
+**Two FileProxy layers:** current development is inside `johnrigler/mogwai/fileProxy/`.
+The general Python CLI and `/v1` API live under `fileproxy/`; the evolved Chisel
+compatibility HTTP handler lives here under `tools/fileProxy/`. The original
+Chisel source is at `johnrigler/chisel/tools/fileProxy/`, but its handler is no
+longer byte-identical to Mogwai's. Do not replace the Mogwai compatibility
+handler wholesale or assume that `/v1` authentication also protects legacy routes.
 
 The user creates/updates a **real SQLite database locally**, commits it to
 GitHub, and an authorized assistant retrieves the binary SQLite file at a
