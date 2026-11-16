@@ -18,12 +18,12 @@ canvas{display:block;width:100%;max-height:72vh;background:black;object-fit:cont
 <header><strong>Mogwai · Recorder</strong><a href="../">Back to Mogwai</a></header>
 <main>
 <p class="note">Record a browser tab, window, or screen while demonstrating Chisel or another site. Keep this Mogwai tab open while recording. The browser will ask which surface to share. Video dimensions follow the shared screen. Files use local date and time in their names, for example mogwai_2026-11-15_18-22-01.webm. Recording stays local until you save the WebM.</p>
-<div class="controls"><label><input id="mic" type="checkbox" checked> Microphone</label><label><input id="face" type="checkbox" checked> Face camera preview (not recorded)</label></div>
-<div class="controls"><button class="primary" id="start">● START RECORDING</button><button class="stop" id="stop" disabled>■ STOP</button><a class="download" id="download" hidden download="mogwai_recording.webm">DOWNLOAD VIDEO</a></div>
+<div class="controls"><label><input id="mic" type="checkbox" checked> Microphone</label><label><input id="face" type="checkbox" checked> Record face camera separately</label></div>
+<div class="controls"><button class="primary" id="start">● START RECORDING</button><button class="stop" id="stop" disabled>■ STOP</button><a class="download" id="download" hidden download="mogwai_recording.webm">DOWNLOAD SCREEN VIDEO</a><a class="download" id="camera-download" hidden download="mogwai_camera.webm">DOWNLOAD FACE VIDEO</a></div>
 <div id="status" role="status" aria-live="polite">Ready. Screen sharing requires a secure context and browser permission.</div>
-<div class="camera-check"><video id="face-preview" autoplay muted playsinline aria-label="Face camera preview"></video><p id="camera-state" class="note">Face camera not started. The camera is preview-only and is not included in the saved video.</p></div>
+<div class="camera-check"><video id="face-preview" autoplay muted playsinline aria-label="Face camera preview"></video><p id="camera-state" class="note">Face camera not started. When enabled, it is saved as a second video file.</p></div>
 <p class="note">The recording uses the browser-provided screen video stream directly to avoid background-tab canvas freezes. The selected tab is not previewed here.</p>
-<p class="note">The captured browser tab or screen can include sensitive content. Avoid displaying private keys, recovery phrases, or passwords during recording. The saved WebM records the shared screen directly, not the face camera. The face camera is a local preview only. Check the downloaded WebM before relying on long recordings. Browser support for system audio varies.</p>
+<p class="note">The captured browser tab or screen can include sensitive content. Avoid displaying private keys, recovery phrases, or passwords during recording. The screen WebM records the shared screen directly. If enabled, the face camera is recorded as a separate WebM, not a picture-in-picture inset. Android may pause the camera in background; inspect both files. Check the downloaded WebM before relying on long recordings. Browser support for system audio varies.</p>
 </main>
 <script>
 (()=>{
@@ -31,28 +31,30 @@ canvas{display:block;width:100%;max-height:72vh;background:black;object-fit:cont
 const $=id=>document.getElementById(id);
 const faceVideo=document.createElement("video");
 faceVideo.muted=true;faceVideo.playsInline=true;
-let display=null,microphone=null,camera=null,recorder=null,mix=null,context=null,destination=null,chunks=[],downloadUrl=null,recordingName="";
+let display=null,microphone=null,camera=null,recorder=null,cameraRecorder=null,mix=null,context=null,destination=null,chunks=[],cameraChunks=[],downloadUrl=null,cameraDownloadUrl=null,recordingName="",cameraRecordingName="";
 function cameraState(message){$("camera-state").textContent=message;}
 function timestampName(date=new Date()){const n=v=>String(v).padStart(2,"0");return `mogwai_${date.getFullYear()}-${n(date.getMonth()+1)}-${n(date.getDate())}_${n(date.getHours())}-${n(date.getMinutes())}-${n(date.getSeconds())}.webm`;}
 const status=s=>$("status").textContent=s;
 function stopTracks(stream){if(stream)stream.getTracks().forEach(t=>t.stop())}
 function reset(){
  stopTracks(display);stopTracks(microphone);stopTracks(camera);stopTracks(mix);
- display=microphone=camera=mix=null;faceVideo.srcObject=null;$("face-preview").srcObject=null;cameraState("Face camera stopped. Camera preview is not included in the recording.");
+ display=microphone=camera=mix=null;faceVideo.srcObject=null;$("face-preview").srcObject=null;cameraState("Face camera stopped. Download the face video separately if recorded.");
  if(context){context.close().catch(()=>{});context=null;}destination=null;
  $("start").disabled=false;$("stop").disabled=true;
 }
 function collectAudio(stream){if(stream&&stream.getAudioTracks().length)context.createMediaStreamSource(stream).connect(destination)}
 async function start(){
- $("start").disabled=true;$("download").hidden=true;
+ $("start").disabled=true;$("download").hidden=true;$("camera-download").hidden=true;
  if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl=null;}
- chunks=[];
+ if(cameraDownloadUrl){URL.revokeObjectURL(cameraDownloadUrl);cameraDownloadUrl=null;}
+ chunks=[];cameraChunks=[];cameraRecorder=null;
  try{
  if(!navigator.mediaDevices?.getDisplayMedia||!window.MediaRecorder)throw Error("Screen recording is unavailable in this browser.");
  display=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:30}},audio:true});
  recordingName=timestampName();$("download").download=recordingName;
+ cameraRecordingName=recordingName.replace(/\.webm$/, "_face.webm");$("camera-download").download=cameraRecordingName;
  if($("mic").checked){try{microphone=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true},video:false})}catch(e){status("Microphone unavailable; continuing without it.");}}
- if($("face").checked){try{camera=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});faceVideo.srcObject=camera;$("face-preview").srcObject=camera;await Promise.all([faceVideo.play(),$("face-preview").play()]);cameraState("Face camera active. Your face is visible here only; it is not embedded in the saved WebM.");}catch(e){stopTracks(camera);camera=null;$("face-preview").srcObject=null;cameraState("Face camera unavailable: "+e.message);}}else cameraState("Face camera disabled for this recording.");
+ if($("face").checked){try{camera=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});faceVideo.srcObject=camera;$("face-preview").srcObject=camera;await Promise.all([faceVideo.play(),$("face-preview").play()]);cameraState("Face camera active. It will be saved separately as "+cameraRecordingName+".");}catch(e){stopTracks(camera);camera=null;$("face-preview").srcObject=null;cameraState("Face camera unavailable: "+e.message);}}else cameraState("Face camera disabled for this recording.");
  const track=display.getVideoTracks()[0];track.addEventListener("ended",stop,{once:true});
  let tracks=[...display.getVideoTracks()];
  if(display.getAudioTracks().length||microphone?.getAudioTracks().length){
@@ -63,13 +65,29 @@ async function start(){
  const type=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"].find(t=>MediaRecorder.isTypeSupported(t));
  recorder=new MediaRecorder(mix,type?{mimeType:type}:{});
  recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+ if(camera?.getVideoTracks().length){
+  const cameraType=["video/webm;codecs=vp8","video/webm;codecs=vp9","video/webm"].find(t=>MediaRecorder.isTypeSupported(t));
+  try{
+   cameraRecorder=new MediaRecorder(new MediaStream(camera.getVideoTracks()),cameraType?{mimeType:cameraType}:{});
+   cameraRecorder.ondataavailable=e=>{if(e.data.size)cameraChunks.push(e.data)};
+   cameraRecorder.onstop=()=>{if(cameraChunks.length){const blob=new Blob(cameraChunks,{type:cameraRecorder.mimeType||"video/webm"});cameraDownloadUrl=URL.createObjectURL(blob);$("camera-download").href=cameraDownloadUrl;$("camera-download").hidden=false;cameraState("Face video ready: "+cameraRecordingName+". Check for frozen frames before combining.");}};
+  }catch(e){cameraRecorder=null;cameraState("Camera recording unavailable: "+e.message);}
+ }
  recorder.onstop=()=>{const blob=new Blob(chunks,{type:recorder.mimeType||"video/webm"});if(blob.size){downloadUrl=URL.createObjectURL(blob);$("download").href=downloadUrl;$("download").hidden=false;status("Recording stopped. Download "+recordingName+".");}else status("Recording stopped without video data.");reset()};
- recorder.start(1000);$("stop").disabled=false;status("Recording shared screen directly"+(camera?"; face camera preview only":"")+". Keep Mogwai open until you stop and download.");
+ recorder.start(1000);
+ if(cameraRecorder){try{cameraRecorder.start(1000)}catch(e){cameraRecorder=null;cameraState("Camera recorder could not start: "+e.message);}}
+ $("stop").disabled=false;status("Recording screen directly"+(cameraRecorder?" and camera separately":"")+". Stop sharing to finish; return to Mogwai for downloads.");
  }catch(e){reset();status("Could not start recording: "+e.message);}
 }
-function stop(){if(recorder&&recorder.state!=="inactive"){recorder.stop();$("stop").disabled=true;status("Finalizing recording…")}else reset()}
+function stop(){
+ if(cameraRecorder&&cameraRecorder.state!=="inactive")cameraRecorder.stop();
+ if(recorder&&recorder.state!=="inactive"){recorder.stop();$("stop").disabled=true;status("Finalizing recording… Return to Mogwai to download.");
+  // Browsers may reject bringing an inactive tab to the foreground.
+  try{window.focus()}catch(_e){}
+ }else reset()
+}
 $("start").addEventListener("click",start);$("stop").addEventListener("click",stop);
-window.addEventListener("beforeunload",()=>{if(recorder&&recorder.state!=="inactive")recorder.stop();reset();if(downloadUrl)URL.revokeObjectURL(downloadUrl)});
+window.addEventListener("beforeunload",()=>{if(cameraRecorder&&cameraRecorder.state!=="inactive")cameraRecorder.stop();if(recorder&&recorder.state!=="inactive")recorder.stop();reset();if(downloadUrl)URL.revokeObjectURL(downloadUrl)});
 })();
 </script>
 </body></html>
