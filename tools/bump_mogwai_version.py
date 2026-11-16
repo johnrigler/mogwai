@@ -17,3 +17,16 @@ for path, content in sources.items():
         raise SystemExit(f"Missing version {old} in {path}")
     path.write_text(content.replace(old, new), encoding="utf-8")
     print(f"{path.relative_to(root)}: {old} -> {new}")
+# The public homepage is a generated display of the share receiver's version.
+# Never increment or maintain a separate homepage version.
+homepage = root / "site" / "index.html"
+html = homepage.read_text(encoding="utf-8")
+updated, count = re.subn(
+    r'(<span id="mogwai-home-version"[^>]*>Mogwai v)\d+\.\d+\.\d+(</span>)',
+    lambda match: match.group(1) + new + match.group(2),
+    html,
+)
+if count != 1:
+    raise SystemExit("Expected exactly one Mogwai homepage version label")
+homepage.write_text(updated, encoding="utf-8")
+print(f"{homepage.relative_to(root)}: -> {new}")
