@@ -18,37 +18,27 @@ canvas{display:block;width:100%;max-height:72vh;background:black;object-fit:cont
 <header><strong>Mogwai · Recorder</strong><a href="../">Back to Mogwai</a></header>
 <main>
 <p class="note">Record a browser tab, window, or screen while demonstrating Chisel or another site. Keep this Mogwai tab open while recording. The browser will ask which surface to share. Video dimensions follow the shared screen. Files use local date and time in their names, for example mogwai_2026-11-15_18-22-01.webm. Recording stays local until you save the WebM.</p>
-<div class="controls"><label><input id="mic" type="checkbox" checked> Microphone</label><label><input id="face" type="checkbox" checked> Face camera overlay</label></div>
+<div class="controls"><label><input id="mic" type="checkbox" checked> Microphone</label><label><input id="face" type="checkbox" checked> Face camera preview (not recorded)</label></div>
 <div class="controls"><button class="primary" id="start">● START RECORDING</button><button class="stop" id="stop" disabled>■ STOP</button><a class="download" id="download" hidden download="mogwai_recording.webm">DOWNLOAD VIDEO</a></div>
 <div id="status" role="status" aria-live="polite">Ready. Screen sharing requires a secure context and browser permission.</div>
-<div class="camera-check"><video id="face-preview" autoplay muted playsinline aria-label="Face camera preview"></video><p id="camera-state" class="note">Face camera not started. Its inset belongs to the saved video, not to the page being shared.</p></div>
-<canvas id="stage" width="1280" height="720" aria-label="Recording preview"></canvas>
-<p class="note">The captured browser tab or screen can include sensitive content. Avoid displaying private keys, recovery phrases, or passwords during recording. The face inset is baked into the recorded WebM. It does not appear as a floating window on other apps or tabs. On Android, moving Mogwai into the background may suspend canvas rendering and freeze the recorded video or face inset. Check the downloaded WebM before relying on long recordings. Browser support for system audio varies.</p>
+<div class="camera-check"><video id="face-preview" autoplay muted playsinline aria-label="Face camera preview"></video><p id="camera-state" class="note">Face camera not started. The camera is preview-only and is not included in the saved video.</p></div>
+<p class="note">The recording uses the browser-provided screen video stream directly to avoid background-tab canvas freezes. The selected tab is not previewed here.</p>
+<p class="note">The captured browser tab or screen can include sensitive content. Avoid displaying private keys, recovery phrases, or passwords during recording. The saved WebM records the shared screen directly, not the face camera. The face camera is a local preview only. Check the downloaded WebM before relying on long recordings. Browser support for system audio varies.</p>
 </main>
 <script>
 (()=>{
 "use strict";
-const $=id=>document.getElementById(id), canvas=$("stage"),ctx=canvas.getContext("2d");
-const screenVideo=document.createElement("video"),faceVideo=document.createElement("video");
-screenVideo.muted=faceVideo.muted=true;screenVideo.playsInline=faceVideo.playsInline=true;
-let display=null,microphone=null,camera=null,recorder=null,mix=null,context=null,destination=null,animation=0,chunks=[],downloadUrl=null,recordingName="";
+const $=id=>document.getElementById(id);
+const faceVideo=document.createElement("video");
+faceVideo.muted=true;faceVideo.playsInline=true;
+let display=null,microphone=null,camera=null,recorder=null,mix=null,context=null,destination=null,chunks=[],downloadUrl=null,recordingName="";
 function cameraState(message){$("camera-state").textContent=message;}
 function timestampName(date=new Date()){const n=v=>String(v).padStart(2,"0");return `mogwai_${date.getFullYear()}-${n(date.getMonth()+1)}-${n(date.getDate())}_${n(date.getHours())}-${n(date.getMinutes())}-${n(date.getSeconds())}.webm`;}
-function sizeForCapture(w,h){const max=1920,scale=Math.min(1,max/Math.max(w,h));return [Math.max(2,Math.round(w*scale/2)*2),Math.max(2,Math.round(h*scale/2)*2)];}
 const status=s=>$("status").textContent=s;
 function stopTracks(stream){if(stream)stream.getTracks().forEach(t=>t.stop())}
-function draw(){
- ctx.fillStyle="#000";ctx.fillRect(0,0,canvas.width,canvas.height);
- if(screenVideo.videoWidth){const scale=Math.min(canvas.width/screenVideo.videoWidth,canvas.height/screenVideo.videoHeight);
- const w=screenVideo.videoWidth*scale,h=screenVideo.videoHeight*scale;
- ctx.drawImage(screenVideo,(canvas.width-w)/2,(canvas.height-h)/2,w,h);}
- if(camera&&faceVideo.videoWidth){const w=canvas.width*.22,h=w*faceVideo.videoHeight/faceVideo.videoWidth,x=canvas.width-w-20,y=20;
- ctx.fillStyle="#101820";ctx.fillRect(x-4,y-4,w+8,h+8);ctx.save();ctx.translate(x+w,y);ctx.scale(-1,1);ctx.drawImage(faceVideo,0,0,w,h);ctx.restore();}
- animation=requestAnimationFrame(draw);
-}
 function reset(){
- cancelAnimationFrame(animation);stopTracks(display);stopTracks(microphone);stopTracks(camera);stopTracks(mix);
- display=microphone=camera=mix=null;screenVideo.srcObject=faceVideo.srcObject=null;$("face-preview").srcObject=null;cameraState("Face camera stopped. The video inset is visible only in Mogwai preview and the saved WebM.");
+ stopTracks(display);stopTracks(microphone);stopTracks(camera);stopTracks(mix);
+ display=microphone=camera=mix=null;faceVideo.srcObject=null;$("face-preview").srcObject=null;cameraState("Face camera stopped. Camera preview is not included in the recording.");
  if(context){context.close().catch(()=>{});context=null;}destination=null;
  $("start").disabled=false;$("stop").disabled=true;
 }
@@ -60,17 +50,11 @@ async function start(){
  try{
  if(!navigator.mediaDevices?.getDisplayMedia||!window.MediaRecorder)throw Error("Screen recording is unavailable in this browser.");
  display=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:30}},audio:true});
- screenVideo.srcObject=display;await screenVideo.play();
- const settings=display.getVideoTracks()[0]?.getSettings?.()||{};
- const dimensions=sizeForCapture(screenVideo.videoWidth||settings.width||1280,screenVideo.videoHeight||settings.height||720);
- canvas.width=dimensions[0];canvas.height=dimensions[1];
  recordingName=timestampName();$("download").download=recordingName;
  if($("mic").checked){try{microphone=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true},video:false})}catch(e){status("Microphone unavailable; continuing without it.");}}
- if($("face").checked){try{camera=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});faceVideo.srcObject=camera;$("face-preview").srcObject=camera;await Promise.all([faceVideo.play(),$("face-preview").play()]);cameraState("Face camera active. Your inset should be visible in the recording preview and saved WebM, not over the shared page.");}catch(e){stopTracks(camera);camera=null;$("face-preview").srcObject=null;cameraState("Face camera unavailable: "+e.message);}}else cameraState("Face camera disabled for this recording.");
+ if($("face").checked){try{camera=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});faceVideo.srcObject=camera;$("face-preview").srcObject=camera;await Promise.all([faceVideo.play(),$("face-preview").play()]);cameraState("Face camera active. Your face is visible here only; it is not embedded in the saved WebM.");}catch(e){stopTracks(camera);camera=null;$("face-preview").srcObject=null;cameraState("Face camera unavailable: "+e.message);}}else cameraState("Face camera disabled for this recording.");
  const track=display.getVideoTracks()[0];track.addEventListener("ended",stop,{once:true});
- draw();
- const video=canvas.captureStream(30);
- let tracks=[...video.getVideoTracks()];
+ let tracks=[...display.getVideoTracks()];
  if(display.getAudioTracks().length||microphone?.getAudioTracks().length){
  const AC=window.AudioContext||window.webkitAudioContext;context=new AC();await context.resume();destination=context.createMediaStreamDestination();collectAudio(display);collectAudio(microphone);
  tracks.push(...destination.stream.getAudioTracks());
@@ -80,7 +64,7 @@ async function start(){
  recorder=new MediaRecorder(mix,type?{mimeType:type}:{});
  recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
  recorder.onstop=()=>{const blob=new Blob(chunks,{type:recorder.mimeType||"video/webm"});if(blob.size){downloadUrl=URL.createObjectURL(blob);$("download").href=downloadUrl;$("download").hidden=false;status("Recording stopped. Download "+recordingName+".");}else status("Recording stopped without video data.");reset()};
- recorder.start(1000);$("stop").disabled=false;status("Recording "+canvas.width+"×"+canvas.height+(camera?" with face overlay":" WITHOUT face overlay")+". Keep this Mogwai tab open.");
+ recorder.start(1000);$("stop").disabled=false;status("Recording shared screen directly"+(camera?"; face camera preview only":"")+". Keep Mogwai open until you stop and download.");
  }catch(e){reset();status("Could not start recording: "+e.message);}
 }
 function stop(){if(recorder&&recorder.state!=="inactive"){recorder.stop();$("stop").disabled=true;status("Finalizing recording…")}else reset()}
