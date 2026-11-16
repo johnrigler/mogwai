@@ -64,7 +64,7 @@ var footer = document.getElementById("addFooter");
 
 footer.innerHTML = setFooter;
 
-homeMenu.onclick = function () { console.log("click") ;  setLocationHref("") }; // was vf/
+if (homeMenu) homeMenu.onclick = function () { setLocationHref("") };
 homeImage.onclick = function () { setLocationHref("") }; // was vf/
 //blockchainMenu.onclick = function () { location.href = "https://secretbeachsolutions.com/vanillaframework/" };
 // example.onclick = function () { setLocationHref("https://secretbeachsolutions.com/vanillaframework/examples/") } ;
