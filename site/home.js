@@ -6,6 +6,7 @@ function loadBody () {
   <div class="row">
     <div class="col-12">
       <h1 id="pageTitle">pageTitle</h1>
+      <p id="mainMogwaiVersion" style="font-size:0.875rem;opacity:.78;margin-top:-0.5rem">Version loading…</p>
       <p id="pageBlurb">pageBlurb</p>
       <ul class="p-inline-list u-no-margin--bottom">
         <li class="p-inline-list__item">
@@ -128,3 +129,12 @@ fetchHome("home.json?14343")
 
 contactUs.onclick = function () { console.log("contactUs") ; setLocationHref("#footerContact") };
 
+
+// Show the share receiver's current release without maintaining a second version constant.
+fetch(new URL("../app/index.html?mogwai-version=" + Date.now(), location.href), {cache:"no-store"})
+  .then(response => { if (!response.ok) throw new Error("Version unavailable"); return response.text(); })
+  .then(markup => {
+    const match = markup.match(/Share receiver\\s*[·]\\s*(\\d+\\.\\d+\\.\\d+)/);
+    document.getElementById("mainMogwaiVersion").textContent = match ? "Version " + match[1] : "Version unavailable";
+  })
+  .catch(() => { document.getElementById("mainMogwaiVersion").textContent = "Version unavailable"; });
