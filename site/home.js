@@ -134,7 +134,7 @@ contactUs.onclick = function () { console.log("contactUs") ; setLocationHref("#f
 fetch(new URL("../app/index.html?mogwai-version=" + Date.now(), location.href), {cache:"no-store"})
   .then(response => { if (!response.ok) throw new Error("Version unavailable"); return response.text(); })
   .then(markup => {
-    const match = markup.match(/Share receiver\\s*[·]\\s*(\\d+\\.\\d+\\.\\d+)/);
+    const match = markup.match(/Share receiver\s*[·]\s*(\d+\.\d+\.\d+)/);
     document.getElementById("mainMogwaiVersion").textContent = match ? "Version " + match[1] : "Version unavailable";
   })
   .catch(() => { document.getElementById("mainMogwaiVersion").textContent = "Version unavailable"; });
