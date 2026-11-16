@@ -55,7 +55,7 @@
 <a class="p-navigation__link" href="publication.html?page=publications/overview.json">Publications 42.B</a>
 <a class="p-navigation__link" href="mail.html">Mail</a>
 <a class="p-navigation__link" href="../app/">Share to Chisel</a>
-<span id="mogwai-home-version" style="display:inline-block;padding:0.5rem;color:#d9e4ed;font-size:0.85rem" aria-label="Mogwai version">Mogwai version loading…</span>
+<span id="mogwai-home-version" style="display:inline-block;padding:0.5rem;color:#d9e4ed;font-size:0.85rem" aria-label="Mogwai version">Mogwai v0.4.17</span>
 
 
       </div>
@@ -81,17 +81,7 @@ m.addr = "0xEA0c8CA7EC422459cf86deA36e949927Bb4C24a9";
 fetch(m.addr + ".json").then( x => x.json() ).then( x => m.abi = x )
 
 </script>
-<script>
-  // Display the share receiver's release number; do not maintain a second version.
-  fetch(new URL("../app/index.html?release=" + Date.now(), location.href), {cache:"no-store"})
-    .then(response => { if (!response.ok) throw Error("Unavailable"); return response.text(); })
-    .then(markup => {
-      const match = markup.match(/Share receiver\s*·\s*(\d+\.\d+\.\d+)/);
-      document.getElementById("mogwai-home-version").textContent = match
-        ? "Mogwai v" + match[1] : "Mogwai version unavailable";
-    })
-    .catch(() => { document.getElementById("mogwai-home-version").textContent = "Mogwai version unavailable"; });
-</script>
+
 <script src="home.js?20261115-home-nav-version"></script>
 <script src="ledgers.js?dfsd1233"></script>    
 <script src="docs.js?1234"></script>
