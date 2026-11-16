@@ -1,0 +1,32 @@
+name: Auto-increment Mogwai app version
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mogwai-app-version-main
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Increment patch version
+        run: python3 tools/bump_mogwai_version.py
+      - name: Commit updated app version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/index.html app/app.js app/sw.js
+          git commit -m "chore(mogwai): bump share receiver version [skip ci]"
+          git push origin HEAD:main
