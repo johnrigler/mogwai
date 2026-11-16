@@ -27,6 +27,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/index.html app/app.js app/sw.js
+          git add app/index.html app/app.js app/sw.js site/index.html
           git commit -m "chore(mogwai): bump share receiver version [skip ci]"
           git push origin HEAD:main
