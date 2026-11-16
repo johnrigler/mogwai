@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mogwai Recorder</title>
+<style>
+:root{color-scheme:dark;font-family:ui-monospace,Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:#0e1319;color:#e6edf3}header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;border-bottom:1px solid #33404d}
+main{max-width:1000px;margin:auto;padding:16px;display:grid;gap:14px}a{color:#a6caff}button,a.download{font:inherit;border:1px solid #607287;border-radius:8px;padding:10px 14px;background:#253447;color:white;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}button.primary{background:#245a37;border-color:#428953}button.stop{background:#68252e;border-color:#b94b56}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}label{display:flex;gap:8px;align-items:center}#status{color:#a8bccd;min-height:24px}
+canvas{display:block;width:100%;max-height:72vh;aspect-ratio:16/9;background:black;object-fit:contain;border:1px solid #33404d;border-radius:10px}
+.note{color:#a8bccd;line-height:1.5}#download[hidden]{display:none}
+</style>
+</head>
+<body>
+<header><strong>Mogwai · Recorder</strong><a href="../">Back to Mogwai</a></header>
+<main>
+<p class="note">Record a browser tab, window, or screen while demonstrating Chisel or another site. Keep this Mogwai tab open while recording. The browser will ask which surface to share. Recording stays local until you save the WebM.</p>
+<div class="controls"><label><input id="mic" type="checkbox" checked> Microphone</label><label><input id="face" type="checkbox"> Face camera overlay</label></div>
+<div class="controls"><button class="primary" id="start">● START RECORDING</button><button class="stop" id="stop" disabled>■ STOP</button><a class="download" id="download" hidden download="mogwai-recording.webm">DOWNLOAD VIDEO</a></div>
+<div id="status" role="status" aria-live="polite">Ready. Screen sharing requires a secure context and browser permission.</div>
+<canvas id="stage" width="1280" height="720" aria-label="Recording preview"></canvas>
+<p class="note">The captured browser tab or screen can include sensitive content. Avoid displaying private keys, recovery phrases, or passwords during recording. To record across navigation, share a separate tab or the full screen; do not navigate away from the Mogwai recorder tab. Browser support for system audio varies.</p>
+</main>
+<script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id), canvas=$("stage"),ctx=canvas.getContext("2d");
+const screenVideo=document.createElement("video"),faceVideo=document.createElement("video");
+screenVideo.muted=faceVideo.muted=true;screenVideo.playsInline=faceVideo.playsInline=true;
+let display=null,microphone=null,camera=null,recorder=null,mix=null,context=null,destination=null,animation=0,chunks=[],downloadUrl=null;
+const status=s=>$("status").textContent=s;
+function stopTracks(stream){if(stream)stream.getTracks().forEach(t=>t.stop())}
+function draw(){
+ ctx.fillStyle="#000";ctx.fillRect(0,0,canvas.width,canvas.height);
+ if(screenVideo.videoWidth){const scale=Math.min(canvas.width/screenVideo.videoWidth,canvas.height/screenVideo.videoHeight);
+ const w=screenVideo.videoWidth*scale,h=screenVideo.videoHeight*scale;
+ ctx.drawImage(screenVideo,(canvas.width-w)/2,(canvas.height-h)/2,w,h);}
+ if(camera&&faceVideo.videoWidth){const w=canvas.width*.22,h=w*faceVideo.videoHeight/faceVideo.videoWidth,x=canvas.width-w-20,y=20;
+ ctx.fillStyle="#101820";ctx.fillRect(x-4,y-4,w+8,h+8);ctx.save();ctx.translate(x+w,y);ctx.scale(-1,1);ctx.drawImage(faceVideo,0,0,w,h);ctx.restore();}
+ animation=requestAnimationFrame(draw);
+}
+function reset(){
+ cancelAnimationFrame(animation);stopTracks(display);stopTracks(microphone);stopTracks(camera);stopTracks(mix);
+ display=microphone=camera=mix=null;screenVideo.srcObject=faceVideo.srcObject=null;
+ if(context){context.close().catch(()=>{});context=null;}destination=null;
+ $("start").disabled=false;$("stop").disabled=true;
+}
+function collectAudio(stream){if(stream&&stream.getAudioTracks().length)context.createMediaStreamSource(stream).connect(destination)}
+async function start(){
+ $("start").disabled=true;$("download").hidden=true;
+ if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl=null;}
+ chunks=[];
+ try{
+ if(!navigator.mediaDevices?.getDisplayMedia||!window.MediaRecorder)throw Error("Screen recording is unavailable in this browser.");
+ display=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:30}},audio:true});
+ screenVideo.srcObject=display;await screenVideo.play();
+ if($("mic").checked){try{microphone=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true},video:false})}catch(e){status("Microphone unavailable; continuing without it.");}}
+ if($("face").checked){try{camera=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});faceVideo.srcObject=camera;await faceVideo.play()}catch(e){status("Face camera unavailable; continuing without it.");}}
+ const track=display.getVideoTracks()[0];track.addEventListener("ended",stop,{once:true});
+ draw();
+ const video=canvas.captureStream(30);
+ let tracks=[...video.getVideoTracks()];
+ if(display.getAudioTracks().length||microphone?.getAudioTracks().length){
+ const AC=window.AudioContext||window.webkitAudioContext;context=new AC();await context.resume();destination=context.createMediaStreamDestination();collectAudio(display);collectAudio(microphone);
+ tracks.push(...destination.stream.getAudioTracks());
+ }
+ mix=new MediaStream(tracks);
+ const type=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"].find(t=>MediaRecorder.isTypeSupported(t));
+ recorder=new MediaRecorder(mix,type?{mimeType:type}:{});
+ recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+ recorder.onstop=()=>{const blob=new Blob(chunks,{type:recorder.mimeType||"video/webm"});if(blob.size){downloadUrl=URL.createObjectURL(blob);$("download").href=downloadUrl;$("download").hidden=false;status("Recording stopped. Download the video.");}else status("Recording stopped without video data.");reset()};
+ recorder.start(1000);$("stop").disabled=false;status("Recording. Keep this Mogwai tab open.");
+ }catch(e){reset();status("Could not start recording: "+e.message);}
+}
+function stop(){if(recorder&&recorder.state!=="inactive"){recorder.stop();$("stop").disabled=true;status("Finalizing recording…")}else reset()}
+$("start").addEventListener("click",start);$("stop").addEventListener("click",stop);
+window.addEventListener("beforeunload",()=>{if(recorder&&recorder.state!=="inactive")recorder.stop();reset();if(downloadUrl)URL.revokeObjectURL(downloadUrl)});
+})();
+</script>
+</body></html>
