@@ -72,3 +72,7 @@ The browser reader and adapters belong to Mogwai's tooling layer.
 CertLedger remains finished work product. Existing runtime behavior is
 unchanged; implementation details, authorization flow and distribution
 are future decisions.
+
+## November 16, 2026 follow-up
+
+The expanded share-to-Chisel, signed WebRTC messaging and preservation roadmap is recorded in [PEER_TRANSPORT_AND_RABBIT_TRAILS_2026-11-16.md](PEER_TRANSPORT_AND_RABBIT_TRAILS_2026-11-16.md). The original proposals above remain exploratory; the later note adds import/dedup, DID associations, M64 and preservation distinctions without claiming deployed support.
