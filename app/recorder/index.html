@@ -21,7 +21,7 @@ canvas{display:block;width:100%;max-height:72vh;background:black;object-fit:cont
 <div class="controls"><label><input id="mic" type="checkbox" checked> Microphone</label><label><input id="face" type="checkbox" checked> Record face camera separately</label></div>
 <div class="controls"><button class="primary" id="start">● START RECORDING</button><button class="stop" id="stop" disabled>■ STOP</button><a class="download" id="download" hidden download="mogwai_recording.webm">DOWNLOAD SCREEN VIDEO</a><a class="download" id="camera-download" hidden download="mogwai_camera.webm">DOWNLOAD FACE VIDEO</a></div>
 <div id="status" role="status" aria-live="polite">Ready. Screen sharing requires a secure context and browser permission.</div>
-<div id="unsupported" class="note" hidden><strong>Browser screen recording is not supported here.</strong> On Android, pull down Quick Settings and use the phone's <strong>Screen recorder</strong>. Stop the recording to save it locally, then <a href="../../tools/recast/">open Mogwai Recast</a> and select the saved video under Source. This page cannot trigger or capture Android's system screen recorder. For direct tab or screen recording here, use a supported desktop browser (such as Chrome on Chromebook).</div>
+<div id="unsupported" class="note" hidden><strong>Browser screen recording is not supported here.</strong> On Android, check Quick Settings for <strong>Screen recorder</strong>. If your phone does not include it, use a trusted Android screen-recording app. Stop recording to save the video locally, then <a href="../../tools/recast/">open Mogwai Recast</a> and select the saved video under Source. This page cannot trigger or capture Android's system screen recorder. For direct tab or screen recording here, use a supported desktop browser (such as Chrome on Chromebook).</div>
 <div class="camera-check"><video id="face-preview" autoplay muted playsinline aria-label="Face camera preview"></video><p id="camera-state" class="note">Face camera not started. When enabled, it is saved as a second video file.</p></div>
 <p class="note">The recording uses the browser-provided screen video stream directly to avoid background-tab canvas freezes. The selected tab is not previewed here.</p>
 <p class="note">The captured browser tab or screen can include sensitive content. Avoid displaying private keys, recovery phrases, or passwords during recording. The screen WebM records the shared screen directly. If enabled, the face camera is recorded as a separate WebM, not a picture-in-picture inset. Android may pause the camera in background; inspect both files. Check the downloaded WebM before relying on long recordings. Browser support for system audio varies.</p>
@@ -90,7 +90,7 @@ function stop(){
 if(typeof navigator.mediaDevices?.getDisplayMedia!=="function"||typeof window.MediaRecorder!=="function"){
  $("start").disabled=true;$("mic").disabled=true;$("face").disabled=true;
  $("unsupported").hidden=false;
- status("Screen recording is unavailable in this browser. On Android, use the system Screen recorder, then open the saved file in Recast.");
+ status("Screen recording is unavailable in this browser. On Android, use a device screen recorder, then open the saved video in Recast.");
 }
 $("start").addEventListener("click",start);$("stop").addEventListener("click",stop);
 window.addEventListener("beforeunload",()=>{if(cameraRecorder&&cameraRecorder.state!=="inactive")cameraRecorder.stop();if(recorder&&recorder.state!=="inactive")recorder.stop();reset();if(downloadUrl)URL.revokeObjectURL(downloadUrl)});
