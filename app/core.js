@@ -56,6 +56,11 @@
   }
   function chiselURL(endpoint, value, record = null) {
     opReturnBytes(value);
+    // Prefer Chisel-owned, browser-native handoff when the small shared module is online.
+    // Keep the local implementation as an offline fallback for the installed receiver.
+    if (root.CHISEL_SHARE_DRIVER && typeof root.CHISEL_SHARE_DRIVER.sendToChisel === "function") {
+      return root.CHISEL_SHARE_DRIVER.sendToChisel(endpoint, value, record);
+    }
     const url = new URL(endpoint);
     if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("Use an HTTP or HTTPS Chisel address without embedded credentials.");
     const fragment = new URLSearchParams(url.hash.slice(1));
