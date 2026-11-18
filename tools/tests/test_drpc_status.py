@@ -9,7 +9,7 @@ import unittest
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
-from tools.drpc_status import _safe_endpoint, check, main, status
+from tools.drpc_status import _safe_endpoint, check, main, status, transaction
 
 
 class FakeRPC:
@@ -137,6 +137,64 @@ class DRPCStatusTests(unittest.TestCase):
             status(self.path, opener=RejectRPC())
         self.assertIn("403", str(got.exception))
         self.assertNotIn(self.url_token, str(got.exception))
+
+    def test_transaction_read_uses_same_private_provider(self):
+        self.write({"polygon": "https://lb.drpc.live/polygon/" + self.url_token,
+                    "api": self.api_token})
+        txid = "0x" + "a" * 64
+
+        class FakeTxRPC(FakeRPC):
+            def open(self, request, timeout):
+                self.requests.append(request)
+                method = json.loads(request.data)["method"]
+                if method == "eth_chainId":
+                    result = "0x89"
+                elif method == "eth_getTransactionByHash":
+                    result = {
+                        "hash": txid, "chainId": "0x89", "value": "0x0",
+                        "input": "0x414243", "blockNumber": "0x20",
+                        "from": "0x" + "1" * 40, "to": "0x" + "2" * 40
+                    }
+                elif method == "eth_getTransactionReceipt":
+                    result = {
+                        "transactionHash": txid, "blockNumber": "0x20",
+                        "status": "0x1"
+                    }
+                else:
+                    raise AssertionError("unexpected method")
+                return io.BytesIO(json.dumps({"jsonrpc": "2.0", "id": 1,
+                                              "result": result}).encode())
+
+        fake = FakeTxRPC()
+        result = transaction(txid, self.path, opener=fake)
+        self.assertTrue(result["found"])
+        self.assertEqual(result["chainId"], 137)
+        self.assertEqual(result["inputBytes"], 3)
+        self.assertEqual(result["execution"], "success")
+        self.assertEqual(result["authentication"], "url")
+        self.assertNotIn(self.url_token, str(result))
+        self.assertEqual(len(fake.requests), 3)
+        self.assertEqual(
+            [json.loads(req.data)["method"] for req in fake.requests],
+            ["eth_chainId", "eth_getTransactionByHash", "eth_getTransactionReceipt"])
+
+    def test_transaction_invalid_hash_no_network(self):
+        self.write({"polygon": "https://lb.drpc.live/polygon/" + self.url_token,
+                    "api": self.api_token})
+        fake = FakeRPC()
+        with self.assertRaisesRegex(ValueError, "32-byte transaction hash"):
+            transaction("0xdeadbeef", self.path, opener=fake)
+        self.assertEqual(fake.requests, [])
+
+    def test_transaction_cli_error_never_exposes_url(self):
+        self.write({"polygon": "https://lb.drpc.live/polygon/" + self.url_token,
+                    "api": self.api_token})
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(main(["transaction", "0xdeadbeef",
+                                   "--config", str(self.path)]), 1)
+        self.assertNotIn(self.url_token, stderr.getvalue())
+        self.assertNotIn(self.api_token, stderr.getvalue())
 
 
 if __name__ == "__main__":
