@@ -182,8 +182,8 @@ simpler to configure, but it must remain secret.
 
 ## Read contract methods and indexed events with dRPC
 
-The same private `ledgers.json` Polygon RPC endpoint supports read-only
-contract calls and bounded event-log queries. `eth_call` executes a view or
+The existing private `drpc.json` Polygon RPC endpoint supports read-only
+contract calls and bounded event-log queries through `drpc_status.py`. `eth_call` executes a view or
 simulation without creating a transaction. `eth_getLogs` filters logs by
 contract address, block range, and optional indexed topics. The Mogwai RPC
 adapter does not expose signing or broadcast methods.
@@ -192,14 +192,14 @@ For M64, use the deployed contract address with ABI-encoded calldata for
 `termCount()`, `lookupTerm(id)`, or another view function:
 
 ```bash
-python3 "$HOME/mogwai/tools/evm_read.py" call polygon 0xYOUR_M64_CONTRACT 0xABI_ENCODED_CALLDATA --block latest
+python3 "$HOME/mogwai/tools/drpc_status.py" call 0xYOUR_M64_CONTRACT 0xABI_ENCODED_CALLDATA --block latest
 ```
 
 To read M64 `TermAdded` and `Packet` events from a block range, query by
 contract address. Those are the M64 contract's emitted event types:
 
 ```bash
-python3 "$HOME/mogwai/tools/evm_read.py" logs polygon 0xYOUR_M64_CONTRACT 97514024 97515000
+python3 "$HOME/mogwai/tools/drpc_status.py" logs 0xYOUR_M64_CONTRACT 97514024 97515000
 ```
 
 Optional `--topic` arguments filter topics by position; pass `--topic '*'`
