@@ -185,3 +185,5 @@ Next steps are Digibyte/Litecoin provider-specific readers and connecting
 trusted host-side reads to Chisel with a restricted API. Keep the write path
 separate until transaction construction, chain checks, confirmation and
 signing boundaries are integrated with Chisel.
+
+For the incremental Polygon contract scanner that reuses the existing Etherscan key and feeds FileProxy, see the [Polygon EVM indexer guide](POLYGON-EVM-INDEXER.md).
