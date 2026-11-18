@@ -6,7 +6,7 @@
       "chainId": 137,
       "network": "mainnet",
       "read": {
-        "url": "https://polygon-rpc.com"
+        "url": "https://polygon.drpc.org"
       }
     },
     "digibyte": {
