@@ -18,6 +18,7 @@ copy_if_missing() {
 }
 
 copy_if_missing "$repo_root/config-examples/ledgers.json" "$HOME/.config/mogwai/ledgers.json"
+copy_if_missing "$repo_root/config-examples/drpc.json" "$HOME/.config/mogwai/drpc.json"
 copy_if_missing "$repo_root/config-examples/pinata.json" "$HOME/.config/mogwai/pinata.json"
 copy_if_missing "$repo_root/config-examples/fileproxy.json" "$HOME/.config/fileproxy/config.json"
 
