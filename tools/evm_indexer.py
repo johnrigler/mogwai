@@ -40,7 +40,6 @@ DEFAULT_STATE = "~/.local/state/mogwai/evm-indexer.json"
 DEFAULT_FILEPROXY = "http://127.0.0.1:7799"
 ETHERSCAN_CHAIN_ID = 137
 PAGE_SIZE = 100
-OVERLAP_BLOCKS = 3
 CONFIRMATIONS = 2
 ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 TXID_RE = re.compile(r"^0x[0-9a-fA-F]{64}$")
@@ -302,9 +301,11 @@ def status(roots_path, state_path):
     out = []
     for contract in roots:
         entry = state["contracts"].get(_root_key(contract), {})
+        cursor = entry.get("lastTransaction")
         out.append({"name": contract["name"], "address": contract["address"],
                     "pollSeconds": contract["pollSeconds"],
                     "lastScannedBlock": entry.get("lastScannedBlock"),
+                    "lastTransaction": cursor,
                     "lastPoll": entry.get("lastPoll")})
     print(json.dumps({"chainId": ETHERSCAN_CHAIN_ID, "provider": "etherscan-v2",
                       "fileProxy": "configured at scan time", "contracts": out},
@@ -336,7 +337,10 @@ def scan(roots_path, etherscan_config, state_path, fileproxy_url):
             })
             last_scanned = max(contract["startBlock"] - 1,
                                int(cached.get("latestBlock", 0) or 0))
-        start_block = max(contract["startBlock"], last_scanned - OVERLAP_BLOCKS + 1)
+        # Etherscan filters the account/txlist request by contract address.
+        # The per-root checkpoint is a confirmed block cursor; continue after it
+        # rather than walking blocks or re-fetching a rolling overlap.
+        start_block = max(contract["startBlock"], last_scanned + 1)
         if start_block > safe_head:
             state["contracts"][key] = {
                 **prior,
@@ -352,6 +356,7 @@ def scan(roots_path, etherscan_config, state_path, fileproxy_url):
         page = 1
         seen = set()
         saved_count = 0
+        last_transaction = prior.get("lastTransaction")
         while True:
             rows = _etherscan_txlist(provider, contract["address"], start_block, safe_head, page)
             unique = []
@@ -363,6 +368,14 @@ def scan(roots_path, etherscan_config, state_path, fileproxy_url):
                 if normalized not in seen:
                     seen.add(normalized)
                     unique.append(row)
+                    try:
+                        last_transaction = {
+                            "hash": normalized,
+                            "blockNumber": int(row.get("blockNumber", "0")),
+                            "transactionIndex": int(row.get("transactionIndex", "0") or 0),
+                        }
+                    except (TypeError, ValueError):
+                        raise ValueError("Etherscan returned invalid transaction cursor metadata") from None
             if unique:
                 saved_count += _fileproxy_save(fileproxy_url, contract, unique, start_block, safe_head)
             if len(rows) < PAGE_SIZE:
@@ -377,6 +390,7 @@ def scan(roots_path, etherscan_config, state_path, fileproxy_url):
             "lastPoll": completed.isoformat().replace("+00:00", "Z"),
             "lastFetched": len(seen),
             "lastSaved": saved_count,
+            "lastTransaction": last_transaction,
         }
         _write_state(state_path, state)
         results.append({"contract": contract["name"], "saved": saved_count,
