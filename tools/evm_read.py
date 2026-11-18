@@ -134,6 +134,7 @@ def transaction(config, ledger, txid, opener=None):
         "to": result.get("to"),
         "valueWei": _quantity(result.get("value"), "transaction value"),
         "blockNumber": _quantity(block, "transaction blockNumber") if block is not None else None,
+        "input": raw_input,
         "inputBytes": len(binary),
         "inputSha256": hashlib.sha256(binary).hexdigest(),
         "execution": "pending" if block is None else "unknown",
