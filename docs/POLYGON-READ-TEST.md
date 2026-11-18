@@ -45,7 +45,56 @@ printed or copied into Git. If Etherscan has already been imported, skip
 the migration. The status command reports the block height and requested
 chain ID 137; this is **not** an independent RPC chain-identity check.
 
-## Option B: Use your new private dRPC Polygon URL
+## Option B: Test your existing private dRPC file directly
+
+This is the simplest option if you already created
+`~/.config/mogwai/drpc.json` with two lowercase fields:
+
+```json
+{
+  "polygon": "https://lb.drpc.live/polygon/EXAMPLE_KEY_NOT_REAL",
+  "api": "EXAMPLE_KEY_NOT_REAL"
+}
+```
+
+The values above are deliberately fake. Keep your actual `polygon`
+URL and `api` key in your existing private file. You do **not** need
+to copy them into `ledgers.json` or tell ChatGPT what they are.
+
+After pulling main, use the new read-only test:
+
+```bash
+python3 "$HOME/mogwai/tools/drpc_status.py" check
+python3 "$HOME/mogwai/tools/drpc_status.py" status
+```
+
+`check` reads the private JSON, validates its permissions and URL,
+and reports only the authentication mode. It makes no network call.
+`status` makes two safe Polygon JSON-RPC calls:
+`eth_chainId` followed by `eth_blockNumber`. It refuses a
+chain other than 137. The result reports the numeric `chainId`,
+`latestBlock` and authentication mode, without showing the URL/key.
+
+The dRPC dashboard commonly embeds the key in the complete Polygon
+endpoint URL. If so, the script uses that URL and does **not** also
+send the `api` field as a header. If the URL contains no embedded key,
+it sends your private `api` value as the documented `Drpc-Key`
+HTTP header. The script only connects to documented dRPC HTTPS hosts;
+it does not accept a Data & Wallet API URL. Any extra fields in the
+private JSON are ignored.
+
+The tracked dummy example is at
+[config-examples/drpc.json](../config-examples/drpc.json). Its values
+are not working credentials. No credentials, wallet keys, signing,
+broadcasting, or FileProxy endpoints are involved.
+
+If the private file is group/world accessible, correct permissions
+locally (`chmod 600 ~/.config/mogwai/drpc.json`). The directory
+should be mode 0700. A prior 403 from the public
+`https://polygon.drpc.org` endpoint does not imply a problem with
+your new account-specific endpoint.
+
+## Option C: Configure the shared `ledgers.json` RPC entry
 
 The dashboard provides a full HTTPS Polygon RPC endpoint, often like
 `https://lb.drpc.live/polygon/YOUR_KEY`. The full endpoint itself carries
@@ -110,6 +159,7 @@ python3 -m unittest discover -s tools/tests -p 'test_ledger_config.py'
 python3 -m unittest discover -s tools/tests -p 'test_evm_read.py'
 python3 -m unittest discover -s tools/tests -p 'test_etherscan_read.py'
 python3 -m unittest discover -s tools/tests -p 'test_migrate_etherscan.py'
+python3 -m unittest discover -s tools/tests -p 'test_drpc_status.py'
 ```
 
 The scripts above do not sign or broadcast transactions. The live status
