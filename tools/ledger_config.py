@@ -51,6 +51,32 @@ def _endpoint(value, ledger, operation):
         raise ValueError(f"{ledger}.{operation}.apiKeyPrefix is invalid")
 
 
+def _provider(value, ledger, name):
+    """Validate optional indexed API providers such as Etherscan V2.
+
+    These are not EVM JSON-RPC endpoints and are not used by evm_read.py.
+    """
+    if not isinstance(value, dict):
+        raise ValueError(f"{ledger}.providers.{name} must be an object")
+    if set(value) - {"url", "apiKey", "apiKeyEnv"}:
+        raise ValueError(f"{ledger}.providers.{name} has unrecognized fields")
+    url = value.get("url")
+    if not isinstance(url, str):
+        raise ValueError(f"{ledger}.providers.{name} needs a URL")
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError(f"{ledger}.providers.{name} requires an HTTPS URL without userinfo")
+    if parsed.query or parsed.fragment:
+        raise ValueError(f"{ledger}.providers.{name} must not include query credentials or fragments")
+    for field in ("apiKey", "apiKeyEnv"):
+        if field in value and not isinstance(value[field], str):
+            raise ValueError(f"{ledger}.providers.{name}.{field} must be a string")
+    if value.get("apiKey") and value.get("apiKeyEnv"):
+        raise ValueError(f"{ledger}.providers.{name}: use apiKey or apiKeyEnv, not both")
+    if value.get("apiKeyEnv") and not _ENV.fullmatch(value["apiKeyEnv"]):
+        raise ValueError(f"{ledger}.providers.{name}.apiKeyEnv is invalid")
+
+
 def load_ledger_config(path=None):
     """Load credentials into trusted local code only, never an HTTP handler."""
     target = _path(path)
@@ -78,7 +104,7 @@ def load_ledger_config(path=None):
             raise ValueError("Invalid ledger identifier")
         if not isinstance(spec, dict) or not isinstance(spec.get("family"), str) or not spec["family"]:
             raise ValueError(f"{name} needs a family")
-        if set(spec) - {"family", "chainId", "network", "read", "broadcast"}:
+        if set(spec) - {"family", "chainId", "network", "read", "broadcast", "providers"}:
             raise ValueError(f"{name} has unrecognized fields")
         if spec["family"] == "evm" and (type(spec.get("chainId")) is not int or spec["chainId"] < 1):
             raise ValueError(f"{name} needs a positive EVM chainId")
@@ -89,6 +115,13 @@ def load_ledger_config(path=None):
         for operation in ("read", "broadcast"):
             if operation in spec:
                 _endpoint(spec[operation], name, operation)
+        providers = spec.get("providers", {})
+        if not isinstance(providers, dict):
+            raise ValueError(f"{name}.providers must be an object")
+        for provider_name, provider in providers.items():
+            if not isinstance(provider_name, str) or not _NAME.fullmatch(provider_name):
+                raise ValueError(f"{name}.providers has an invalid name")
+            _provider(provider, name, provider_name)
     return data
 
 
@@ -114,6 +147,9 @@ def check(path=None):
                 parts.append(operation + " configured (" + key + ")")
             else:
                 parts.append(operation + " not configured")
+        for provider_name, provider in sorted(spec.get("providers", {}).items()):
+            key = "key set" if endpoint_key(provider) else "no key"
+            parts.append("provider " + provider_name + " configured (" + key + ")")
         print(" | ".join(parts))
     print("Configuration only: no ledger requests, signing, or broadcasts performed.")
 
