@@ -15,9 +15,11 @@ import sys
 from urllib.parse import parse_qs, urlsplit
 
 if __package__:
-    from .evm_read import status as evm_status, transaction as evm_transaction
+    from .evm_read import (status as evm_status, transaction as evm_transaction,
+                          contract_call as evm_contract_call, contract_logs as evm_contract_logs)
 else:
-    from evm_read import status as evm_status, transaction as evm_transaction
+    from evm_read import (status as evm_status, transaction as evm_transaction,
+                          contract_call as evm_contract_call, contract_logs as evm_contract_logs)
 
 DEFAULT_PATH = "~/.config/mogwai/drpc.json"
 
@@ -119,19 +121,67 @@ def transaction(txid, path=None, opener=None):
     return result
 
 
+def contract_call(to, data, block="latest", path=None, opener=None):
+    """Call a Polygon contract through the existing private dRPC config."""
+    endpoint, mode = _safe_endpoint(_private_config(path))
+    temporary_config = {"ledgers": {"polygon": {
+        "family": "evm", "chainId": 137, "read": endpoint
+    }}}
+    result = evm_contract_call(temporary_config, "polygon", to, data, block, opener=opener)
+    result["provider"] = "drpc"
+    result["authentication"] = mode
+    return result
+
+
+def contract_logs(address, from_block, to_block, topics=None, path=None, opener=None):
+    """Read bounded Polygon event logs through the existing private dRPC config."""
+    endpoint, mode = _safe_endpoint(_private_config(path))
+    temporary_config = {"ledgers": {"polygon": {
+        "family": "evm", "chainId": 137, "read": endpoint
+    }}}
+    result = evm_contract_logs(temporary_config, "polygon", address, from_block, to_block,
+                               topics=topics, opener=opener)
+    result["provider"] = "drpc"
+    result["authentication"] = mode
+    return result
+
+
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Check private dRPC Polygon RPC; never print keys")
-    parser.add_argument("command", choices=("check", "status", "transaction"))
-    parser.add_argument("txid", nargs="?", help="0x-prefixed 32-byte transaction hash (transaction only)")
+    parser = argparse.ArgumentParser(description="Read-only dRPC Polygon RPC; never print keys")
+    parser.add_argument("command", choices=("check", "status", "transaction", "call", "logs"))
+    parser.add_argument("values", nargs="*", help="Command arguments: txid | contract calldata | contract fromBlock toBlock")
     parser.add_argument("--config", help="Override private ~/.config/mogwai/drpc.json path")
+    parser.add_argument("--block", default="latest", help="eth_call block tag or 0x quantity")
+    parser.add_argument("--topic", action="append", default=[],
+                        help="eth_getLogs topic by position; use * for a wildcard")
     args = parser.parse_args(argv)
     try:
         if args.command == "transaction":
-            if args.txid is None:
-                parser.error("transaction requires a 0x-prefixed 32-byte transaction hash")
-            result = transaction(args.txid, args.config)
-        elif args.txid is not None:
-            parser.error("transaction hash is only valid with transaction")
+            if len(args.values) != 1:
+                parser.error("transaction requires one 0x-prefixed 32-byte transaction hash")
+            if args.topic or args.block != "latest":
+                parser.error("--topic and --block apply only to call/logs commands")
+            result = transaction(args.values[0], args.config)
+        elif args.command == "call":
+            if len(args.values) != 2:
+                parser.error("call requires a contract address and ABI-encoded calldata")
+            if args.topic:
+                parser.error("--topic applies only to logs")
+            result = contract_call(args.values[0], args.values[1], args.block, args.config)
+        elif args.command == "logs":
+            if len(args.values) != 3:
+                parser.error("logs requires a contract address and inclusive start/end blocks")
+            if args.block != "latest":
+                parser.error("--block applies only to call")
+            try:
+                from_block, to_block = int(args.values[1]), int(args.values[2])
+            except ValueError:
+                parser.error("logs block bounds must be decimal integers")
+            topics = [None if topic == "*" else topic for topic in args.topic]
+            result = contract_logs(args.values[0], from_block, to_block,
+                                   topics if args.topic else None, args.config)
+        elif args.values or args.topic or args.block != "latest":
+            parser.error("check/status take no additional arguments")
         else:
             result = check(args.config) if args.command == "check" else status(args.config)
         print(json.dumps(result, sort_keys=True, indent=2))
