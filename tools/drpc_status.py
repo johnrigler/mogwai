@@ -8,6 +8,7 @@ No credentials, transactions, or FileProxy routes are written.
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import stat
 import sys
@@ -124,8 +125,7 @@ def main(argv=None):
         elif detail in ("RPC network request failed", "RPC response missing result",
                         "RPC returned invalid JSON", "RPC returned an invalid response envelope"):
             message = detail
-        elif detail.startswith("RPC chain mismatch: expected ") and all(
-                character in "0123456789, :abcdefghijklmnopqrstuvwxyz" for character in detail):
+        elif re.fullmatch(r"RPC chain mismatch: expected [0-9]+, observed [0-9]+", detail):
             message = detail
         else:
             message = "check private dRPC config, provider URL and access"
