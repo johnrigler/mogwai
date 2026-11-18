@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "chainId": 137,
+  "contracts": [
+    {
+      "name": "gomez",
+      "address": "0x5a2220d56f56db9C9F5B0cb83ff35b42746503a2",
+      "startBlock": 0,
+      "pollSeconds": 60
+    },
+    {
+      "name": "jethro",
+      "address": "0x0076416C84c7151CaEfA74C3e09d6eBF2f296BA0",
+      "startBlock": 0,
+      "pollSeconds": 60
+    },
+    {
+      "name": "m64",
+      "address": "0xe6e9df9f49b1ab4417129454991466adc9923f8c",
+      "startBlock": 0,
+      "pollSeconds": 60
+    }
+  ]
+}
