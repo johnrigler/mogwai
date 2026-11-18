@@ -26,8 +26,12 @@ service. Polygon is EVM chain 137. Each network can specify a read endpoint
 and an optional broadcast endpoint; provider APIs have different request
 formats, and this config does not make them interchangeable.
 
-The checked-in sample config specifies Polygon's public RPC URL without
-a key. API key handling varies by provider; header-based providers can use:
+The checked-in sample config uses `https://polygon.drpc.org`, listed in
+Polygon's current public RPC documentation, without a key. Polygon announced
+that its previous `https://polygon-rpc.com` endpoint would be deprecated
+on July 31, 2026. Existing private configs are not overwritten by Git pulls;
+if you copied an older example, manually replace that old URL with
+`https://polygon.drpc.org` or a provider you trust. API key handling varies by provider; header-based providers can use:
 
 ```json
 {
