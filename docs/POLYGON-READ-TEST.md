@@ -75,6 +75,35 @@ and reports only the authentication mode. It makes no network call.
 chain other than 137. The result reports the numeric `chainId`,
 `latestBlock` and authentication mode, without showing the URL/key.
 
+### Verified connection and transaction inspection
+
+On November 17, 2026, the rigler.org smoke test reported a successful
+read-only connection after the local `drpc.json` file permissions were
+restricted to 0600:
+
+- `check`: `authentication: "url"`, `configured: true`, expected chain ID 137
+- `status`: observed chain ID 137, latest block 97,508,094, `provider: "drpc"`
+
+That block height is a *historical observed result*, not an expected fixed
+value. Later successful requests should return a newer block height.
+Offline unit tests run independently of the host and are not evidence of
+a live transaction read.
+
+To inspect a known Polygon transaction and receipt using the **same private
+`drpc.json` file**, run:
+
+```bash
+python3 "$HOME/mogwai/tools/drpc_status.py" transaction 0xYOUR64HEXTRANSACTIONHASH
+```
+
+Use a real `0x`-prefixed, 64-digit hex transaction hash. The script
+verifies the RPC chain ID (137), then calls read-only
+`eth_getTransactionByHash` and `eth_getTransactionReceipt` as needed.
+It reports whether the transaction was found, its block, reported execution
+status, input byte length and SHA-256 digest. It **does not return the
+raw input bytes**, decode ABI arguments or reconstruct a Chisel artifact yet.
+Nothing is signed or broadcast; transaction output is provider-reported.
+
 The dRPC dashboard commonly embeds the key in the complete Polygon
 endpoint URL. If so, the script uses that URL and does **not** also
 send the `api` field as a header. If the URL contains no embedded key,
