@@ -57,6 +57,8 @@ def rpc_read(endpoint, method, params=(), opener=None):
     if endpoint.get("apiKeyEnv") and not key and endpoint.get("apiKeyHeader"):
         raise ValueError("Configured read API key environment variable is unset")
     if key:
+        if any(ord(ch) < 32 or ord(ch) == 127 for ch in key):
+            raise ValueError("Read API key contains invalid control characters")
         header = endpoint.get("apiKeyHeader", "")
         if not isinstance(header, str) or not _HEADER.fullmatch(header):
             raise ValueError("Read API key needs a valid apiKeyHeader")
