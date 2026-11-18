@@ -83,6 +83,39 @@ contract and chain ID is necessary to claim a Polygon reconstruction.
 Clues are replaceable static indexes, not authorities. The same object may
 appear under multiple mirrors, and older manifests must remain reproducible.
 
+## Separate IPFS / CID mirror design (2026-11-18)
+
+Pinata is the intended primary IPFS pinning/distribution provider. Kubo
+is installed on rigler.org and can also be used on a laptop for boot,
+CAR export/import, independent pins and checks. Running a Kubo daemon
+is NOT a prerequisite for serving previously exported files by Apache.
+
+The next static publisher should create a **separate CID mirror**, not
+reinterpret the SHA-256 artifact paths defined above as IPFS CIDs:
+
+- Persist the complete verified CAR/DAG for each boot root CID.
+- Export the corresponding UnixFS files/directory structure into an
+  immutable static directory labeled by that root CID. Serve its HTML,
+  scripts, images and subfolders with ordinary HTTP(S).
+- Pin the SAME CAR to Pinata; verify the CID Pinata returns matches
+  the local root. A folder re-upload may use different UnixFS settings.
+- Optionally import and pin the CAR into rigler.org's local Kubo as
+  a separate operation, not as a hidden dependency of HTTP serving.
+- Keep publication provenance independent: CID proves content identity,
+  not author identity. Use a signed and/or ledger-anchored boot release
+  attestation against a known authorized publisher before declaring a
+  CID trusted for physical QR/print use.
+- Ensure archive extraction, path mapping and rendering cannot permit
+  traversal, symlink escapes, file overwrite, or untrusted active
+  content sharing the main application's origin. Prefer a distinct
+  static hostname for executable boot sites.
+
+The existing `fileproxy.static_publish` is intentionally unchanged:
+it verifies SHA-256 object bytes but does NOT verify a UnixFS directory
+CID or reconstruct a CAR archive. The CID mirror needs its own
+implementation and tests. See the Chisel main repository's
+`docs/BOOT-CID-RELEASE-AND-STATIC-MIRROR.md` for acceptance criteria.
+
 ## Next work
 
 - Chisel browser reader for static manifest and SHA-256 verified objects.
