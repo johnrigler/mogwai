@@ -8,6 +8,12 @@ transaction signing, broadcasting, or public API service.
 
 ## Install on rigler.org or another machine
 
+The maintained, copyable examples for all host-local settings are in
+[config-examples](../config-examples/README.md), including a safe installer
+for `ledgers.json`, `pinata.json` and FileProxy's local configuration.
+The older `tools/ledger-config.example.json` remains available for
+compatibility but has fewer network examples.
+
 ```bash
 git -C "$HOME/mogwai" pull --ff-only
 install -d -m 700 "$HOME/.config/mogwai"
