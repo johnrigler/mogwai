@@ -172,11 +172,11 @@ def verify_car(car_path, cid):
             length = _varint(source)
             if length is None:
                 break
-            if length < 35:
+            if length < 34:
                 raise ValueError("Invalid CAR block size")
             first = source.read(min(128, length))
             encoded, end, target_hash = _parse_cid(first)
-            if length <= end:
+            if length < end:
                 raise ValueError("Empty CAR block")
             rest = length - end
             head = first[end:]
