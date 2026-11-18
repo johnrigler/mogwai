@@ -38,7 +38,7 @@ discussion records. These are suggestions, not implemented features.
 ## Host-local ledger providers
 
 [Ledger provider configuration](docs/LEDGER-PROVIDERS.md) describes a private
-\`~/.config/mogwai/ledgers.json\` outside Git, with API key references and
+`~/.config/mogwai/ledgers.json` outside Git, with API key references and
 separate read/broadcast endpoints for Polygon, Digibyte and other chains.
 The initial patch validates configuration; it does not perform ledger reads,
 signing or broadcasts. No browser route exposes these credentials.
