@@ -90,7 +90,14 @@ is installed on rigler.org and can also be used on a laptop for boot,
 CAR export/import, independent pins and checks. Running a Kubo daemon
 is NOT a prerequisite for serving previously exported files by Apache.
 
-The next static publisher should create a **separate CID mirror**, not
+An initial operator-side implementation now exists as
+`fileproxy.cid_mirror`. It uses Kubo to export a CAR and a decoded file
+tree, then writes them under immutable CID-labeled static HTTP paths.
+Offline verification checks the root, present CAR block hashes and exported
+file hashes. Full DAG/UnixFS correspondence is NOT yet verified. See
+[CID static mirror](CID-STATIC-MIRROR.md) for commands and security limits.
+
+The CID mirror is a **separate publisher**, not
 reinterpret the SHA-256 artifact paths defined above as IPFS CIDs:
 
 - Persist the complete verified CAR/DAG for each boot root CID.
