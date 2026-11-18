@@ -10,6 +10,7 @@ not for committing secrets.
 | Repository example | Private destination | Purpose |
 | --- | --- | --- |
 | `config-examples/ledgers.json` | `~/.config/mogwai/ledgers.json` | Polygon and UTXO ledger read/broadcast endpoints and provider API keys |
+| `config-examples/drpc.json` | `~/.config/mogwai/drpc.json` | Existing dRPC account Polygon URL and API key; read-only check and status |
 | `config-examples/pinata.json` | `~/.config/mogwai/pinata.json` | Pinata JWT and private gateway token placeholders |
 | `config-examples/fileproxy.json` | `~/.config/fileproxy/config.json` | Existing FileProxy registered data roots |
 | `config.example.json` (repo root) | `~/config.json` | Existing shared project paths; **not installed by this script** |
@@ -62,6 +63,22 @@ For current Polygon setup, including private dRPC URLs, the existing
 Etherscan key, and dRPC's separate Data & Wallet API, follow the
 [canonical Polygon test guide](../docs/POLYGON-READ-TEST.md). All commands
 and sample JSON are maintained there rather than dictated over the phone.
+
+## Existing dRPC file: test it without migrating or retyping keys
+
+The `tools/drpc_status.py` reader accepts the private JSON fields
+`polygon` (your dRPC Polygon HTTPS RPC URL) and `api` (the dRPC key).
+It does not require changes to `ledgers.json`, does not echo the full
+URL or key, and does not read the Data & Wallet API endpoint.
+
+```bash
+python3 ~/mogwai/tools/drpc_status.py check
+python3 ~/mogwai/tools/drpc_status.py status
+```
+
+The `check` command does not access the network. The `status` command
+queries `eth_chainId` and `eth_blockNumber` read-only on Polygon 137.
+See the [Polygon test guide](../docs/POLYGON-READ-TEST.md).
 
 ## Existing Etherscan key: non-destructive migration
 
