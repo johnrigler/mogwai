@@ -40,8 +40,9 @@ discussion records. These are suggestions, not implemented features.
 [Ledger provider configuration](docs/LEDGER-PROVIDERS.md) describes a private
 `~/.config/mogwai/ledgers.json` outside Git, with API key references and
 separate read/broadcast endpoints for Polygon, Digibyte and other chains.
-The initial patch validates configuration; it does not perform ledger reads,
-signing or broadcasts. No browser route exposes these credentials.
+`tools/evm_read.py` performs read-only Polygon JSON-RPC queries with chain
+ID checking; signing and broadcasting remain disabled. No browser route
+exposes these credentials.
 
 ## FileProxy and SB Shell
 
