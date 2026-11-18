@@ -81,5 +81,45 @@ class LedgerConfigTests(unittest.TestCase):
                 os.environ["TEST_MOGWAI_API_KEY"] = original
 
 
+    def test_indexed_provider_under_polygon(self):
+        data = json.loads(json.dumps(self.valid))
+        data["ledgers"]["polygon"]["providers"] = {
+            "etherscan": {
+                "url": "https://api.etherscan.io/v2/api",
+                "apiKey": "fake-api-key-test-only"
+            }
+        }
+        self.write(data)
+        config = load_ledger_config(self.path)
+        self.assertEqual(config["ledgers"]["polygon"]["providers"]["etherscan"]["apiKey"],
+                         "fake-api-key-test-only")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            check(self.path)
+        self.assertIn("provider etherscan configured (key set)", output.getvalue())
+        self.assertNotIn("fake-api-key-test-only", output.getvalue())
+
+    def test_insecure_indexed_provider_rejected(self):
+        data = json.loads(json.dumps(self.valid))
+        data["ledgers"]["polygon"]["providers"] = {
+            "etherscan": {"url": "http://api.etherscan.io/v2/api", "apiKey": "test"}
+        }
+        self.write(data)
+        with self.assertRaisesRegex(ValueError, "HTTPS"):
+            load_ledger_config(self.path)
+
+    def test_indexed_provider_url_query_rejected(self):
+        data = json.loads(json.dumps(self.valid))
+        data["ledgers"]["polygon"]["providers"] = {
+            "etherscan": {
+                "url": "https://api.etherscan.io/v2/api?apikey=fake-test-key",
+                "apiKey": "test"
+            }
+        }
+        self.write(data)
+        with self.assertRaisesRegex(ValueError, "query credentials"):
+            load_ledger_config(self.path)
+
+
 if __name__ == "__main__":
     unittest.main()
