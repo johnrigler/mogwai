@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Read-only Polygon status from private ~/.config/mogwai/drpc.json.
+"""Read-only Polygon status and transaction lookup from private drpc.json.
 
 Expected local JSON: {"polygon": "<dRPC Polygon HTTPS RPC URL>", "api": "<key>"}.
 The URL may already embed the key; do not echo the URL or the key.
-No credentials, transactions, or FileProxy routes are written.
+No credentials, broadcasts, or FileProxy routes are written.
 """
 import argparse
 import json
@@ -15,9 +15,9 @@ import sys
 from urllib.parse import parse_qs, urlsplit
 
 if __package__:
-    from .evm_read import status as evm_status
+    from .evm_read import status as evm_status, transaction as evm_transaction
 else:
-    from evm_read import status as evm_status
+    from evm_read import status as evm_status, transaction as evm_transaction
 
 DEFAULT_PATH = "~/.config/mogwai/drpc.json"
 
@@ -107,13 +107,33 @@ def status(path=None, opener=None):
     return result
 
 
+def transaction(txid, path=None, opener=None):
+    """Read a Polygon transaction and receipt from the private dRPC endpoint."""
+    endpoint, mode = _safe_endpoint(_private_config(path))
+    temporary_config = {"ledgers": {"polygon": {
+        "family": "evm", "chainId": 137, "read": endpoint
+    }}}
+    result = evm_transaction(temporary_config, "polygon", txid, opener=opener)
+    result["provider"] = "drpc"
+    result["authentication"] = mode
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Check private dRPC Polygon RPC; never print keys")
-    parser.add_argument("command", choices=("check", "status"))
+    parser.add_argument("command", choices=("check", "status", "transaction"))
+    parser.add_argument("txid", nargs="?", help="0x-prefixed 32-byte transaction hash (transaction only)")
     parser.add_argument("--config", help="Override private ~/.config/mogwai/drpc.json path")
     args = parser.parse_args(argv)
     try:
-        result = check(args.config) if args.command == "check" else status(args.config)
+        if args.command == "transaction":
+            if args.txid is None:
+                parser.error("transaction requires a 0x-prefixed 32-byte transaction hash")
+            result = transaction(args.txid, args.config)
+        elif args.txid is not None:
+            parser.error("transaction hash is only valid with transaction")
+        else:
+            result = check(args.config) if args.command == "check" else status(args.config)
         print(json.dumps(result, sort_keys=True, indent=2))
         return 0
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
