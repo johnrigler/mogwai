@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "ledgers": {
+    "polygon": {
+      "family": "evm",
+      "chainId": 137,
+      "network": "mainnet",
+      "read": {
+        "url": "https://polygon.drpc.org",
+        "apiKey": "",
+        "apiKeyHeader": "X-API-Key"
+      },
+      "broadcast": {
+        "url": "https://polygon.drpc.org",
+        "apiKey": "",
+        "apiKeyHeader": "X-API-Key"
+      }
+    },
+    "digibyte": {
+      "family": "utxo",
+      "network": "mainnet",
+      "read": {
+        "url": "https://REPLACE-DGB-PROVIDER.example/rpc",
+        "apiKey": "",
+        "apiKeyHeader": "X-API-Key"
+      },
+      "broadcast": {
+        "url": "https://REPLACE-DGB-BROADCAST.example/rpc",
+        "apiKey": "",
+        "apiKeyHeader": "X-API-Key"
+      }
+    },
+    "litecoin": {
+      "family": "utxo",
+      "network": "mainnet",
+      "read": {
+        "url": "https://REPLACE-LTC-PROVIDER.example/rpc",
+        "apiKey": "",
+        "apiKeyHeader": "X-API-Key"
+      },
+      "broadcast": {
+        "url": "https://REPLACE-LTC-BROADCAST.example/rpc",
+        "apiKey": "",
+        "apiKeyHeader": "X-API-Key"
+      }
+    },
+    "dogecoin": {
+      "family": "utxo",
+      "network": "mainnet",
+      "read": {
+        "url": "https://REPLACE-DOGE-PROVIDER.example/rpc",
+        "apiKey": "",
+        "apiKeyHeader": "X-API-Key"
+      }
+    },
+    "ravencoin": {
+      "family": "utxo",
+      "network": "mainnet",
+      "read": {
+        "url": "https://REPLACE-RVN-PROVIDER.example/rpc",
+        "apiKey": "",
+        "apiKeyHeader": "X-API-Key"
+      }
+    },
+    "ecash": {
+      "family": "utxo",
+      "network": "mainnet",
+      "read": {
+        "url": "https://REPLACE-XEC-PROVIDER.example/rpc",
+        "apiKey": "",
+        "apiKeyHeader": "X-API-Key"
+      }
+    }
+  }
+}
