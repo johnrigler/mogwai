@@ -64,7 +64,7 @@ def _validate_log_filter(params):
     first, last = int(start, 16), int(end, 16)
     if last < first:
         raise ValueError("eth_getLogs toBlock precedes fromBlock")
-    if last - first > _MAX_LOG_BLOCK_SPAN:
+    if last - first + 1 > _MAX_LOG_BLOCK_SPAN:
         raise ValueError("eth_getLogs block range exceeds the 100000-block limit")
     topics = log_filter.get("topics", [])
     if not isinstance(topics, list) or len(topics) > 4:
@@ -224,7 +224,7 @@ def contract_logs(config, ledger, address, from_block, to_block, topics=None, op
         raise ValueError("Expected a 20-byte contract address")
     if type(from_block) is not int or type(to_block) is not int or from_block < 0 or to_block < from_block:
         raise ValueError("Log block bounds must be ordered nonnegative integers")
-    if to_block - from_block > _MAX_LOG_BLOCK_SPAN:
+    if to_block - from_block + 1 > _MAX_LOG_BLOCK_SPAN:
         raise ValueError("Log block range exceeds the 100000-block limit")
     filter_value = {"address": address, "fromBlock": hex(from_block), "toBlock": hex(to_block)}
     if topics is not None:
