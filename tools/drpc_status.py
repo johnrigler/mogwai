@@ -115,11 +115,21 @@ def main(argv=None):
         result = check(args.config) if args.command == "check" else status(args.config)
         print(json.dumps(result, sort_keys=True, indent=2))
         return 0
-    except (OSError, ValueError, KeyError, json.JSONDecodeError):
-        # Deliberately omit exception details: URL strings can contain API keys.
-        # Network HTTP errors from evm_read are normally sanitized as well.
-        print("mogwai-drpc: check private dRPC config, provider URL and access (no credentials shown)",
-              file=sys.stderr)
+    except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+        # A configured URL can contain secrets. Only echo tightly allowlisted
+        # diagnostics known to contain numbers or fixed status text.
+        detail = str(exc)
+        if detail.startswith("RPC HTTP status ") and detail[len("RPC HTTP status "):].isdigit():
+            message = detail
+        elif detail in ("RPC network request failed", "RPC response missing result",
+                        "RPC returned invalid JSON", "RPC returned an invalid response envelope"):
+            message = detail
+        elif detail.startswith("RPC chain mismatch: expected ") and all(
+                character in "0123456789, :abcdefghijklmnopqrstuvwxyz" for character in detail):
+            message = detail
+        else:
+            message = "check private dRPC config, provider URL and access"
+        print("mogwai-drpc: " + message, file=sys.stderr)
         return 1
 
 
