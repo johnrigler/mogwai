@@ -1,8 +1,10 @@
 {
   "version": 1,
   "pinata": {
-    "jwt": "",
+    "key": "deadbeefdeadbeefdead",	  
+    "jwt": "rdlkjgDgjaFDAgjlkj4siaGGDHvjdDEADBEEFDEADBEEFDEADBEEFCAFECAFECAFECAFECAFEadfjlDSDGDSGSGSDGSSHSDFHr44634SFHSFHSFHSDFHljaDfDAGEAG_GGDS_FD",
     "gatewayBaseUrl": "https://gateway.pinata.cloud",
+    "apiSecret": "deadbeefcafedeadbeefcafedeadbeefcafedeadbeefcafedeadbeefcafedead",
     "gatewayToken": ""
   }
 }
