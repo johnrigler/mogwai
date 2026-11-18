@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 DEFAULT_PATH = "~/.config/mogwai/ledgers.json"
 _NAME = re.compile(r"^[a-z][a-z0-9_-]*$")
 _ENV = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_HEADER = re.compile(r"^[A-Za-z0-9-]+$")
 _REPO = Path(__file__).resolve().parents[1]
 
 
@@ -26,7 +27,7 @@ def _path(path=None):
 def _endpoint(value, ledger, operation):
     if not isinstance(value, dict) or not isinstance(value.get("url"), str):
         raise ValueError(f"{ledger}.{operation} needs a url")
-    if set(value) - {"url", "apiKey", "apiKeyEnv"}:
+    if set(value) - {"url", "apiKey", "apiKeyEnv", "apiKeyHeader", "apiKeyPrefix"}:
         raise ValueError(f"{ledger}.{operation} has unrecognized fields")
     url = urlsplit(value["url"])
     if url.scheme not in ("https", "http") or not url.hostname:
@@ -42,6 +43,12 @@ def _endpoint(value, ledger, operation):
         raise ValueError(f"{ledger}.{operation}: use apiKey or apiKeyEnv, not both")
     if value.get("apiKeyEnv") and not _ENV.fullmatch(value["apiKeyEnv"]):
         raise ValueError(f"{ledger}.{operation}.apiKeyEnv is invalid")
+    if "apiKeyHeader" in value and (not isinstance(value["apiKeyHeader"], str)
+                                    or not _HEADER.fullmatch(value["apiKeyHeader"])):
+        raise ValueError(f"{ledger}.{operation}.apiKeyHeader is invalid")
+    if "apiKeyPrefix" in value and (not isinstance(value["apiKeyPrefix"], str)
+                                    or "\\r" in value["apiKeyPrefix"] or "\\n" in value["apiKeyPrefix"]):
+        raise ValueError(f"{ledger}.{operation}.apiKeyPrefix is invalid")
 
 
 def load_ledger_config(path=None):
