@@ -58,6 +58,43 @@ python3 "$HOME/mogwai/tools/ledger_config.py" check
 python3 "$HOME/mogwai/tools/evm_read.py" status polygon
 ```
 
+## Existing Etherscan key: non-destructive migration
+
+Etherscan V2 is an **indexed API provider for Polygon**, not its own ledger.
+The maintained example now includes
+`ledgers.polygon.providers.etherscan` inside `ledgers.json`. Keep
+`polygon.read.url` as your JSON-RPC provider, such as
+`https://polygon.drpc.org`; Etherscan is a separate provider interface.
+
+If you already saved a real key in private
+`~/.config/mogwai/etherscan.json`, **do not retype or publish it**.
+After pulling Mogwai main, you can check the migration without changing
+any files:
+
+```bash
+python3 ~/mogwai/tools/migrate_etherscan.py
+```
+
+If the dry-run says Etherscan can be added, use:
+
+```bash
+python3 ~/mogwai/tools/migrate_etherscan.py --apply
+python3 ~/mogwai/tools/ledger_config.py check
+```
+
+The helper accepts the prior `{"version":1,"etherscan":{"url":"…",
+"chainId":137,"apiKey":"…"}}` structure. It copies the Etherscan
+endpoint and key into the private `ledgers.json`, keeps the original
+`etherscan.json` untouched, refuses to replace nonempty existing
+credentials, and **prints no key values**. An existing Etherscan provider
+URL must match the legacy URL. It never makes network requests.
+
+This **does not** test Etherscan API V2. The Etherscan adapter is not
+implemented yet. The existing `evm_read.py status polygon` test uses
+Polygon JSON-RPC and needs no Etherscan API key. Do not run the
+installation script to upgrade a populated private file; the installer
+preserves existing files.
+
 The ledger file uses one entry per network. The Polygon read example uses
 `https://polygon.drpc.org` and chain ID `137`. The UTXO URLs beginning with
 `REPLACE-` are deliberately **nonfunctional placeholders**, not verified
