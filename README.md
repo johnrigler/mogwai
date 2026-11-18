@@ -40,8 +40,10 @@ discussion records. These are suggestions, not implemented features.
 [Copyable host configuration examples](config-examples/README.md) include ledger
 providers, Pinata and FileProxy. Run `bash ~/mogwai/config-examples/install.sh`
 after pulling `main` to populate missing files under `~/.config/` without
-overwriting existing settings. Keep credentials outside Git; only the read-only
-Polygon adapter currently consumes the ledger settings.
+overwriting existing settings. Keep credentials outside Git. Mogwai has
+read-only Polygon adapters for an Etherscan V2 API key or a JSON-RPC provider.
+For the existing Etherscan key on rigler.org, use the
+[Polygon read test](docs/POLYGON-READ-TEST.md), not the optional dRPC test.
 
 ## Host-local ledger providers
 
