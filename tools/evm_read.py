@@ -54,7 +54,7 @@ def rpc_read(endpoint, method, params=(), opener=None):
 
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     key = endpoint_key(endpoint)
-    if endpoint.get("apiKeyEnv") and not key:
+    if endpoint.get("apiKeyEnv") and not key and endpoint.get("apiKeyHeader"):
         raise ValueError("Configured read API key environment variable is unset")
     if key:
         header = endpoint.get("apiKeyHeader", "")
