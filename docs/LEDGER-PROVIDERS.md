@@ -90,7 +90,57 @@ does not populate the private file or restart FileProxy.
   or world permissions on POSIX systems, or files inside the Mogwai checkout.
   Keep the parent directory mode 0700 and the config mode 0600.
 
-## Host-side read-only Polygon test
+## Preferred host-side Polygon reads: Etherscan API V2
+
+If your private key is already in `~/.config/mogwai/etherscan.json`,
+keep that file. **You do not need a dRPC key or account.** Pull main
+and use the migration utility to merge Etherscan into Polygon's single
+`ledgers.json` entry:
+
+```bash
+git -C "$HOME/mogwai" pull --ff-only
+python3 "$HOME/mogwai/tools/migrate_etherscan.py"
+python3 "$HOME/mogwai/tools/migrate_etherscan.py" --apply
+python3 "$HOME/mogwai/tools/ledger_config.py" check
+python3 "$HOME/mogwai/tools/etherscan_read.py" status polygon
+```
+
+The first migration command is a **dry run**; only the `--apply` invocation
+writes the private `ledgers.json`. It refuses to overwrite a populated
+Etherscan provider; does not print the API key; and retains
+`~/.config/mogwai/etherscan.json` as the original. If dry-run fails, stop
+rather than running `--apply` and use the error to diagnose the local
+configuration. Pinata is unrelated to the Polygon test.
+
+After a successful Etherscan status query, inspect a real Polygon hash:
+
+```bash
+python3 "$HOME/mogwai/tools/etherscan_read.py" transaction polygon 0xYOUR64HEXTRANSACTIONHASH
+```
+
+Etherscan V2 uses HTTPS GET to `https://api.etherscan.io/v2/api`, with
+`chainid=137`, `module=proxy`, an allowed read-only `action`, and
+`apikey` as query parameters. Your API key stays on the server and is
+never printed by the adapter. An HTTPS provider necessarily receives the
+key; don't run the request with shell tracing or copy URLs into logs.
+The status output reports `latestBlock`, `chainId: 137`,
+`provider: "etherscan"`, and `chainIdSource`, which identifies chain ID
+137 as the **configured query parameter**, not an independently verified
+RPC `eth_chainId` result. A transaction's own returned `chainId` is
+checked when present. Etherscan data is provider-reported data.
+
+The Etherscan reader only permits `eth_blockNumber`,
+`eth_getTransactionByHash`, and `eth_getTransactionReceipt`. No API
+broadcasting, signing, FileProxy endpoint, or wallet integration is added.
+The old standalone Etherscan file is a migration source, not the final
+runtime configuration.
+
+Relevant provider references:
+[Etherscan block number](https://docs.etherscan.io/api-reference/endpoint/ethblocknumber),
+[Etherscan transaction by hash](https://docs.etherscan.io/api-reference/endpoint/ethgettransactionbyhash),
+[Etherscan transaction receipt](https://docs.etherscan.io/api-reference/endpoint/ethgettransactionreceipt).
+
+## Optional direct Polygon JSON-RPC test
 
 ```bash
 git -C "$HOME/mogwai" pull --ff-only
@@ -121,10 +171,13 @@ not independent chain verification or finality attestation.
 cd "$HOME/mogwai"
 python3 -m unittest discover -s tools/tests -p 'test_ledger_config.py'
 python3 -m unittest discover -s tools/tests -p 'test_evm_read.py'
+python3 -m unittest discover -s tools/tests -p 'test_etherscan_read.py'
+python3 -m unittest discover -s tools/tests -p 'test_migrate_etherscan.py'
 ```
 
-These tests use fake RPC responses and never broadcast. Only the
-`evm_read.py` command performs a network request; it has a strict allowlist
+These tests use fake RPC and Etherscan responses and never broadcast. Both
+`evm_read.py` and `etherscan_read.py` perform read-only network requests
+when invoked normally. `evm_read.py` has a strict allowlist
 of four read methods, a 15-second request timeout and a response size limit.
 The `broadcast` config field is reserved for future use.
 
