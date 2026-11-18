@@ -35,6 +35,14 @@ records two proposals: a subscribed discussion overlay for YouTube, Bluesky
 and other sites, plus Bluesky / AT Protocol reading, publishing and portable
 discussion records. These are suggestions, not implemented features.
 
+## Private API configuration examples
+
+[Copyable host configuration examples](config-examples/README.md) include ledger
+providers, Pinata and FileProxy. Run `bash ~/mogwai/config-examples/install.sh`
+after pulling `main` to populate missing files under `~/.config/` without
+overwriting existing settings. Keep credentials outside Git; only the read-only
+Polygon adapter currently consumes the ledger settings.
+
 ## Host-local ledger providers
 
 [Ledger provider configuration](docs/LEDGER-PROVIDERS.md) describes a private
