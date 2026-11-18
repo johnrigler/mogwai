@@ -58,6 +58,11 @@ python3 "$HOME/mogwai/tools/ledger_config.py" check
 python3 "$HOME/mogwai/tools/evm_read.py" status polygon
 ```
 
+For current Polygon setup, including private dRPC URLs, the existing
+Etherscan key, and dRPC's separate Data & Wallet API, follow the
+[canonical Polygon test guide](../docs/POLYGON-READ-TEST.md). All commands
+and sample JSON are maintained there rather than dictated over the phone.
+
 ## Existing Etherscan key: non-destructive migration
 
 Etherscan V2 is an **indexed API provider for Polygon**, not its own ledger.
