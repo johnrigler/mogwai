@@ -180,6 +180,36 @@ Mogwai RPC adapter supports `apiKeyHeader`; use a verified endpoint/header
 combination if you choose that approach. The dashboard's complete URL is
 simpler to configure, but it must remain secret.
 
+## Read contract methods and indexed events with dRPC
+
+The same private `ledgers.json` Polygon RPC endpoint supports read-only
+contract calls and bounded event-log queries. `eth_call` executes a view or
+simulation without creating a transaction. `eth_getLogs` filters logs by
+contract address, block range, and optional indexed topics. The Mogwai RPC
+adapter does not expose signing or broadcast methods.
+
+For M64, use the deployed contract address with ABI-encoded calldata for
+`termCount()`, `lookupTerm(id)`, or another view function:
+
+```bash
+python3 "$HOME/mogwai/tools/evm_read.py" call polygon 0xYOUR_M64_CONTRACT 0xABI_ENCODED_CALLDATA --block latest
+```
+
+To read M64 `TermAdded` and `Packet` events from a block range, query by
+contract address. Those are the M64 contract's emitted event types:
+
+```bash
+python3 "$HOME/mogwai/tools/evm_read.py" logs polygon 0xYOUR_M64_CONTRACT 97514024 97515000
+```
+
+Optional `--topic` arguments filter topics by position; pass `--topic '*'`
+for a wildcard position. The command requires a bounded range of at most
+100,000 blocks and checks that every returned log belongs to the requested
+contract and range. For a recurring indexer, persist a separate M64 block
+checkpoint and query through a confirmed safe head. Keep Etherscan's
+address-transaction scan for complete transaction input; the RPC event query
+indexes the M64 contract's emitted logs.
+
 ## Offline tests (no provider credentials needed)
 
 ```bash
