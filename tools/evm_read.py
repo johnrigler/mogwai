@@ -17,8 +17,13 @@ else:
     from ledger_config import endpoint_key, load_ledger_config
 
 _TXID = re.compile(r"^0x[0-9a-fA-F]{64}$")
+_ADDRESS = re.compile(r"^0x[0-9a-fA-F]{40}$")
+_TOPIC = re.compile(r"^0x[0-9a-fA-F]{64}$")
+_HEX_DATA = re.compile(r"^0x(?:[0-9a-fA-F]{2})*$")
 _QUANTITY = re.compile(r"^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$")
 _HEADER = re.compile(r"^[A-Za-z0-9-]+$")
+_BLOCK_TAGS = {"latest", "safe", "finalized", "pending", "earliest"}
+_MAX_LOG_BLOCK_SPAN = 100000
 _MAX_RESPONSE = 4 * 1024 * 1024
 
 
@@ -41,14 +46,60 @@ def _provider(spec):
     return spec["read"]
 
 
+def _validate_log_filter(params):
+    if len(params) != 1 or not isinstance(params[0], dict):
+        raise ValueError("eth_getLogs requires one filter object")
+    log_filter = params[0]
+    if set(log_filter) - {"address", "fromBlock", "toBlock", "topics"}:
+        raise ValueError("eth_getLogs filter has unsupported fields")
+    address = log_filter.get("address")
+    if not isinstance(address, str) or not _ADDRESS.fullmatch(address):
+        raise ValueError("eth_getLogs requires one valid contract address")
+    start = log_filter.get("fromBlock")
+    end = log_filter.get("toBlock")
+    if not isinstance(start, str) or not _QUANTITY.fullmatch(start):
+        raise ValueError("eth_getLogs fromBlock must be a hex block quantity")
+    if not isinstance(end, str) or not _QUANTITY.fullmatch(end):
+        raise ValueError("eth_getLogs toBlock must be a hex block quantity")
+    first, last = int(start, 16), int(end, 16)
+    if last < first:
+        raise ValueError("eth_getLogs toBlock precedes fromBlock")
+    if last - first > _MAX_LOG_BLOCK_SPAN:
+        raise ValueError("eth_getLogs block range exceeds the 100000-block limit")
+    topics = log_filter.get("topics", [])
+    if not isinstance(topics, list) or len(topics) > 4:
+        raise ValueError("eth_getLogs topics must be an array of at most four entries")
+    for topic in topics:
+        values = topic if isinstance(topic, list) else [topic]
+        if topic is None:
+            continue
+        if not values or any(not isinstance(value, str) or not _TOPIC.fullmatch(value)
+                             for value in values):
+            raise ValueError("eth_getLogs topics must contain 32-byte hashes or null")
+    return address.lower(), first, last
+
+
 def rpc_read(endpoint, method, params=(), opener=None):
-    """Call only the explicitly allowed JSON-RPC read methods."""
+    """Call only the explicitly allowed read-only JSON-RPC methods."""
     if method not in ("eth_chainId", "eth_blockNumber", "eth_getTransactionByHash",
-                      "eth_getTransactionReceipt"):
+                      "eth_getTransactionReceipt", "eth_call", "eth_getLogs"):
         raise ValueError("Disallowed JSON-RPC method")
     if method in ("eth_getTransactionByHash", "eth_getTransactionReceipt"):
         if len(params) != 1 or not isinstance(params[0], str) or not _TXID.fullmatch(params[0]):
             raise ValueError("Expected a 0x-prefixed 32-byte transaction hash")
+    elif method == "eth_call":
+        if len(params) != 2 or not isinstance(params[0], dict):
+            raise ValueError("eth_call requires a call object and block identifier")
+        call = params[0]
+        if set(call) - {"to", "data"} or not _ADDRESS.fullmatch(str(call.get("to", ""))):
+            raise ValueError("eth_call only accepts a valid to address and calldata")
+        if not isinstance(call.get("data"), str) or not _HEX_DATA.fullmatch(call["data"]):
+            raise ValueError("eth_call data must be 0x-prefixed even-length hex")
+        block = params[1]
+        if not isinstance(block, str) or (block not in _BLOCK_TAGS and not _QUANTITY.fullmatch(block)):
+            raise ValueError("eth_call block must be a valid tag or hex quantity")
+    elif method == "eth_getLogs":
+        _validate_log_filter(params)
     elif params:
         raise ValueError("This JSON-RPC method takes no parameters")
 
@@ -151,6 +202,59 @@ def transaction(config, ledger, txid, opener=None):
     return summary
 
 
+def contract_call(config, ledger, to, data, block="latest", opener=None):
+    """Read one contract call through eth_call; this never broadcasts."""
+    if not isinstance(to, str) or not _ADDRESS.fullmatch(to):
+        raise ValueError("Expected a 20-byte contract address")
+    if not isinstance(data, str) or not _HEX_DATA.fullmatch(data):
+        raise ValueError("Call data must be 0x-prefixed even-length hex")
+    spec = config["ledgers"].get(ledger)
+    endpoint = _provider(spec)
+    chain_id = _chain(endpoint, spec["chainId"], opener)
+    result = rpc_read(endpoint, "eth_call", ({"to": to, "data": data}, block), opener=opener)
+    if not isinstance(result, str) or not _HEX_DATA.fullmatch(result):
+        raise ValueError("RPC returned invalid eth_call data")
+    return {"ledger": ledger, "chainId": chain_id, "to": to.lower(),
+            "block": block, "result": result.lower()}
+
+
+def contract_logs(config, ledger, address, from_block, to_block, topics=None, opener=None):
+    """Fetch bounded logs for one contract address through eth_getLogs."""
+    if not isinstance(address, str) or not _ADDRESS.fullmatch(address):
+        raise ValueError("Expected a 20-byte contract address")
+    if type(from_block) is not int or type(to_block) is not int or from_block < 0 or to_block < from_block:
+        raise ValueError("Log block bounds must be ordered nonnegative integers")
+    if to_block - from_block > _MAX_LOG_BLOCK_SPAN:
+        raise ValueError("Log block range exceeds the 100000-block limit")
+    filter_value = {"address": address, "fromBlock": hex(from_block), "toBlock": hex(to_block)}
+    if topics is not None:
+        filter_value["topics"] = topics
+    spec = config["ledgers"].get(ledger)
+    endpoint = _provider(spec)
+    chain_id = _chain(endpoint, spec["chainId"], opener)
+    result = rpc_read(endpoint, "eth_getLogs", (filter_value,), opener=opener)
+    if not isinstance(result, list):
+        raise ValueError("RPC returned invalid eth_getLogs data")
+    checked = []
+    for item in result:
+        if not isinstance(item, dict) or str(item.get("address", "")).lower() != address.lower():
+            raise ValueError("RPC returned a log for an unexpected contract")
+        block_number = _quantity(item.get("blockNumber"), "log blockNumber")
+        if block_number < from_block or block_number > to_block:
+            raise ValueError("RPC returned a log outside the requested block range")
+        if not isinstance(item.get("data"), str) or not _HEX_DATA.fullmatch(item["data"]):
+            raise ValueError("RPC returned invalid log data")
+        log_topics = item.get("topics")
+        if not isinstance(log_topics, list) or len(log_topics) > 4 or any(
+            not isinstance(topic, str) or not _TOPIC.fullmatch(topic) for topic in log_topics
+        ):
+            raise ValueError("RPC returned invalid log topics")
+        checked.append(item)
+    return {"ledger": ledger, "chainId": chain_id, "address": address.lower(),
+            "fromBlock": from_block, "toBlock": to_block,
+            "count": len(checked), "logs": checked}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Read Polygon/EVM JSON-RPC without signing")
     parser.add_argument("--config", help="Private ledger config path")
@@ -160,11 +264,32 @@ def main(argv=None):
     tx = command.add_parser("transaction", help="Read a transaction and receipt")
     tx.add_argument("ledger")
     tx.add_argument("txid")
+    call = command.add_parser("call", help="Call a contract read method without broadcasting")
+    call.add_argument("ledger")
+    call.add_argument("to", help="Contract address")
+    call.add_argument("data", help="ABI-encoded calldata")
+    call.add_argument("--block", default="latest", help="Block tag or 0x quantity")
+    logs_parser = command.add_parser("logs", help="Read bounded event logs for one contract")
+    logs_parser.add_argument("ledger")
+    logs_parser.add_argument("address", help="Contract address")
+    logs_parser.add_argument("from_block", type=int, help="Inclusive start block")
+    logs_parser.add_argument("to_block", type=int, help="Inclusive end block (max span 100000)")
+    logs_parser.add_argument("--topic", action="append", default=[],
+                             help="32-byte topic filter by position; use * for wildcard")
     args = parser.parse_args(argv)
     try:
         config = load_ledger_config(args.config)
-        result = (status(config, args.ledger) if args.command == "status"
-                  else transaction(config, args.ledger, args.txid))
+        if args.command == "status":
+            result = status(config, args.ledger)
+        elif args.command == "transaction":
+            result = transaction(config, args.ledger, args.txid)
+        elif args.command == "call":
+            result = contract_call(config, args.ledger, args.to, args.data, args.block)
+        else:
+            topics = [None if topic == "*" else topic for topic in args.topic]
+            result = contract_logs(config, args.ledger, args.address,
+                                   args.from_block, args.to_block,
+                                   topics if args.topic else None)
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     except (OSError, ValueError, KeyError) as exc:
