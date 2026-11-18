@@ -89,9 +89,18 @@ endpoint and key into the private `ledgers.json`, keeps the original
 credentials, and **prints no key values**. An existing Etherscan provider
 URL must match the legacy URL. It never makes network requests.
 
-This **does not** test Etherscan API V2. The Etherscan adapter is not
-implemented yet. The existing `evm_read.py status polygon` test uses
-Polygon JSON-RPC and needs no Etherscan API key. Do not run the
+The Etherscan read-only adapter is now available. After migrating, test
+without using dRPC:
+
+```bash
+python3 ~/mogwai/tools/etherscan_read.py status polygon
+```
+
+A successful response reports the latest Polygon block, requested chain ID
+137, and provider `etherscan`. It does not independently verify chain ID via
+an `eth_chainId` RPC call. The old `evm_read.py status polygon` command is
+still available for an independently configured JSON-RPC provider, but a dRPC
+account or key is **not** required for the Etherscan test. Do not run the
 installation script to upgrade a populated private file; the installer
 preserves existing files.
 
