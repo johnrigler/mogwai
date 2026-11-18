@@ -6,20 +6,14 @@
       "chainId": 137,
       "network": "mainnet",
       "read": {
-        "url": "https://polygon-rpc.com",
-        "apiKeyEnv": "POLYGON_RPC_API_KEY"
-      },
-      "broadcast": {
-        "url": "https://polygon-rpc.com",
-        "apiKeyEnv": "POLYGON_RPC_API_KEY"
+        "url": "https://polygon-rpc.com"
       }
     },
     "digibyte": {
       "family": "utxo",
       "network": "mainnet",
       "read": {
-        "url": "https://YOUR_DGB_PROVIDER.example/read",
-        "apiKey": ""
+        "url": "https://YOUR_DGB_PROVIDER.example/read"
       }
     }
   }
