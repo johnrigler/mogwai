@@ -19,6 +19,21 @@ compatibility implementation is maintained under `tools/fileProxy/`; the new
 `fileproxy/` package adds a Bash-friendly CLI and general-purpose `/v1`
 filesystem catalog API.
 
+## CID-addressed static IPFS mirror
+
+The operator-side `fileproxy.cid_mirror` tool exports a known CID
+from local Kubo into a complete CAR archive and a static directory
+under the same root CID. Apache can serve the directory even after
+Kubo and FileProxy stop. The tool checks the CARv1 root and the
+SHA-256 multihashes of blocks present, and records SHA-256 hashes for
+every exported file. It does **not** yet prove UnixFS DAG completeness,
+Pinata availability, or publisher trust.
+
+See [CID static mirror](docs/CID-STATIC-MIRROR.md) for explicit CLI
+arguments, verification commands, static Apache setup, limitations,
+and the separate Pinata/boot-release workflow. No FileProxy HTTP
+service change or restart is required to use this local command.
+
 ## Large-media preservation and server replication
 
 The [large-media storage design](docs/LARGE-MEDIA-STORE.md) distinguishes current functionality from a proposed streaming HTTP media service. The FileProxy scan path hashes existing files in chunks and catalogs their SHA-256 and size. In this change the local `fp put` CLI also streams copies in 1 MiB chunks, but the JSON `/v1/put` route and `/v1/file` response do not stream large files end-to-end. After installing this change, `fp put` can place original audio or video into a private registered root without whole-file memory buffering. Or copy exact bytes by filesystem/SSH transfer. Scan and verify the complete digest on a separately controlled second server. This does not imply replication, an online upload route, public file serving, IPFS pinning or chain publication has happened automatically.
