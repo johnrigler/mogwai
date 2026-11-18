@@ -47,7 +47,7 @@ def _endpoint(value, ledger, operation):
                                     or not _HEADER.fullmatch(value["apiKeyHeader"])):
         raise ValueError(f"{ledger}.{operation}.apiKeyHeader is invalid")
     if "apiKeyPrefix" in value and (not isinstance(value["apiKeyPrefix"], str)
-                                    or "\\r" in value["apiKeyPrefix"] or "\\n" in value["apiKeyPrefix"]):
+                                    or chr(13) in value["apiKeyPrefix"] or chr(10) in value["apiKeyPrefix"]):
         raise ValueError(f"{ledger}.{operation}.apiKeyPrefix is invalid")
 
 
