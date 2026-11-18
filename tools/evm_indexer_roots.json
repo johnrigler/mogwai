@@ -19,6 +19,12 @@
       "address": "0xe6e9df9f49b1ab4417129454991466adc9923f8c",
       "startBlock": 0,
       "pollSeconds": 60
+    },
+    {
+      "name": "mogwai",
+      "address": "0x683cFA103FE5DbD0a47402d78Fbf818D4160B1d3",
+      "startBlock": 0,
+      "pollSeconds": 60
     }
   ]
 }
