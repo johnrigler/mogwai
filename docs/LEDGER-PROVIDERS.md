@@ -2,8 +2,9 @@
 
 Mogwai code is updated through Git. Provider endpoints and API keys are
 machine-local; never store them in a repository, a browser application, or a
-FileProxy-served data root. This is the first configuration patch, not a new
-transaction or broadcast service.
+FileProxy-served data root. The host-side Polygon adapter now provides
+**read-only** EVM JSON-RPC status and transaction queries. There is no new
+transaction signing, broadcasting, or public API service.
 
 ## Install on rigler.org or another machine
 
@@ -25,7 +26,8 @@ service. Polygon is EVM chain 137. Each network can specify a read endpoint
 and an optional broadcast endpoint; provider APIs have different request
 formats, and this config does not make them interchangeable.
 
-A provider entry looks like:
+The checked-in sample config specifies Polygon's public RPC URL without
+a key. API key handling varies by provider; header-based providers can use:
 
 ```json
 {
@@ -34,14 +36,17 @@ A provider entry looks like:
   "network": "mainnet",
   "read": {
     "url": "https://provider.example/rpc",
-    "apiKey": "replace-on-server"
-  },
-  "broadcast": {
-    "url": "https://provider.example/rpc",
-    "apiKeyEnv": "POLYGON_RPC_API_KEY"
+    "apiKeyEnv": "POLYGON_RPC_API_KEY",
+    "apiKeyHeader": "X-API-Key"
   }
 }
 ```
+
+For a provider using bearer authentication, use
+`"apiKeyHeader": "Authorization"` and `"apiKeyPrefix": "Bearer "`.
+Keep the key outside Git; never add API credentials to a public web UI.
+A provider requiring a key embedded in a URL needs a provider-specific
+adapter rather than interpolating secrets into a public endpoint.
 
 Use either `apiKey` (stored in the 0600 file) or `apiKeyEnv` (read from
 the process environment), not both for the same endpoint. Set
@@ -75,14 +80,45 @@ does not populate the private file or restart FileProxy.
   or world permissions on POSIX systems, or files inside the Mogwai checkout.
   Keep the parent directory mode 0700 and the config mode 0600.
 
-## Local tests
+## Host-side read-only Polygon test
+
+```bash
+git -C "$HOME/mogwai" pull --ff-only
+python3 "$HOME/mogwai/tools/ledger_config.py" check
+python3 "$HOME/mogwai/tools/evm_read.py" status polygon
+```
+
+`status` calls `eth_chainId` and `eth_blockNumber`. It refuses a provider
+whose chain ID differs from the configured 137. The public RPC endpoint may
+have rate limits or downtime; a provider failure is not a failed transaction.
+
+To inspect a known **actual Polygon transaction hash**, including receipt
+status and the SHA-256 of its input bytes, use:
+
+```bash
+python3 "$HOME/mogwai/tools/evm_read.py" transaction polygon 0xYOUR64HEXTRANSACTIONHASH
+```
+
+Use a real `0x`-prefixed 64-hex-character transaction hash in place of the
+placeholder. The command reports whether it was found, block number, value
+in wei, payload length and hash, and successful/reverted/pending status
+when receipt information supports it. This is a response from one RPC provider,
+not independent chain verification or finality attestation.
+
+## Offline tests
 
 ```bash
 cd "$HOME/mogwai"
 python3 -m unittest discover -s tools/tests -p 'test_ledger_config.py'
+python3 -m unittest discover -s tools/tests -p 'test_evm_read.py'
 ```
 
-Next implementation step is a read-only Polygon adapter against the host
-configuration, followed by Digibyte/Litecoin provider-specific readers. Keep
-the write path separate until transaction construction, chain checks,
-confirmation and signing boundaries are integrated with Chisel.
+These tests use fake RPC responses and never broadcast. Only the
+`evm_read.py` command performs a network request; it has a strict allowlist
+of four read methods, a 15-second request timeout and a response size limit.
+The `broadcast` config field is reserved for future use.
+
+Next steps are Digibyte/Litecoin provider-specific readers and connecting
+trusted host-side reads to Chisel with a restricted API. Keep the write path
+separate until transaction construction, chain checks, confirmation and
+signing boundaries are integrated with Chisel.
