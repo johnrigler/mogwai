@@ -88,6 +88,12 @@ class CIDMirrorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Truncated CAR block'):
             cm.verify_car(archive, self.cid)
 
+    def test_empty_raw_car_block_is_valid(self):
+        cid, car, _ = fixture(b'')
+        archive = self.base / 'empty.car'
+        archive.write_bytes(car)
+        self.assertEqual(cm.verify_car(archive, cid), 1)
+
     def test_invalid_cid_remote_api_and_symlinks(self):
         for bad in ['../bad', 'bOOPS', 'Qmxxx', '', 'b123', 'https://example.org']:
             with self.subTest(bad=bad), self.assertRaises(ValueError):
