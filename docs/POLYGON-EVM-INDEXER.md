@@ -8,22 +8,28 @@ catalog. Chisel can then read the cache without each browser querying
 Etherscan or a Polygon RPC provider.
 
 The first adapter is Polygon mainnet, chain 137. The roots in
-`tools/evm_indexer_roots.json` mirror the current Chisel contract registry:
-Gomez, Jethro and the M64 symbol dictionary. Each root has its own polling
-interval and initial block. The current interval is one minute for all three.
-The root list contains public contract addresses, not credentials.
+`tools/evm_indexer_roots.json` cover Gomez (Stone Man), Jethro, the M64
+symbol dictionary, and the earlier Mogwai contract. Each address has its own
+checkpoint and polling interval; the current interval is one minute. The root
+list contains public contract addresses, not credentials.
 
 ## Incremental scan behavior
 
-- Each run gets the current block from Etherscan, then scans through the block
-  two confirmations behind it.
-- The first scan bootstraps from FileProxy's existing EVM stream status when
-  saved transactions already exist. Otherwise it starts at the root's
+- Each run reads the current block, then uses a two-confirmation safe head.
+  It requests Etherscan's address-filtered `account/txlist` only for each
+  contract address and the unscanned block range. It does not query every block
+  or scan transactions for unrelated addresses.
+- The first scan bootstraps from FileProxy's saved EVM stream status when that
+  address already has indexed transactions. Otherwise it starts at the root's
   configured `startBlock`.
-- Later scans start from the saved checkpoint with a three-block overlap.
-  Transactions are deduplicated by hash and written through FileProxy's
-  existing EVM packet route. The checkpoint advances only after all fetched
-  pages have been saved.
+- Each address has an independent block checkpoint and last-transaction
+  cursor. Later scans start at the block after that address's last successfully
+  saved safe block; pages are deduplicated by transaction hash and written
+  through FileProxy's existing EVM packet route. The checkpoint advances only
+  after all fetched pages have been saved. Etherscan's list API takes block
+  bounds and page/offset rather than a transaction-hash cursor, so the saved
+  transaction hash/index is retained for status and audit while the block
+  boundary drives the next query.
 - The checkpoint and lock live under `~/.local/state/mogwai/`, outside Git and
   the public FileProxy data root. A failed scan retries from the prior
   checkpoint on the next run.
@@ -62,9 +68,9 @@ After the one-time scan succeeds, add this line to the Rigler user's crontab:
 ```
 
 The script takes a nonblocking lock so two overlapping cron runs do not scan
-the same roots concurrently. Check progress with the `status` command and the
-log file. Gomez, Jethro and M64 can later be assigned different
-`pollSeconds` values without changing the scanner.
+the same roots concurrently. Check progress with the `status` command and the log file. Gomez, Jethro,
+M64 and the legacy Mogwai root can later be assigned different `pollSeconds`
+values without changing the scanner.
 
 ## Scope
 
