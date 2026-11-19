@@ -51,10 +51,16 @@ def render(query):
     if coin == "evm" and source in {"evmGomez", "evmJethro", "evmPolygonThunderword", "other"}:
         target_params["source"] = source
     target_url = CHISEL_BASE + "?" + urllib.parse.urlencode(target_params)
-    share_params = {"coin": coin, "txid": txid, "title": title, "description": description, "image": image}
-    if coin == "evm" and chain:
+    share_params = {"coin": coin, "txid": txid}
+    if (query.get("title") or [""])[0]:
+        share_params["title"] = title
+    if (query.get("description") or [""])[0]:
+        share_params["description"] = description
+    if (query.get("image") or [""])[0]:
+        share_params["image"] = image
+    if coin == "evm" and re.fullmatch(r"[0-9]{1,15}", chain):
         share_params["chain"] = chain
-    if coin == "evm" and source:
+    if coin == "evm" and source in {"evmGomez", "evmJethro", "evmPolygonThunderword", "other"}:
         share_params["source"] = source
     share_url = PUBLIC_FILEPROXY_BASE + "/chisel-share?" + urllib.parse.urlencode(share_params)
     title_html, description_html = html.escape(title, quote=True), html.escape(description, quote=True)
