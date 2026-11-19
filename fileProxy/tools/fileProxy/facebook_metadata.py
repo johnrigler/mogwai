@@ -17,7 +17,7 @@ HOSTS = {
 TTL = 6 * 60 * 60
 MAX_URL = 2048
 MAX_RESPONSE = 256 * 1024
-API_VERSION = re.compile(r"^v[0-9]{1,3}\\.[0-9]+$")
+API_VERSION = re.compile(r"^v[0-9]{1,3}\.[0-9]+$")
 
 
 def canonical_url(value):
