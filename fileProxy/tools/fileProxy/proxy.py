@@ -2772,6 +2772,7 @@ class Handler(BaseHTTPRequestHandler):
                         "tiktokThumbnails": True,
                         "youtubeMetadata": True,
                         "facebookMetadata": True,
+                        "chiselSharePages": True,
                         "appendOnlyInteractions": True,
                     },
                 })
@@ -2837,6 +2838,23 @@ class Handler(BaseHTTPRequestHandler):
                     send_json(self, {"ok": False, "error": "TikTok thumbnail is unavailable", "url": clean_url}, 404)
                     return
                 send_redirect(self, thumbnail)
+                return
+
+            if parsed.path == "/chisel-share":
+                import chisel_share
+                try:
+                    page = chisel_share.render(query).encode("utf-8")
+                except ValueError as exc:
+                    send_json(self, {"ok": False, "error": str(exc)}, 400)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(page)))
+                self.send_header("Cache-Control", "public, max-age=300")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Referrer-Policy", "no-referrer")
+                self.end_headers()
+                self.wfile.write(page)
                 return
 
             if parsed.path == "/facebook-metadata":
