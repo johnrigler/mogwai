@@ -351,6 +351,14 @@ October 12, 2026. Examples: `/ping`, `/config`, `/list`, `/load`,
 `/import-jist-feed`, `/save-evm-tx`, `/save-evm-batch` and
 other Chisel endpoints.
 
+`GET /chisel-share?coin=litecoin&txid=<64-hex>&title=...&description=...`
+returns a small HTML page with per-record Open Graph/Twitter metadata and a
+click-through to Chisel. Use this URL when sharing a Chisel record into a
+social network; the crawler reads the HTML tags without running Chisel's
+JavaScript. Title, description and optional HTTPS image are escaped and
+bounded. Set `CHISEL_PUBLIC_FILEPROXY_URL` when the public service uses a host
+other than `https://rigler.org/fileproxy`.
+
 `GET /facebook-metadata?url=https%3A%2F%2Fwww.facebook.com%2Freel%2F...` retrieves
 public Facebook post/video metadata through Meta's oEmbed API. It accepts only
 Facebook URLs, strips common tracking parameters, rejects credential-bearing
