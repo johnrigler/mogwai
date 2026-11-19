@@ -351,6 +351,14 @@ October 12, 2026. Examples: `/ping`, `/config`, `/list`, `/load`,
 `/import-jist-feed`, `/save-evm-tx`, `/save-evm-batch` and
 other Chisel endpoints.
 
+`GET /facebook-metadata?url=https%3A%2F%2Fwww.facebook.com%2Freel%2F...` retrieves
+public Facebook post/video metadata through Meta's oEmbed API. It accepts only
+Facebook URLs, strips common tracking parameters, rejects credential-bearing
+URLs, and stores a bounded field set under `index/facebook-metadata/` for six
+hours. The embed HTML is discarded. Private posts and unsupported URLs return
+an unavailable response. Set `FACEBOOK_GRAPH_API_VERSION` to override the
+default API version when upgrading the service.
+
 `GET /youtube-metadata?url=https%3A%2F%2Fyoutu.be%2FVIDEO_ID` adds a
 public display-metadata lookup for the Mogwai share app. It requests YouTube
 oEmbed from a fixed HTTPS host, with an eight-second timeout and a 256 KiB
