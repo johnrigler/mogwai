@@ -2771,6 +2771,7 @@ class Handler(BaseHTTPRequestHandler):
                         "mainThunderwordCatalog": True,
                         "tiktokThumbnails": True,
                         "youtubeMetadata": True,
+                        "facebookMetadata": True,
                         "appendOnlyInteractions": True,
                     },
                 })
@@ -2836,6 +2837,23 @@ class Handler(BaseHTTPRequestHandler):
                     send_json(self, {"ok": False, "error": "TikTok thumbnail is unavailable", "url": clean_url}, 404)
                     return
                 send_redirect(self, thumbnail)
+                return
+
+            if parsed.path == "/facebook-metadata":
+                import facebook_metadata
+                source_url = query.get("url", [""])[0]
+                try:
+                    facebook_metadata.canonical_url(source_url)
+                except ValueError as exc:
+                    send_json(self, {"ok": False, "error": str(exc)}, 400)
+                    return
+                try:
+                    payload = facebook_metadata.lookup(
+                        source_url, data_path("index", "facebook-metadata"),
+                        atomic_write_text, refresh=query.get("refresh") == ["1"])
+                    send_json(self, payload)
+                except Exception:
+                    send_json(self, {"ok": False, "error": "Facebook public metadata is unavailable. The source URL is unchanged."}, 502)
                 return
 
             if parsed.path == "/youtube-metadata":
