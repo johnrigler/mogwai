@@ -1,5 +1,6 @@
 """Render crawler-readable, record-specific Chisel share pages."""
 import html
+import os
 import re
 import urllib.parse
 
@@ -7,6 +8,9 @@ import urllib.parse
 TXID_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 COINS = {"bitcoin", "digibyte", "dogecoin", "ecash", "evm", "litecoin", "litecoinTestnet", "ravencoin"}
 CHISEL_BASE = "https://johnrigler.github.io/chisel/"
+PUBLIC_FILEPROXY_BASE = os.environ.get("CHISEL_PUBLIC_FILEPROXY_URL", "https://rigler.org/fileproxy").rstrip("/")
+if not PUBLIC_FILEPROXY_BASE.startswith("https://") or "?" in PUBLIC_FILEPROXY_BASE or "#" in PUBLIC_FILEPROXY_BASE:
+    PUBLIC_FILEPROXY_BASE = "https://rigler.org/fileproxy"
 DEFAULT_IMAGE = "https://johnrigler.github.io/chisel/docs/chisel-social.png"
 
 
@@ -52,7 +56,7 @@ def render(query):
         share_params["chain"] = chain
     if coin == "evm" and source:
         share_params["source"] = source
-    share_url = "https://rigler.org/fileproxy/chisel-share?" + urllib.parse.urlencode(share_params)
+    share_url = PUBLIC_FILEPROXY_BASE + "/chisel-share?" + urllib.parse.urlencode(share_params)
     title_html, description_html = html.escape(title, quote=True), html.escape(description, quote=True)
     image_html, target_html = html.escape(image, quote=True), html.escape(target_url, quote=True)
     share_url_html = html.escape(share_url, quote=True)
