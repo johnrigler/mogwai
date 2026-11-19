@@ -39,10 +39,23 @@ def render(query):
     if not description:
         description = "Public ledger record " + txid + " on " + coin + "."
 
-    target = urllib.parse.urlencode({"mode": "portal", "coin": coin, "txid": txid})
-    target_url = CHISEL_BASE + "?" + target
+    target_params = {"mode": "portal", "coin": coin, "txid": txid}
+    chain = str((query.get("chain") or [""])[0])
+    source = str((query.get("source") or [""])[0])
+    if coin == "evm" and re.fullmatch(r"[0-9]{1,15}", chain):
+        target_params["chain"] = chain
+    if coin == "evm" and source in {"evmGomez", "evmJethro", "evmPolygonThunderword", "other"}:
+        target_params["source"] = source
+    target_url = CHISEL_BASE + "?" + urllib.parse.urlencode(target_params)
+    share_params = {"coin": coin, "txid": txid, "title": title, "description": description, "image": image}
+    if coin == "evm" and chain:
+        share_params["chain"] = chain
+    if coin == "evm" and source:
+        share_params["source"] = source
+    share_url = "https://rigler.org/fileproxy/chisel-share?" + urllib.parse.urlencode(share_params)
     title_html, description_html = html.escape(title, quote=True), html.escape(description, quote=True)
     image_html, target_html = html.escape(image, quote=True), html.escape(target_url, quote=True)
+    share_url_html = html.escape(share_url, quote=True)
     return """<!doctype html>
 <html lang="en">
 <head>
@@ -55,7 +68,7 @@ def render(query):
 <meta property="og:site_name" content="Chisel">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{description}">
-<meta property="og:url" content="https://rigler.org/fileproxy/chisel-share?coin={coin}&amp;txid={txid}">
+<meta property="og:url" content="{share_url}">
 <meta property="og:image" content="{image}">
 <meta property="og:image:secure_url" content="{image}">
 <meta name="twitter:card" content="summary_large_image">
@@ -73,4 +86,4 @@ def render(query):
 </body>
 </html>
 """.format(title=title_html, description=description_html, image=image_html,
-           coin=urllib.parse.quote(coin, safe=""), txid=txid, target=target_html)
+           coin=urllib.parse.quote(coin, safe=""), txid=txid, target=target_html, share_url=share_url_html)
