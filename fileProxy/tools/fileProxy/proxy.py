@@ -77,7 +77,7 @@ def configure_data_root(directory):
 TXID_RE = set("0123456789abcdefABCDEF")
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}
 JSON_EXTS = ["", ".json", ".txt"]
-KNOWN_COINS = {"digibyte", "ravencoin", "raven", "rvn", "litecoin", "litecointestnet", "bitcoin", "bitcointestnet3", "bitcointestnet4", "dogecoin", "doge", "polygon", "matic", "evm", "unknown"}
+KNOWN_COINS = {"digibyte", "ravencoin", "raven", "rvn", "litecoin", "litecointestnet", "bitcoin", "bitcointestnet3", "bitcointestnet4", "bsv", "bsvtestnet", "dogecoin", "doge", "polygon", "matic", "evm", "unknown"}
 INDEX_PATH = Path("data/index/transactions.index.json")
 TIKTOK_OEMBED_CACHE_NAME = "tiktok-oembed-cache.json"
 TIKTOK_OEMBED_SUCCESS_TTL_SECONDS = 6 * 60 * 60

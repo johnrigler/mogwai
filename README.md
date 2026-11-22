@@ -1,5 +1,9 @@
 # Mogwai
 
+[BSV history scanner](docs/BSV-HISTORY-SCANNER.md) runs as a bounded Python
+background job, saves block/transaction checkpoints in SQLite, and exports
+data-heavy public transactions for Chisel's portal.
+
 Mogwai is the tools checkout for preparing, cataloging, browsing and publishing
 filesystem records. [FileProxy](fileProxy/) and [SB Shell](sbshell/) now live
 here alongside the annual archive starter and other tools.

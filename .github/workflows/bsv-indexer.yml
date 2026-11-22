@@ -1,0 +1,17 @@
+name: BSV history scanner
+on:
+  push:
+    paths: ['tools/bsv_indexer.py', 'tools/tests/test_bsv_indexer.py', '.github/workflows/bsv-indexer.yml']
+  pull_request:
+    paths: ['tools/bsv_indexer.py', 'tools/tests/test_bsv_indexer.py', '.github/workflows/bsv-indexer.yml']
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m unittest discover -s tools/tests -p 'test_bsv_indexer.py' -v

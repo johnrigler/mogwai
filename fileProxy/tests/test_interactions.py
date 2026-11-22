@@ -30,6 +30,12 @@ def unsigned(number=1, kind="select", txid="ab" * 32):
 
 
 class InteractionsTests(unittest.TestCase):
+    def test_bsv_mainnet_and_testnet_identity_stay_separate_from_bitcoin(self):
+        subject = {"coin": "bsv", "txid": "ab" * 32, "sourceId": "", "chainId": "", "dataUrl": ""}
+        self.assertEqual(interactions.subject_key(subject), "bsv:" + "ab" * 32)
+        self.assertNotEqual(interactions.subject_key(subject), interactions.subject_key(dict(subject, coin="bitcoin")))
+        self.assertNotEqual(interactions.subject_key(subject), interactions.subject_key(dict(subject, coin="bsvTestnet")))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

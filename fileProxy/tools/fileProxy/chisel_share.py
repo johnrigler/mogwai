@@ -6,7 +6,7 @@ import urllib.parse
 
 
 TXID_RE = re.compile(r"^[0-9a-fA-F]{64}$")
-COINS = {"bitcoin", "digibyte", "dogecoin", "ecash", "evm", "litecoin", "litecoinTestnet", "ravencoin"}
+COINS = {"bitcoin", "bsv", "bsvTestnet", "digibyte", "dogecoin", "ecash", "evm", "litecoin", "litecoinTestnet", "ravencoin"}
 CHISEL_BASE = "https://johnrigler.github.io/chisel/"
 PUBLIC_FILEPROXY_BASE = os.environ.get("CHISEL_PUBLIC_FILEPROXY_URL", "https://rigler.org/fileproxy").rstrip("/")
 if not PUBLIC_FILEPROXY_BASE.startswith("https://") or "?" in PUBLIC_FILEPROXY_BASE or "#" in PUBLIC_FILEPROXY_BASE:

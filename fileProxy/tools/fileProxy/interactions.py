@@ -16,7 +16,7 @@ COMMENT_TYPE = "chisel-comment-v1"
 DATABASE = "chisel-interactions.sqlite3"
 MAX_REQUEST = 32768
 KINDS = {"visit", "select", "engage", "comment"}
-COINS = {"litecoin", "litecoinTestnet", "digibyte", "ravencoin", "bitcoin", "dogecoin", "ecash", "evm"}
+COINS = {"litecoin", "litecoinTestnet", "digibyte", "ravencoin", "bitcoin", "bsv", "bsvTestnet", "dogecoin", "ecash", "evm"}
 PAYLOAD_KEYS = {"schema", "id", "session", "kind", "at", "mode", "action", "subject", "title", "synopsis", "url", "comment", "author"}
 
 
