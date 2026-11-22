@@ -35,6 +35,26 @@ Use `--stop-height` to set the oldest block to visit. The boundary is saved
 with the job and reused when later invocations omit it. Pre-fork history is shared with
 other Bitcoin chains; these records are sourced from BSV mainnet.
 
+`nextHeight` stays on the same block until all of its transactions are checked.
+The default budget is **200 transactions per invocation**, so a block with
+50,000 transactions needs 250 default-budget runs. Each run resumes at its
+saved zero-based transaction index; it does not start that block again.
+`blocksThisRun` shows each block's `startTransactionIndex`,
+`nextTransactionIndex`, `transactionsTotal` and `checkedThisRun`. The `jobs`
+section in both `scan` and `status` includes a readable `progress` line and
+`currentBlock` counts, for example **400/527 transactions checked; next
+transaction index 400**. The next invocation starts at index 400. When the
+block is complete the job moves to the next height; `currentBlock` is null
+until that next block is visited. A job waiting at the confirmed head or its
+saved stop boundary also has no current block.
+
+An unchanged height with increasing transaction counts is normal progress.
+If the transaction index also stays unchanged, check `checkedThisRun`,
+`lastError` and the command's exit status. A failed provider request retains
+the last committed batch for retry. Use the same `--db` on every invocation;
+the `jobs` section distinguishes independent named cursors. The continuous
+`daemon` command below repeats bounded passes automatically.
+
 The working database is `~/.local/state/mogwai/bsv-index.sqlite3`. Every checked
 transaction retains its ID, size, data-byte count, block/index and timestamp.
 Raw public-provider JSON is retained only for selected candidates. Database
@@ -133,6 +153,46 @@ batch. Selection thresholds remain fixed per database.
 `--anchor-tx TXID` resolves that confirmed transaction's block. Alternatively,
 `--anchor-height HEIGHT` sets a block directly. An existing daemon's saved anchor
 cannot silently change; use another `--db` for a different historical segment.
+
+### Start and stop in the background with Bash
+
+No service installation is required:
+
+```bash
+cd "$HOME/mogwai"
+git pull --ff-only
+bash tools/bsv-start.sh
+bash tools/bsv.sh status
+bash tools/bsv-stop.sh
+```
+
+Start detaches the two-cursor daemon with `nohup`, so it continues after the
+terminal disconnects. Start is idempotent; it refuses a second scanner using
+the same database. Stop sends SIGTERM and waits up to 45 seconds for the
+current request and final export. It does not force-kill the process. Starting
+again resumes saved checkpoints. These scripts manage the process they
+started; use `systemctl --user stop mogwai-bsv.service` for a systemd instance.
+
+The PID and appended log are under
+`${XDG_STATE_HOME:-$HOME/.local/state}/mogwai/bsv-daemon/`. Follow the output with:
+
+```bash
+tail -f "${XDG_STATE_HOME:-$HOME/.local/state}/mogwai/bsv-daemon/daemon.log"
+```
+
+The database defaults to the same `~/.local/state/mogwai/bsv-index.sqlite3`
+used by manual `scan` commands. The scripts load optional Bash-compatible
+settings from `~/.config/mogwai/bsv.env`: `BSV_EXPORT_DIR` selects the directory
+Apache serves, and `BSV_DB` can select another scan database. Without an export
+setting, the daemon writes a local feed in its state directory's `public/`
+subdirectory; that local directory is not automatically exposed by Apache.
+Extra start arguments are passed to the daemon, for example:
+
+```bash
+bash tools/bsv-start.sh --max-transactions 500 --interval 30
+```
+
+These scripts survive logout but do not automatically start after reboot.
 
 ### Keep it running as a user service
 

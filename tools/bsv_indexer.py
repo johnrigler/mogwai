@@ -343,6 +343,7 @@ def scan(db, provider, args, stop=None):
     meta(db, "last_error", "")
     db.commit()
     checked, completed = 0, 0
+    blocks_this_run = []
     while checked < args.max_transactions and completed < args.blocks and not (stop and stop.is_set()):
         job = db.execute("SELECT * FROM scan_jobs WHERE name=?", (name,)).fetchone()
         height = job["next_height"]
@@ -371,6 +372,7 @@ def scan(db, provider, args, stop=None):
                 raise ValueError("Transaction count changed for the same block hash")
         row = db.execute("SELECT * FROM blocks WHERE height=?", (height,)).fetchone()
         cursor = row["checked"]
+        start_cursor = cursor
         while cursor < row["tx_count"] and checked < args.max_transactions and not (stop and stop.is_set()):
             batch = provider.transactions(block, cursor, min(20, args.max_transactions - checked, row["tx_count"] - cursor))
             if not batch or len(batch) > min(20, args.max_transactions - checked, row["tx_count"] - cursor):
@@ -390,6 +392,10 @@ def scan(db, provider, args, stop=None):
                 db.execute("UPDATE blocks SET checked=?,updated_at=?,error='' WHERE height=?", (cursor, now(), height))
                 meta(db, "updated_at", now())
                 db.execute("UPDATE scan_jobs SET updated_at=?,error='' WHERE name=?", (now(), name))
+        blocks_this_run.append({"height": height, "startTransactionIndex": start_cursor,
+                                "nextTransactionIndex": cursor, "transactionsTotal": row["tx_count"],
+                                "checkedThisRun": cursor - start_cursor,
+                                "complete": cursor == row["tx_count"]})
         if cursor == row["tx_count"]:
             with db:
                 db.execute("UPDATE blocks SET status='complete' WHERE height=?", (height,))
@@ -398,7 +404,8 @@ def scan(db, provider, args, stop=None):
             completed += 1
         else:
             break
-    return {"job": name, "direction": direction, "checkedThisRun": checked, "completedThisRun": completed}
+    return {"job": name, "direction": direction, "checkedThisRun": checked,
+            "completedThisRun": completed, "blocksThisRun": blocks_this_run}
 
 
 def resolve_anchor(provider, txid):
@@ -522,8 +529,24 @@ def status(db):
         direction, height, boundary = saved["direction"], saved["next_height"], saved["stop_height"]
         done = height < 0 or boundary is not None and (direction == "backward" and height < boundary or direction == "forward" and height > boundary)
         phase = "error" if saved["error"] else "complete" if done else "waiting-for-blocks" if height > safe else "scanning"
+        block = db.execute("SELECT checked,tx_count FROM blocks WHERE height=?", (height,)).fetchone()
+        current_block = None
+        if block is not None and not done and height <= safe:
+            current_block = {"height": height, "transactionsChecked": block["checked"],
+                             "transactionsTotal": block["tx_count"], "nextTransactionIndex": block["checked"],
+                             "remainingTransactions": block["tx_count"] - block["checked"]}
+            progress = ("Block %d: %d/%d transactions checked; next transaction index %d. "
+                        "Height advances when this block is complete." %
+                        (height, block["checked"], block["tx_count"], block["checked"]))
+        elif done:
+            progress = "Scan boundary reached."
+        elif height > safe:
+            progress = "Waiting for confirmed block %d." % height
+        else:
+            progress = "Block %d has not been checked yet." % height
         jobs.append({"name": saved["name"], "direction": direction, "anchorHeight": saved["anchor_height"],
                      "nextHeight": height, "stopHeight": boundary, "anchorTxid": saved["anchor_txid"],
+                     "currentBlock": current_block, "progress": progress,
                      "lastCheckedAt": saved["updated_at"], "lastError": saved["error"], "phase": phase})
     errors = "; ".join(j["name"] + ": " + j["lastError"] for j in jobs if j["lastError"])
     return {"kind": "bsv-block-scan", "version": 1, "coin": "bsv", "network": "mainnet",
@@ -609,7 +632,8 @@ def main(argv=None):
     parser.add_argument("--interval", type=float, default=60, help="Seconds between bounded daemon passes")
     parser.add_argument("--once", action="store_true", help="Run one daemon pass and export, then exit")
     parser.add_argument("--blocks", type=int, default=5, help="Completed blocks per run, at most")
-    parser.add_argument("--max-transactions", type=int, default=200, help="Transaction budget per run")
+    parser.add_argument("--max-transactions", type=int, default=200,
+                        help="Transaction budget per run (default: 200); partial blocks resume at the saved transaction index")
     parser.add_argument("--min-tx-bytes", type=int)
     parser.add_argument("--min-data-bytes", type=int)
     parser.add_argument("--confirmations", type=int, default=6, help="Blocks behind the tip")

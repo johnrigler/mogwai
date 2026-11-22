@@ -113,6 +113,40 @@ class ScanTests(unittest.TestCase):
         bsv.scan(self.db, provider, args(start_height=None))
         self.assertEqual(provider.calls, [0, 2, 2])
 
+    def test_cli_repeated_large_block_reports_saved_offset_and_never_rechecks(self):
+        import contextlib
+        import io
+        from unittest.mock import patch
+        provider = Provider()
+        provider.items = [tx(i + 1) for i in range(527)]
+        command = ['scan', '--db', str(Path(self.temp.name) / 'index.sqlite3'),
+                   '--start-height', '100', '--stop-height', '100']
+        reports = []
+        # Each main() call opens and closes the DB, as separate shell runs do.
+        for checked in (200, 400, 527):
+            output = io.StringIO()
+            with patch.object(bsv, 'WhatsOnChain', return_value=provider), contextlib.redirect_stdout(output):
+                self.assertEqual(bsv.main(command), 0)
+            report = json.loads(output.getvalue())
+            reports.append(report)
+            block = report['blocksThisRun'][0]
+            self.assertEqual(block['startTransactionIndex'], checked - report['checkedThisRun'])
+            self.assertEqual((block['nextTransactionIndex'], block['transactionsTotal']), (checked, 527))
+            self.assertEqual(report['transactionsChecked'], checked)
+            job = report['jobs'][0]
+            if checked < 527:
+                self.assertEqual(job['nextHeight'], 100)
+                self.assertEqual(job['currentBlock']['nextTransactionIndex'], checked)
+                self.assertEqual(job['currentBlock']['remainingTransactions'], 527 - checked)
+                self.assertIn('%d/527 transactions checked' % checked, job['progress'])
+            else:
+                self.assertEqual(job['nextHeight'], 99)
+                self.assertEqual(job['phase'], 'complete')
+                self.assertIsNone(job['currentBlock'])
+        self.assertEqual([r['checkedThisRun'] for r in reports], [200, 200, 127])
+        self.assertEqual(provider.calls, list(range(0, 527, 20)))
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM transactions').fetchone()[0], 527)
+
     def test_mismatched_block_rolls_back_whole_batch(self):
         provider = Provider()
         original = provider.transactions
@@ -325,14 +359,16 @@ class DaemonTests(unittest.TestCase):
         import contextlib
         import fcntl
         import io
-        bsv.scan(self.db, ChainProvider(), runner_args(self.temp.name, direction='forward', start_height=2))
+        bsv.scan(self.db, ChainProvider(), runner_args(self.temp.name, direction='forward', start_height=2, max_transactions=1))
         output = io.StringIO()
         with open(str(self.path) + '.lock', 'a') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             with contextlib.redirect_stdout(output):
                 self.assertEqual(bsv.main(['status', '--db', str(self.path)]), 0)
         report = json.loads(output.getvalue())
-        self.assertEqual(report['jobs'][0]['nextHeight'], 3)
+        self.assertEqual(report['jobs'][0]['nextHeight'], 2)
+        self.assertEqual(report['jobs'][0]['currentBlock']['transactionsChecked'], 1)
+        self.assertIn('1/2 transactions checked', report['jobs'][0]['progress'])
         self.assertNotIn('skipped', report)
 
     def test_default_anchor_resolves_once_and_is_saved_for_restart(self):
