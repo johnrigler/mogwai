@@ -9,8 +9,11 @@ off. Each invocation has a transaction budget and a completed-block budget.
 The default selection is transaction size **at least 1,024 bytes** OR pushed
 OP_RETURN data **at least 128 bytes**. Coinbase transactions are measured but
 excluded from candidates. Size identifies a candidate, not a known file format:
-a large transaction can simply have many payment inputs or outputs. B://,
-BCAT, and 1Sat reconstruction remain separate reader work.
+a large transaction can simply have many payment inputs or outputs. B:// file
+metadata is now indexed from push boundaries: MIME type, filename, output,
+declared byte count and completeness. JPEG/PNG/GIF/WebP signatures identify
+images even when truncation hides later MIME metadata. BCAT and 1Sat
+reconstruction remain separate reader work.
 
 ## Run on rigler.org
 
@@ -74,6 +77,21 @@ FileProxy. This release also adds BSV to FileProxy's existing record activity
 and share-page currency lists; restart that service after pulling Mogwai if
 you use shared activity/comments or social previews for BSV records.
 
+## Transaction exploration
+
+Chisel 2.8.71 record pages include a chain-scoped search panel, **Images only**,
+and a **This block** pivot. File searches cover loaded catalog entries, not the
+entire chain. B:// file inventories show incomplete previews; **Load image**
+reads the complete output explicitly from WhatsOnChain and checks it against
+the saved prefix before displaying a Blob image. Export recomputes file
+metadata from saved transaction JSON, so older databases need only an export
+to gain image search tags. No rescanning or database migration is necessary.
+
+Starting the Mogwai/FileProxy daemon does not start this scanner. FileProxy
+health and the separately published BSV scanner feed appear independently in
+the record panel. A missing `/chisel-data/bsv/scan.json` means Chisel cannot
+observe scanner coverage, even when FileProxy is connected.
+
 ## Background operation
 
 After verifying one export, use a cron invocation every minute. Substitute the
@@ -130,3 +148,5 @@ Primary API references:
 - [Bulk transaction reads, truncation and full output hex](https://docs.taal.com/core-products/whatsonchain/transaction)
 
 Tests: `python3 -m unittest discover -s tools/tests -p 'test_bsv_indexer.py' -v`.
+
+- [B:// file push layout](https://github.com/unwriter/B)

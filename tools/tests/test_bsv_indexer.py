@@ -48,6 +48,32 @@ def args(**kw):
 
 
 class ScanTests(unittest.TestCase):
+    def test_b_file_metadata_survives_truncated_script(self):
+        marker = b"19HxigV4QyBv3tHpQVcUEQyq1pzZVdoAut"
+        raw = tx(22)
+        raw["vout"][0]["scriptPubKey"] = {"hex": "006a" + bytes([len(marker)]).hex() + marker.hex() + "4d1000ffd8ff[truncated]", "isTruncated": True}
+        info = bsv.inspect_transaction(raw, 1024, 128)
+        file = info["files"][0]
+        self.assertEqual((file["mime"], file["mimeSource"], file["bytes"], file["availableBytes"], file["complete"]), ("image/jpeg", "signature", 16, 3, False))
+        self.assertEqual(bsv.inspect_files(tx(23, payload=b"https://example.org/image.jpg")), [])
+
+    def test_export_classifies_previously_saved_raw_without_changing_coverage(self):
+        provider = Provider()
+        bsv.scan(self.db, provider, args(max_transactions=4))
+        marker, data = b"19HxigV4QyBv3tHpQVcUEQyq1pzZVdoAut", b"\xff\xd8\xffabc"
+        raw = provider.items[1]
+        parts = [marker, data, b"image/jpeg", b"binary", b"photo.jpg"]
+        raw["vout"][0]["scriptPubKey"]["hex"] = "006a" + b"".join(bytes([len(p)]) + p for p in parts).hex()
+        self.db.execute("UPDATE transactions SET raw=? WHERE txid=?", (json.dumps(raw), raw["txid"]))
+        checked = bsv.status(self.db)["transactionsChecked"]
+        out = Path(self.temp.name) / "reclassified"
+        bsv.export(self.db, out, 100)
+        manifest = json.loads((out / "manifest.json").read_text())
+        index = json.loads((out / manifest["defaultIndex"]).read_text())
+        file = index["transactions"][0]["summary"]["files"][0]
+        self.assertEqual((file["name"], file["mimeSource"], file["complete"]), ("photo.jpg", "declared", True))
+        self.assertEqual(index["scan"]["transactionsChecked"], checked)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.db = bsv.connect(Path(self.temp.name) / "index.sqlite3")

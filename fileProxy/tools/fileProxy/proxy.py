@@ -2411,7 +2411,10 @@ def list_txids(coin=None, with_source=False):
                 continue
             seen.add(key)
             st = p.stat()
-            detected_coin = normalize_coin_name(detect_coin_for_path(p, coin))
+            # A query is a filter, never evidence of the file's currency.
+            detected_coin = normalize_coin_name(detect_coin_for_path(p))
+            if coin and detected_coin != normalize_coin_name(coin):
+                continue
             out.append({
                 "txid": txid_value,
                 "coin": detected_coin,

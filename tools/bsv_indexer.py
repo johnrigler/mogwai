@@ -122,6 +122,57 @@ class WhatsOnChain:
         return [by_id[txid] for txid in ids]
 
 
+def inspect_files(tx):
+    """Recognize B:// files, including typed prefixes in truncated outputs."""
+    files = []
+    for index, output in enumerate(tx.get("vout", [])):
+        script = output.get("scriptPubKey") or {}
+        value = str(script.get("hex", ""))
+        raw = bytes.fromhex(re.match(r"^(?:[0-9a-fA-F]{2})*", value).group(0))
+        pos = 2 if raw.startswith(b"\x00\x6a") else 1 if raw.startswith(b"\x6a") else -1
+        if pos < 0:
+            continue
+        parts = []
+        while pos < len(raw):
+            op = raw[pos]
+            pos += 1
+            length = op
+            if 76 <= op <= 78:
+                count = 1 << (op - 76)
+                if pos + count > len(raw):
+                    break
+                length = int.from_bytes(raw[pos:pos + count], "little")
+                pos += count
+            elif op > 75:
+                break
+            data = raw[pos:pos + length]
+            parts.append((data, length, len(data) == length))
+            pos += length
+        for i, (marker, _, complete) in enumerate(parts):
+            if not complete or marker != b"19HxigV4QyBv3tHpQVcUEQyq1pzZVdoAut" or i + 1 >= len(parts):
+                continue
+            data, length, complete = parts[i + 1]
+            text = lambda offset: parts[i + offset][0].decode("utf-8", "replace") if i + offset < len(parts) and parts[i + offset][2] else ""
+            declared = text(2).strip().lower()
+            mime = declared if re.fullmatch(r"[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+", declared) else ""
+            source = "declared" if mime else "signature"
+            if not mime:
+                if data.startswith(b"\xff\xd8\xff"):
+                    mime = "image/jpeg"
+                elif data.startswith(b"\x89PNG\r\n\x1a\n"):
+                    mime = "image/png"
+                elif data[:6] in (b"GIF87a", b"GIF89a"):
+                    mime = "image/gif"
+                elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+                    mime = "image/webp"
+            if mime:
+                files.append({"protocol": "B", "output": output.get("n", index), "part": i + 1,
+                              "mime": mime, "mimeSource": source, "bytes": length,
+                              "availableBytes": len(data), "complete": complete,
+                              "encoding": text(3)[:40], "name": text(4)[:200]})
+    return files
+
+
 def inspect_transaction(tx, min_tx_bytes, min_data_bytes):
     checked_hash(tx.get("txid"))
     size = int(tx.get("size", 0))
@@ -174,7 +225,7 @@ def inspect_transaction(tx, min_tx_bytes, min_data_bytes):
     return {"transactionBytes": size, "dataBytes": data_bytes,
             "dataComplete": complete, "dataOutputs": data_outputs,
             "selectionReasons": reasons, "opReturnText": "\n".join(texts)[:1024],
-            "coinbase": bool(coinbase)}
+            "coinbase": bool(coinbase), "files": inspect_files(tx)}
 
 
 def connect(path):
@@ -325,8 +376,12 @@ def export(db, directory, limit):
         ORDER BY t.bytes DESC, t.height DESC, t.tx_index LIMIT ?""", (limit,)):
         txid = row["txid"]
         raw_path = "transactions/bsv/" + txid + ".json"
-        atomic_json(root / raw_path, json.loads(row["raw"]))
+        raw = json.loads(row["raw"])
+        atomic_json(root / raw_path, raw)
         summary = json.loads(row["summary"])
+        # Reclassify saved bytes so existing scan databases gain file search tags
+        # without another network scan or any change to checked coverage.
+        summary["files"] = inspect_files(raw)
         summary.update({"txid": txid, "coin": "bsv", "ticker": "BSV",
                         "title": "BSV data output" if summary["dataOutputs"] else "BSV large transaction",
                         "blockHeight": row["height"], "blockTime": row["time"],
