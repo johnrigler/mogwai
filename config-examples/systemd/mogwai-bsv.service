@@ -1,0 +1,16 @@
+[Unit]
+Description=Mogwai BSV history discovery (recent backward and early forward)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/mogwai/bsv.env
+ExecStart=/usr/bin/python3 %h/mogwai/tools/bsv_indexer.py daemon --export-dir ${BSV_EXPORT_DIR}
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=45
+UMask=0022
+
+[Install]
+WantedBy=default.target

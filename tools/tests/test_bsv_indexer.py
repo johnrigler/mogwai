@@ -175,6 +175,196 @@ class ScanTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "omitted transactions"):
             provider.transactions({"txcount": 2, "tx": [h(1), h(2)]}, 0, 2)
 
+class ChainProvider:
+    def __init__(self, tip=6):
+        self.head = tip
+        self.fail_height = None
+        self.revision = 0
+        self.reads = []
+
+    def tip(self):
+        return self.head
+
+    def block(self, height):
+        if height == self.fail_height:
+            raise ValueError('provider temporarily unavailable')
+        return {'height': height, 'hash': h(10000 + height + self.revision * 1000),
+                'size': 3000, 'time': 1700000000 + height * 600, 'txcount': 2}
+
+    def transactions(self, block, start, limit):
+        self.reads.append((block['height'], start))
+        return [dict(tx(block['height'] * 10 + n, size=1500), blockhash=block['hash'])
+                for n in range(start, min(2, start + limit))]
+
+
+def runner_args(root, **overrides):
+    return SimpleNamespace(**dict(dict(anchor_height=2, anchor_tx=None, start_height=None,
+        stop_height=None, direction='backward', job=None, blocks=1, max_transactions=2,
+        confirmations=0, min_tx_bytes=None, min_data_bytes=None, limit=100,
+        export_dir=str(Path(root) / 'public'), once=True, interval=60), **overrides))
+
+
+class DaemonTests(unittest.TestCase):
+    def setUp(self):
+        import threading
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.path = Path(self.temp.name) / 'index.sqlite3'
+        self.db = bsv.connect(self.path)
+        self.stop = threading.Event()
+
+    def tearDown(self):
+        self.db.close()
+
+    def test_forward_resumes_at_safe_head_and_picks_up_new_blocks(self):
+        provider = ChainProvider(3)
+        options = runner_args(self.temp.name, direction='forward', start_height=2,
+                              blocks=5, max_transactions=20)
+        bsv.scan(self.db, provider, options)
+        report = bsv.status(self.db)
+        self.assertEqual(report['transactionsChecked'], 4)
+        self.assertEqual(report['jobs'][0]['nextHeight'], 4)
+        self.assertEqual(report['jobs'][0]['phase'], 'waiting-for-blocks')
+        provider.head = 4
+        options.start_height = None
+        bsv.scan(self.db, provider, options)
+        self.assertEqual(bsv.status(self.db)['transactionsChecked'], 6)
+        self.assertEqual(provider.reads, [(2, 0), (3, 0), (4, 0)])
+
+    def test_daemon_meets_in_middle_without_duplicate_transactions_and_then_tails(self):
+        provider = ChainProvider(4)
+        options = runner_args(self.temp.name)
+        jobs = bsv.daemon_jobs(self.db, provider, options)
+        bsv.daemon_pass(self.db, provider, options, jobs, self.stop)
+        self.assertEqual({j['name']: j['nextHeight'] for j in bsv.status(self.db)['jobs']}, {'early': 3, 'recent': 3})
+        bsv.daemon_pass(self.db, provider, options, jobs, self.stop)
+        report = bsv.status(self.db)
+        self.assertEqual(report['transactionsChecked'], 6)
+        self.assertEqual(provider.reads, [(4, 0), (2, 0), (3, 0)])
+        self.assertEqual({j['name']: j['phase'] for j in report['jobs']}, {'early': 'waiting-for-blocks', 'recent': 'complete'})
+        self.assertTrue(report['runner']['rangesJoinedAt'])
+        provider.head = 5
+        bsv.daemon_pass(self.db, provider, options, jobs, self.stop)
+        self.assertEqual(bsv.status(self.db)['transactionsChecked'], 8)
+        manifest = json.loads((Path(options.export_dir) / 'manifest.json').read_text())
+        index = json.loads((Path(options.export_dir) / manifest['defaultIndex']).read_text())
+        ids = [row['txid'] for row in index['transactions']]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(index['scan']['transactionsChecked'], 8)
+
+    def test_one_job_failure_does_not_stop_the_other_cursor_and_recovers(self):
+        provider = ChainProvider(6)
+        provider.fail_height = 6
+        options = runner_args(self.temp.name)
+        jobs = bsv.daemon_jobs(self.db, provider, options)
+        result = bsv.daemon_pass(self.db, provider, options, jobs, self.stop)
+        self.assertIn('error', result['jobs'][0])
+        report = bsv.status(self.db)
+        self.assertEqual({j['name']: j['nextHeight'] for j in report['jobs']}, {'early': 3, 'recent': 6})
+        self.assertIn('recent:', report['lastError'])
+        provider.fail_height = None
+        bsv.daemon_pass(self.db, provider, options, jobs, self.stop)
+        self.assertEqual(bsv.status(self.db)['transactionsChecked'], 6)
+        self.assertEqual(bsv.status(self.db)['lastError'], '')
+
+    def test_partial_blocks_are_shared_and_stop_commits_only_finished_batch(self):
+        provider = ChainProvider(6)
+        options = runner_args(self.temp.name, direction='forward', start_height=2,
+                              max_transactions=1)
+        bsv.scan(self.db, provider, options)
+        options.start_height = None
+        options.max_transactions = 20
+        original = provider.transactions
+        def read_then_stop(*values):
+            batch = original(*values)
+            self.stop.set()
+            return batch
+        provider.transactions = read_then_stop
+        bsv.scan(self.db, provider, options, self.stop)
+        self.assertEqual(bsv.status(self.db)['transactionsChecked'], 2)
+        self.assertEqual(provider.reads, [(2, 0), (2, 1)])
+        self.assertEqual(self.db.execute('SELECT next_height FROM scan_jobs').fetchone()[0], 3)
+
+    def test_direction_and_daemon_anchor_changes_do_not_reset_saved_cursors(self):
+        options = runner_args(self.temp.name)
+        provider = ChainProvider(6)
+        jobs = bsv.daemon_jobs(self.db, provider, options)
+        bsv.daemon_pass(self.db, provider, options, jobs, self.stop)
+        changed = runner_args(self.temp.name, direction='backward', job='early')
+        with self.assertRaisesRegex(ValueError, 'cannot change direction'):
+            bsv.scan(self.db, provider, changed)
+        with self.assertRaisesRegex(ValueError, 'anchor changed'):
+            bsv.daemon_jobs(self.db, provider, runner_args(self.temp.name, anchor_height=3))
+        self.assertEqual(self.db.execute("SELECT next_height FROM scan_jobs WHERE name='early'").fetchone()[0], 3)
+
+    def test_changed_ancestor_invalidates_descendants_and_rewinds_both_jobs(self):
+        provider = ChainProvider(6)
+        options = runner_args(self.temp.name)
+        jobs = bsv.daemon_jobs(self.db, provider, options)
+        jobs[1].max_transactions = 1
+        bsv.daemon_pass(self.db, provider, options, jobs, self.stop)
+        provider.revision = 1
+        bsv.scan(self.db, provider, jobs[1])
+        self.assertIsNone(self.db.execute('SELECT 1 FROM blocks WHERE height=6').fetchone())
+        self.assertEqual(self.db.execute("SELECT next_height FROM scan_jobs WHERE name='recent'").fetchone()[0], 6)
+        self.assertEqual(self.db.execute('SELECT checked FROM blocks WHERE height=2').fetchone()[0], 1)
+
+    def test_old_database_cursor_migrates_without_dropping_records(self):
+        provider = Provider()
+        bsv.scan(self.db, provider, args())
+        self.db.execute('DROP TABLE scan_jobs')
+        self.db.commit()
+        self.db.close()
+        self.db = bsv.connect(self.path)
+        self.assertEqual(self.db.execute("SELECT next_height FROM scan_jobs WHERE name='history'").fetchone()[0], 100)
+        self.assertEqual(bsv.status(self.db)['transactionsChecked'], 2)
+        bsv.scan(self.db, provider, args(start_height=None))
+        self.assertEqual(bsv.status(self.db)['transactionsChecked'], 4)
+
+    def test_status_can_read_while_daemon_process_lock_is_held(self):
+        import contextlib
+        import fcntl
+        import io
+        bsv.scan(self.db, ChainProvider(), runner_args(self.temp.name, direction='forward', start_height=2))
+        output = io.StringIO()
+        with open(str(self.path) + '.lock', 'a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(bsv.main(['status', '--db', str(self.path)]), 0)
+        report = json.loads(output.getvalue())
+        self.assertEqual(report['jobs'][0]['nextHeight'], 3)
+        self.assertNotIn('skipped', report)
+
+    def test_default_anchor_resolves_once_and_is_saved_for_restart(self):
+        provider = ChainProvider(bsv.ALICE_HEIGHT + 3)
+        calls = []
+        blockhash = h(50000)
+        def request(path):
+            calls.append(path)
+            if path.startswith('/tx/hash/'):
+                return {'txid': bsv.ALICE_TXID, 'blockhash': blockhash}
+            return {'hash': blockhash, 'height': bsv.ALICE_HEIGHT, 'txcount': 2, 'tx': [h(1), bsv.ALICE_TXID]}
+        provider.request = request
+        options = runner_args(self.temp.name, anchor_height=None)
+        jobs = bsv.daemon_jobs(self.db, provider, options)
+        self.assertEqual(jobs[1].start_height, bsv.ALICE_HEIGHT)
+        self.assertEqual(jobs[1].anchor_tx, bsv.ALICE_TXID)
+        restarted = bsv.daemon_jobs(self.db, provider, options)
+        self.assertEqual(restarted[1].start_height, bsv.ALICE_HEIGHT)
+        self.assertEqual(len(calls), 2)
+
+    def test_daemon_once_exports_stopped_state_and_heartbeat(self):
+        import contextlib
+        import io
+        options = runner_args(self.temp.name)
+        with contextlib.redirect_stdout(io.StringIO()):
+            bsv.daemon(self.db, ChainProvider(6), options, self.stop)
+        report = json.loads((Path(options.export_dir) / 'scan.json').read_text())
+        self.assertEqual(report['runner']['lastReportedState'], 'stopped')
+        self.assertTrue(report['runner']['heartbeatAt'])
+        self.assertEqual(len(report['jobs']), 2)
+        self.assertEqual(report['transactionsChecked'], 4)
+
 
 if __name__ == "__main__":
     unittest.main()

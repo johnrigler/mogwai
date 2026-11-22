@@ -10,10 +10,13 @@ import hashlib
 import json
 import os
 import re
+import signal
 import sqlite3
 import sys
 import tempfile
 import time
+import threading
+from types import SimpleNamespace
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -23,6 +26,10 @@ from urllib.request import Request, urlopen
 API = "https://api.whatsonchain.com/v1/bsv/main"
 DEFAULT_DB = "~/.local/state/mogwai/bsv-index.sqlite3"
 HASH = re.compile(r"^[0-9a-f]{64}$")
+# The creator's Alice in BitcoinLand loader references this exact transaction.
+# Its raw transaction hash and block were checked before adding this anchor.
+ALICE_TXID = "b742886801560f57b4dc824ce3a1719613d8b2d38530909fe988c1ca04cc82af"
+ALICE_HEIGHT = 566492
 
 
 def now():
@@ -38,15 +45,23 @@ def checked_hash(value):
 
 class WhatsOnChain:
     """Provider-specific reads. A POST to /txs retrieves details, never broadcasts."""
-    def __init__(self, delay=0.5):
+    def __init__(self, delay=0.5, stop=None):
         self.delay = delay
         self.last_request = 0
         self.page_cache = {}
+        self.stop = stop
+
+    def pause(self, seconds):
+        if self.stop is not None:
+            if self.stop.wait(seconds):
+                raise InterruptedError("Scanner stopping")
+        else:
+            time.sleep(seconds)
 
     def request(self, path, payload=None):
         # Callers construct paths; never follow page URLs supplied by a provider.
         for attempt in range(4):
-            time.sleep(max(0, self.delay - (time.monotonic() - self.last_request)))
+            self.pause(max(0, self.delay - (time.monotonic() - self.last_request)))
             self.last_request = time.monotonic()
             data = None if payload is None else json.dumps(payload).encode()
             req = Request(API + path, data=data, headers={
@@ -65,11 +80,13 @@ class WhatsOnChain:
                     delay = float(exc.headers.get("Retry-After", 2 ** (attempt + 1)))
                 except (TypeError, ValueError):
                     delay = 2 ** (attempt + 1)
-                time.sleep(min(max(delay, 1), 30))
+                self.pause(min(max(delay, 1), 30))
             except (URLError, TimeoutError, OSError):
+                if self.stop is not None and self.stop.is_set():
+                    raise InterruptedError("Scanner stopping") from None
                 if attempt == 3:
                     raise ValueError("WhatsOnChain network request failed") from None
-                time.sleep(2 ** (attempt + 1))
+                self.pause(2 ** (attempt + 1))
         raise ValueError("WhatsOnChain request failed")
 
     def tip(self):
@@ -247,7 +264,17 @@ def connect(path):
             data_bytes INTEGER NOT NULL, data_complete INTEGER NOT NULL,
             selected INTEGER NOT NULL, summary TEXT, raw TEXT, checked_at TEXT NOT NULL,
             PRIMARY KEY(height, tx_index), UNIQUE(height, txid));
+        CREATE TABLE IF NOT EXISTS scan_jobs (
+            name TEXT PRIMARY KEY, direction TEXT NOT NULL,
+            anchor_height INTEGER NOT NULL, next_height INTEGER NOT NULL,
+            stop_height INTEGER, anchor_txid TEXT NOT NULL DEFAULT '',
+            updated_at TEXT, error TEXT NOT NULL DEFAULT '');
     """)
+    # Upgrade an existing single-cursor database without dropping its history.
+    if not db.execute("SELECT 1 FROM scan_jobs LIMIT 1").fetchone() and meta(db, "next_height") is not None:
+        db.execute("INSERT INTO scan_jobs(name,direction,anchor_height,next_height,stop_height,updated_at) VALUES ('history','backward',?,?,0,?)",
+                   (int(meta(db, "anchor_height") or meta(db, "next_height")), int(meta(db, "next_height")), meta(db, "updated_at")))
+        db.commit()
     return db
 
 
@@ -259,7 +286,25 @@ def meta(db, key, value=None):
     return value
 
 
-def scan(db, provider, args):
+def job_name(args):
+    return getattr(args, "job", None) or ("early" if getattr(args, "direction", "backward") == "forward" else "history")
+
+
+def record_error(db, name, message):
+    with db:
+        meta(db, "last_error", message)
+        db.execute("UPDATE scan_jobs SET error=? WHERE name=?", (message, name))
+        job = db.execute("SELECT next_height FROM scan_jobs WHERE name=?", (name,)).fetchone()
+        if job:
+            db.execute("UPDATE blocks SET error=? WHERE height=? AND status!='complete'", (message, job[0]))
+
+
+def scan(db, provider, args, stop=None):
+    direction = getattr(args, "direction", "backward")
+    name = job_name(args)
+    if direction not in ("forward", "backward") or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", name):
+        raise ValueError("Invalid scan direction or job name")
+    step = 1 if direction == "forward" else -1
     tip = provider.tip()
     safe = tip - args.confirmations
     if safe < 0:
@@ -271,26 +316,53 @@ def scan(db, provider, args):
             raise ValueError("Selection thresholds changed; use a separate --db to rescan")
         meta(db, key, int(old) if old is not None else (wanted if wanted is not None else default))
     start = args.start_height
+    job = db.execute("SELECT * FROM scan_jobs WHERE name=?", (name,)).fetchone()
+    if job and job["direction"] != direction:
+        raise ValueError("A saved job cannot change direction; choose another --job")
+    boundary = args.stop_height
+    if boundary is None and job:
+        boundary = job["stop_height"]
+    if boundary is None and direction == "backward":
+        boundary = 0
     if start is not None and start > safe:
         raise ValueError("Start height exceeds the confirmed scan head")
-    if meta(db, "next_height") is None or (start is not None and str(start) != meta(db, "anchor_height")):
-        meta(db, "anchor_height", safe if start is None else start)
-        meta(db, "next_height", safe if start is None else start)
+    if not job and start is None and direction == "forward":
+        raise ValueError("A new forward scan needs --start-height or an anchor transaction")
+    if not job or (start is not None and start != job["anchor_height"]):
+        anchor = safe if start is None else start
+        if boundary is not None and (step < 0 and anchor < boundary or step > 0 and anchor > boundary):
+            raise ValueError("Start height is outside this job's scan boundary")
+        db.execute("INSERT OR REPLACE INTO scan_jobs(name,direction,anchor_height,next_height,stop_height,anchor_txid) VALUES (?,?,?,?,?,?)",
+                   (name, direction, anchor, anchor, boundary, getattr(args, "anchor_tx", None) or ""))
+    else:
+        db.execute("UPDATE scan_jobs SET stop_height=? WHERE name=?", (boundary, name))
+    db.execute("UPDATE scan_jobs SET error='' WHERE name=?", (name,))
     meta(db, "provider", API)
     meta(db, "tip", tip)
+    meta(db, "confirmations", args.confirmations)
     meta(db, "last_error", "")
     db.commit()
     checked, completed = 0, 0
-    while checked < args.max_transactions and completed < args.blocks:
-        height = int(meta(db, "next_height"))
-        if height < args.stop_height:
+    while checked < args.max_transactions and completed < args.blocks and not (stop and stop.is_set()):
+        job = db.execute("SELECT * FROM scan_jobs WHERE name=?", (name,)).fetchone()
+        height = job["next_height"]
+        if height < 0 or height > safe or (boundary is not None and (step < 0 and height < boundary or step > 0 and height > boundary)):
             break
+        # Keep legacy status fields usable for older consumers of this database.
+        with db:
+            meta(db, "anchor_height", job["anchor_height"])
+            meta(db, "next_height", height)
         block = provider.block(height)
         old = db.execute("SELECT * FROM blocks WHERE height=?", (height,)).fetchone()
         with db:
             if old and old["hash"] != block["hash"]:
                 # A changed ancestor invalidates its descendants as well.
                 db.execute("DELETE FROM blocks WHERE height>=?", (height,))
+                db.execute("DELETE FROM meta WHERE key='ranges_joined'")
+                db.execute("UPDATE scan_jobs SET next_height=? WHERE direction='forward' AND next_height>?", (height, height))
+                db.execute("UPDATE scan_jobs SET next_height=MIN(anchor_height,?) WHERE direction='backward' AND anchor_height>=?", (safe, height))
+                if step < 0 and min(job["anchor_height"], safe) != height:
+                    continue
                 old = None
             if old is None:
                 db.execute("INSERT INTO blocks(height,hash,bytes,time,tx_count,updated_at) VALUES (?,?,?,?,?,?)",
@@ -299,7 +371,7 @@ def scan(db, provider, args):
                 raise ValueError("Transaction count changed for the same block hash")
         row = db.execute("SELECT * FROM blocks WHERE height=?", (height,)).fetchone()
         cursor = row["checked"]
-        while cursor < row["tx_count"] and checked < args.max_transactions:
+        while cursor < row["tx_count"] and checked < args.max_transactions and not (stop and stop.is_set()):
             batch = provider.transactions(block, cursor, min(20, args.max_transactions - checked, row["tx_count"] - cursor))
             if not batch or len(batch) > min(20, args.max_transactions - checked, row["tx_count"] - cursor):
                 raise ValueError("Invalid transaction batch length")
@@ -317,14 +389,121 @@ def scan(db, provider, args):
                 checked += len(batch)
                 db.execute("UPDATE blocks SET checked=?,updated_at=?,error='' WHERE height=?", (cursor, now(), height))
                 meta(db, "updated_at", now())
+                db.execute("UPDATE scan_jobs SET updated_at=?,error='' WHERE name=?", (now(), name))
         if cursor == row["tx_count"]:
             with db:
                 db.execute("UPDATE blocks SET status='complete' WHERE height=?", (height,))
-                meta(db, "next_height", height - 1)
+                meta(db, "next_height", height + step)
+                db.execute("UPDATE scan_jobs SET next_height=?,updated_at=? WHERE name=?", (height + step, now(), name))
             completed += 1
         else:
             break
-    return {"checkedThisRun": checked, "completedThisRun": completed}
+    return {"job": name, "direction": direction, "checkedThisRun": checked, "completedThisRun": completed}
+
+
+def resolve_anchor(provider, txid):
+    txid = checked_hash(txid)
+    tx = provider.request("/tx/hash/" + txid)
+    if tx.get("txid") != txid or not tx.get("blockhash"):
+        raise ValueError("Anchor transaction is missing or unconfirmed")
+    block = provider.request("/block/hash/" + checked_hash(tx["blockhash"]))
+    if block.get("hash") != tx["blockhash"] or int(block.get("height", -1)) < 0:
+        raise ValueError("Anchor block could not be resolved")
+    if "tx" in block and int(block.get("txcount", 0)) == len(block["tx"]) and txid not in block["tx"]:
+        raise ValueError("Anchor is absent from its reported block")
+    if txid == ALICE_TXID and int(block["height"]) != ALICE_HEIGHT:
+        raise ValueError("Provider changed the known Alice anchor height")
+    return int(block["height"])
+
+
+def daemon_jobs(db, provider, args):
+    saved = db.execute("SELECT * FROM scan_jobs WHERE name='early'").fetchone()
+    anchor_tx = args.anchor_tx
+    if args.anchor_height is not None:
+        anchor = args.anchor_height
+    elif saved and not anchor_tx:
+        anchor, anchor_tx = saved["anchor_height"], saved["anchor_txid"]
+    else:
+        anchor_tx = anchor_tx or ALICE_TXID
+        anchor = resolve_anchor(provider, anchor_tx)
+    if saved and (saved["anchor_height"] != anchor or anchor_tx and saved["anchor_txid"] != anchor_tx):
+        raise ValueError("Daemon anchor changed; use a separate --db to keep both histories explicit")
+    recent = db.execute("SELECT * FROM scan_jobs WHERE name='recent'").fetchone()
+    if saved and saved["direction"] != "forward" or recent and recent["direction"] != "backward":
+        raise ValueError("Daemon jobs have incompatible saved directions")
+    # Create both cursor records before either job performs network work, so a
+    # failure at the first tip request is still visible in the public report.
+    if recent is None:
+        safe = provider.tip() - args.confirmations
+        if anchor > safe:
+            raise ValueError("Historical anchor exceeds the confirmed scan head")
+        with db:
+            db.execute("INSERT INTO scan_jobs(name,direction,anchor_height,next_height,stop_height) VALUES ('recent','backward',?,?,?)", (safe, safe, anchor))
+    if saved is None:
+        with db:
+            db.execute("INSERT INTO scan_jobs(name,direction,anchor_height,next_height,anchor_txid) VALUES ('early','forward',?,?,?)", (anchor, anchor, anchor_tx or ""))
+    jobs = []
+    for name, direction, start, boundary in [("recent", "backward", None, anchor), ("early", "forward", anchor, None)]:
+        values = dict(vars(args), job=name, direction=direction, start_height=start, stop_height=boundary, anchor_tx=anchor_tx if name == "early" else None)
+        jobs.append(SimpleNamespace(**values))
+    return jobs
+
+
+def join_completed_ranges(db):
+    recent = db.execute("SELECT * FROM scan_jobs WHERE name='recent'").fetchone()
+    early = db.execute("SELECT * FROM scan_jobs WHERE name='early'").fetchone()
+    if not recent or not early or early["next_height"] <= recent["next_height"]:
+        return False
+    low, high = early["anchor_height"], recent["anchor_height"]
+    count = db.execute("SELECT COUNT(*) FROM blocks WHERE height BETWEEN ? AND ? AND status='complete'", (low, high)).fetchone()[0]
+    if high < low or count != high - low + 1:
+        return False
+    with db:
+        db.execute("UPDATE scan_jobs SET next_height=? WHERE name='recent'", (low - 1,))
+        db.execute("UPDATE scan_jobs SET next_height=MAX(next_height,?) WHERE name='early'", (high + 1,))
+        if meta(db, "ranges_joined") is None:
+            meta(db, "ranges_joined", now())
+    return True
+
+
+def daemon_pass(db, provider, args, jobs, stop):
+    results = []
+    for job in jobs:
+        if stop.is_set():
+            break
+        try:
+            results.append(scan(db, provider, job, stop))
+        except InterruptedError:
+            if not stop.is_set():
+                raise
+        except (ValueError, sqlite3.Error, OSError, KeyError, TypeError) as exc:
+            record_error(db, job_name(job), str(exc))
+            results.append({"job": job_name(job), "error": str(exc), "checkpointRetained": True})
+    join_completed_ranges(db)
+    with db:
+        meta(db, "daemon_heartbeat", now())
+    result = {"jobs": results, "heartbeatAt": meta(db, "daemon_heartbeat")}
+    result.update(export(db, args.export_dir, args.limit))
+    return result
+
+
+def daemon(db, provider, args, stop):
+    jobs = daemon_jobs(db, provider, args)
+    with db:
+        meta(db, "daemon_state", "running")
+    try:
+        while not stop.is_set():
+            result = daemon_pass(db, provider, args, jobs, stop)
+            print(json.dumps(result), flush=True)
+            if args.once:
+                return int(any("error" in job for job in result["jobs"]))
+            if stop.wait(args.interval):
+                break
+    finally:
+        with db:
+            meta(db, "daemon_state", "stopped")
+        export(db, args.export_dir, args.limit)
+    return 0
 
 
 def status(db):
@@ -335,12 +514,26 @@ def status(db):
         FROM blocks b LEFT JOIN transactions t ON b.height=t.height
         GROUP BY b.height ORDER BY b.height DESC
     """)]
+    jobs = []
+    confirmations = meta(db, "confirmations")
+    safe = int(meta(db, "tip") or 0) - int(confirmations if confirmations is not None else 6)
+    saved_jobs = db.execute("SELECT * FROM scan_jobs ORDER BY name") if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='scan_jobs'").fetchone() else []
+    for saved in saved_jobs:
+        direction, height, boundary = saved["direction"], saved["next_height"], saved["stop_height"]
+        done = height < 0 or boundary is not None and (direction == "backward" and height < boundary or direction == "forward" and height > boundary)
+        phase = "error" if saved["error"] else "complete" if done else "waiting-for-blocks" if height > safe else "scanning"
+        jobs.append({"name": saved["name"], "direction": direction, "anchorHeight": saved["anchor_height"],
+                     "nextHeight": height, "stopHeight": boundary, "anchorTxid": saved["anchor_txid"],
+                     "lastCheckedAt": saved["updated_at"], "lastError": saved["error"], "phase": phase})
+    errors = "; ".join(j["name"] + ": " + j["lastError"] for j in jobs if j["lastError"])
     return {"kind": "bsv-block-scan", "version": 1, "coin": "bsv", "network": "mainnet",
             "provider": API, "generatedAt": now(), "lastCheckedAt": meta(db, "updated_at"),
             "nextHeight": int(meta(db, "next_height")) if meta(db, "next_height") is not None else None,
-            "lastError": meta(db, "last_error") or "",
-            "minTransactionBytes": int(meta(db, "min_tx_bytes") or 1024),
-            "minDataBytes": int(meta(db, "min_data_bytes") or 128),
+            "lastError": errors or meta(db, "last_error") or "", "jobs": jobs,
+            "runner": {"lastReportedState": meta(db, "daemon_state") or "manual",
+                       "heartbeatAt": meta(db, "daemon_heartbeat"), "rangesJoinedAt": meta(db, "ranges_joined")},
+            "minTransactionBytes": int(meta(db, "min_tx_bytes") if meta(db, "min_tx_bytes") is not None else 1024),
+            "minDataBytes": int(meta(db, "min_data_bytes") if meta(db, "min_data_bytes") is not None else 128),
             "blocksChecked": len(blocks), "blocksComplete": sum(b["status"] == "complete" for b in blocks),
             "transactionsChecked": sum(b["checked"] for b in blocks),
             "candidates": sum(b["selected"] for b in blocks),
@@ -404,10 +597,17 @@ def export(db, directory, limit):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["scan", "status", "export", "note"])
+    parser.add_argument("command", choices=["scan", "daemon", "status", "export", "note"])
     parser.add_argument("--db", default=DEFAULT_DB)
-    parser.add_argument("--start-height", type=int, help="First block of a backward scan; omit to resume")
-    parser.add_argument("--stop-height", type=int, default=0)
+    parser.add_argument("--start-height", type=int, help="First block for scan; omit to resume")
+    parser.add_argument("--stop-height", type=int, help="Inclusive last block; defaults to zero for backward scans")
+    parser.add_argument("--direction", choices=["backward", "forward"], default="backward")
+    parser.add_argument("--job", help="Independent named scan cursor")
+    anchor = parser.add_mutually_exclusive_group()
+    anchor.add_argument("--anchor-tx", help="Confirmed transaction defining the historical starting block")
+    anchor.add_argument("--anchor-height", type=int, help="Override the daemon's historical anchor block")
+    parser.add_argument("--interval", type=float, default=60, help="Seconds between bounded daemon passes")
+    parser.add_argument("--once", action="store_true", help="Run one daemon pass and export, then exit")
     parser.add_argument("--blocks", type=int, default=5, help="Completed blocks per run, at most")
     parser.add_argument("--max-transactions", type=int, default=200, help="Transaction budget per run")
     parser.add_argument("--min-tx-bytes", type=int)
@@ -419,15 +619,34 @@ def main(argv=None):
     parser.add_argument("--height", type=int, help="Previously visited block to annotate")
     parser.add_argument("--text", help="Public scan note; exported with coverage")
     args = parser.parse_args(argv)
-    for name in ["start_height", "stop_height", "min_tx_bytes", "min_data_bytes", "confirmations"]:
+    for name in ["start_height", "stop_height", "anchor_height", "min_tx_bytes", "min_data_bytes", "confirmations"]:
         value = getattr(args, name)
         if value is not None and value < 0:
             parser.error(name.replace("_", "-") + " cannot be negative")
-    if min(args.blocks, args.max_transactions, args.limit) < 1 or args.request_delay < 0.34:
-        parser.error("Budgets must be positive and request-delay must be at least 0.34 seconds")
-    if args.start_height is not None and args.start_height < args.stop_height:
-        parser.error("start-height must be at or above stop-height")
+    if min(args.blocks, args.max_transactions, args.limit) < 1 or args.request_delay < 0.34 or not args.interval >= 1:
+        parser.error("Budgets must be positive, request-delay at least 0.34 seconds, and interval at least 1 second")
+    if args.start_height is not None and args.stop_height is not None and (args.direction == "backward" and args.start_height < args.stop_height or args.direction == "forward" and args.start_height > args.stop_height):
+        parser.error("start-height is outside the requested direction and stop-height")
+    if args.command == "daemon" and not args.export_dir:
+        parser.error("daemon needs --export-dir for its public Chisel feed")
+    if args.command == "daemon" and (args.start_height is not None or args.stop_height is not None or args.job):
+        parser.error("daemon manages recent/early cursors; use --anchor-tx or --anchor-height")
     path = Path(args.db).expanduser()
+    if args.command == "status":
+        if not path.is_file():
+            print(json.dumps({"kind": "bsv-block-scan", "coin": "bsv", "jobs": [], "runner": {"lastReportedState": "not-started"}}))
+            return 0
+        # Observe the live service without taking its exclusive process lock or
+        # performing a schema migration. SQLite supplies a committed snapshot.
+        db = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+        db.row_factory = sqlite3.Row
+        try:
+            report = status(db)
+            report.pop("blocks")
+            print(json.dumps(report, indent=2))
+        finally:
+            db.close()
+        return 0
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(str(path) + ".lock", "a") as lock:
         try:
@@ -437,9 +656,24 @@ def main(argv=None):
             return 0
         db = connect(path)
         result = {}
+        stop = threading.Event()
+        provider = WhatsOnChain(args.request_delay, stop)
+        previous_signals = {}
         try:
+            if args.command == "daemon":
+                for signum in (signal.SIGTERM, signal.SIGINT):
+                    previous_signals[signum] = signal.signal(signum, lambda *_: stop.set())
+                return daemon(db, provider, args, stop)
             if args.command == "scan":
-                result.update(scan(db, WhatsOnChain(args.request_delay), args))
+                if args.anchor_height is not None:
+                    if args.start_height is not None:
+                        raise ValueError("Use either --start-height or --anchor-height")
+                    args.start_height = args.anchor_height
+                if args.anchor_tx:
+                    if args.start_height is not None:
+                        raise ValueError("Use either --start-height or --anchor-tx")
+                    args.start_height = resolve_anchor(provider, args.anchor_tx)
+                result.update(scan(db, provider, args))
             elif args.command == "note":
                 if args.height is None or args.text is None:
                     parser.error("note needs --height and --text (public export)")
@@ -456,16 +690,20 @@ def main(argv=None):
             result.update(report)
             print(json.dumps(result, indent=2))
             return 0
+        except InterruptedError:
+            if not stop.is_set():
+                raise
+            return 0
         except (ValueError, sqlite3.Error, OSError, KeyError, TypeError) as exc:
             message = str(exc)
-            with db:
-                meta(db, "last_error", message)
-                db.execute("UPDATE blocks SET error=? WHERE height=? AND status!='complete'", (message, meta(db, "next_height")))
+            record_error(db, job_name(args), message)
             if args.export_dir:
                 export(db, args.export_dir, args.limit)
             print(json.dumps({"error": message, "checkpointRetained": True}), file=sys.stderr)
             return 1
         finally:
+            for signum, handler in previous_signals.items():
+                signal.signal(signum, handler)
             db.close()
 
 
