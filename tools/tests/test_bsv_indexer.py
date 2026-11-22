@@ -102,6 +102,88 @@ class ScanTests(unittest.TestCase):
         for record in index["transactions"]:
             self.assertEqual(json.loads((out / record["rawPath"]).read_text())["txid"], record["txid"])
 
+    def test_archive_files_appear_after_each_committed_batch_before_pass_finishes(self):
+        root = Path(self.temp.name) / 'chisel_data'
+        directory = root / 'transactions/bsv'
+        provider = Provider()
+        provider.items = [tx(i + 1, size=2000) for i in range(41)]
+        original = provider.transactions
+        def fail_after_first_batch(block, start, limit):
+            if start == 20:
+                self.assertEqual(len(list(directory.glob('*.json'))), 20)
+                self.assertEqual(self.db.execute('SELECT checked FROM blocks').fetchone()[0], 20)
+                raise ValueError('provider paused after first committed batch')
+            return original(block, start, limit)
+        provider.transactions = fail_after_first_batch
+        with self.assertRaisesRegex(ValueError, 'provider paused'):
+            bsv.scan(self.db, provider, args(data_root=str(root), max_transactions=41))
+        self.assertEqual(len(list(directory.glob('*.json'))), 20)
+        self.assertFalse((directory / (h(21) + '.json')).exists())
+
+    def test_archive_backfills_all_candidates_without_touching_existing_files_or_main_feed(self):
+        import os
+        provider = Provider()
+        bsv.scan(self.db, provider, args(max_transactions=4))
+        root = Path(self.temp.name) / 'chisel_data'
+        root.mkdir()
+        (root / 'manifest.json').write_text('main feed stays here')
+        other = root / 'transactions/litecoin/other.json'
+        other.parent.mkdir(parents=True)
+        other.write_text('other chain')
+        feed = root / 'bsv'
+        bsv.export(self.db, feed, 1, root)
+        directory = root / 'transactions/bsv'
+        self.assertEqual({p.name for p in directory.glob('*.json')}, {h(2) + '.json', h(3) + '.json'})
+        manifest = json.loads((feed / 'manifest.json').read_text())
+        index = json.loads((feed / manifest['defaultIndex']).read_text())
+        self.assertEqual(len(index['transactions']), 1)
+        record = index['transactions'][0]
+        self.assertEqual(record['rawPath'], '../transactions/bsv/' + h(2) + '.json')
+        self.assertEqual(json.loads((feed / record['rawPath']).read_text())['txid'], record['txid'])
+        self.assertFalse((feed / 'transactions').exists())
+        existing = directory / (h(2) + '.json')
+        saved = existing.read_bytes()
+        os.utime(existing, ns=(1000000000, 1000000000))
+        missing = directory / (h(3) + '.json')
+        missing.unlink()
+        bsv.export(self.db, feed, 1, root)
+        self.assertEqual(existing.stat().st_mtime_ns, 1000000000)
+        self.assertEqual(existing.read_bytes(), saved)
+        self.assertTrue(missing.exists())
+        self.assertEqual((root / 'manifest.json').read_text(), 'main feed stays here')
+        self.assertEqual(other.read_text(), 'other chain')
+        self.assertEqual(provider.calls, [0])
+        with self.assertRaisesRegex(ValueError, 'general data-root manifest'):
+            bsv.export(self.db, root, 1, root)
+        self.assertEqual((root / 'manifest.json').read_text(), 'main feed stays here')
+
+    def test_cli_export_backfills_the_canonical_folder_without_network_reads(self):
+        import contextlib
+        import io
+        from unittest.mock import patch
+        bsv.scan(self.db, Provider(), args(max_transactions=4))
+        root = Path(self.temp.name) / 'chisel_data'
+        with patch.object(bsv, 'WhatsOnChain') as provider, contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(bsv.main(['export', '--db', str(Path(self.temp.name) / 'index.sqlite3'),
+                                       '--data-root', str(root), '--limit', '1']), 0)
+        provider.return_value.tip.assert_not_called()
+        provider.return_value.request.assert_not_called()
+        self.assertEqual(len(list((root / 'transactions/bsv').glob('*.json'))), 2)
+        self.assertTrue((root / 'bsv/manifest.json').is_file())
+
+    def test_archive_write_failure_keeps_batch_checkpoint_and_backfill_recovers(self):
+        from unittest.mock import patch
+        root = Path(self.temp.name) / 'chisel_data'
+        provider = Provider()
+        with patch.object(bsv, 'archive_transaction', side_effect=OSError('disk temporarily unavailable')):
+            with self.assertRaisesRegex(OSError, 'disk temporarily'):
+                bsv.scan(self.db, provider, args(data_root=str(root)))
+        self.assertEqual(self.db.execute('SELECT checked FROM blocks').fetchone()[0], 2)
+        bsv.archive_saved(self.db, root)
+        self.assertTrue((root / 'transactions/bsv' / (h(2) + '.json')).is_file())
+        bsv.scan(self.db, provider, args(start_height=None, data_root=str(root)))
+        self.assertEqual(provider.calls, [0, 2])
+
     def test_provider_failure_keeps_partial_cursor(self):
         provider = Provider()
         bsv.scan(self.db, provider, args())
@@ -120,6 +202,7 @@ class ScanTests(unittest.TestCase):
         provider = Provider()
         provider.items = [tx(i + 1) for i in range(527)]
         command = ['scan', '--db', str(Path(self.temp.name) / 'index.sqlite3'),
+                   '--data-root', str(Path(self.temp.name) / 'chisel_data'),
                    '--start-height', '100', '--stop-height', '100']
         reports = []
         # Each main() call opens and closes the DB, as separate shell runs do.
@@ -156,9 +239,10 @@ class ScanTests(unittest.TestCase):
             return batch
         provider.transactions = bad
         with self.assertRaisesRegex(ValueError, "block hash"):
-            bsv.scan(self.db, provider, args())
+            bsv.scan(self.db, provider, args(data_root=self.temp.name))
         self.assertEqual(bsv.status(self.db)["transactionsChecked"], 0)
         self.assertEqual(self.db.execute("SELECT count(*) FROM transactions").fetchone()[0], 0)
+        self.assertEqual(list((Path(self.temp.name) / 'transactions/bsv').glob('*.json')), [])
 
     def test_changed_hash_restarts_partial_block(self):
         provider = Provider()

@@ -62,23 +62,60 @@ state, lock files and logs remain outside the repository. `--db` selects a
 different scan database. Thresholds are saved per database; use a separate
 database to scan under different thresholds, so earlier coverage stays accurate.
 
-## Publish a Chisel feed
+## Inspect transaction files with Linux commands
 
-Choose the filesystem directory that Apache exposes as
-`https://rigler.org/chisel-data/bsv/`. Adjust the example path below to the
-existing Apache `/chisel-data/` alias. Use a separate BSV subdirectory; the
-general dataset has its own manifest.
+Both `scan` and the background daemon now default to `~/chisel_data` as the
+canonical data root. Each qualifying transaction is saved as:
+
+```text
+~/chisel_data/transactions/bsv/<64-hex-txid>.json
+```
+
+The scanner creates that directory and writes original public-provider JSON
+after each committed batch, including partial blocks. The filename deduplicates
+transactions from both scan directions. Existing files are preserved without
+changing their contents or modification times. Files already saved in SQLite
+are backfilled on startup and export without querying the chain again.
 
 ```bash
-BSV_EXPORT_DIR=/path/to/chisel-data/bsv
+cd "$HOME/chisel_data/transactions/bsv"
+find . -maxdepth 1 -type f -name '*.json' | wc -l
+du -sh .
+ls -lt | head
+```
+
+The folder contains **all selected candidates**, independently of the portal's
+1,000-record display limit. A batch containing no qualifying candidate can
+advance the checked transaction index without adding a file. Use the saved
+status for the total number of transactions checked. An offline backfill is:
+
+```bash
+python3 "$HOME/mogwai/tools/bsv_indexer.py" export
+```
+
+`--data-root /actual/chisel_data` or the `CHISEL_DATA_ROOT` environment setting
+selects another root. If Apache serves another directory at `/chisel-data/`,
+set that actual filesystem path. The scanner does not configure Apache.
+
+## Publish a Chisel feed
+
+The default feed is `~/chisel_data/bsv/`, next to the shared `transactions/`
+directory. It is intended for Apache's
+`https://rigler.org/chisel-data/bsv/` URL. The general dataset has its own
+manifest, which the scanner leaves intact. `scan`, `daemon` and `export`
+publish this BSV feed automatically; `--export-dir` can override its location.
+
+```bash
+BSV_EXPORT_DIR="$HOME/chisel_data/bsv"
 python3 "$HOME/mogwai/tools/bsv_indexer.py" scan --export-dir "$BSV_EXPORT_DIR"
 ```
 
-`--export-dir` writes public candidate transactions, a ranked index, and
-`scan.json` coverage/notes. The manifest is replaced atomically after the
-immutable index snapshot and raw transaction files are ready. The largest
-1,000 candidates are exported by default; `--limit` changes that presentation
-limit without dropping scan history from SQLite. Index snapshots remain for
+The BSV feed contains a ranked index, `scan.json` coverage/notes and a manifest.
+Its rows reference `../transactions/bsv/` in the shared archive. The manifest is
+replaced atomically after the immutable index snapshot and raw transaction
+files are ready. The largest 1,000 candidates appear in the index by default;
+`--limit` changes that presentation limit without dropping any candidate files
+or scan history from SQLite. Index snapshots remain for
 readers holding an earlier manifest; archive/prune old snapshots as needed on
 a long-running host. Dataset files are public read-only files (mode 644).
 
@@ -88,8 +125,10 @@ completed/partial blocks, ranked data-byte totals, next block, timestamps and
 errors. Refresh the portal for newly exported results. The bundled sample
 remains browsable if rigler.org is unavailable.
 
-For a standalone static/IPFS copy, use the exported directory as `data-bsv/`
-beside Chisel's `index.html`, or add its manifest to
+For a standalone static/IPFS copy, export to a directory **outside** the
+canonical data root. That export includes its indexed raw transactions locally
+under `transactions/bsv/`. Use it as `data-bsv/` beside Chisel's `index.html`,
+or add its manifest to
 `staticDiscoveryManifestPaths` in `chisel.portal.config.json`. Apache must
 allow cross-origin GETs from Chisel's origin, as the parent `/chisel-data/`
 directory already does. Scanning and static portal reads run independently of
@@ -118,11 +157,11 @@ observe scanner coverage, even when FileProxy is connected.
 The BSV daemon is separate from FileProxy and can run with no browser open:
 
 ```bash
-python3 "$HOME/mogwai/tools/bsv_indexer.py" daemon --export-dir /path/to/chisel-data/bsv
+python3 "$HOME/mogwai/tools/bsv_indexer.py" daemon
 ```
 
-Replace the example with the filesystem directory Apache already exposes at
-`https://rigler.org/chisel-data/bsv/`. No host path is inferred from a URL.
+The default feed is `~/chisel_data/bsv/`; set `--data-root` if Apache exposes
+another filesystem directory at `/chisel-data/`. No host path is inferred from a URL.
 A missing feed is not evidence that the process is running or stopped.
 
 One process alternates two independently saved jobs using one rate-limited
@@ -183,9 +222,11 @@ tail -f "${XDG_STATE_HOME:-$HOME/.local/state}/mogwai/bsv-daemon/daemon.log"
 The database defaults to the same `~/.local/state/mogwai/bsv-index.sqlite3`
 used by manual `scan` commands. The scripts load optional Bash-compatible
 settings from `~/.config/mogwai/bsv.env`: `BSV_EXPORT_DIR` selects the directory
-Apache serves, and `BSV_DB` can select another scan database. Without an export
-setting, the daemon writes a local feed in its state directory's `public/`
-subdirectory; that local directory is not automatically exposed by Apache.
+for the feed, `CHISEL_DATA_ROOT` selects the shared transaction root, and
+`BSV_DB` can select another scan database. Without these settings, transactions
+go to `~/chisel_data/transactions/bsv/` and the feed goes to `~/chisel_data/bsv/`.
+After pulling this change, stop and start an existing daemon to switch it from
+the earlier private-state export default. No database reset is needed.
 Extra start arguments are passed to the daemon, for example:
 
 ```bash
@@ -202,7 +243,7 @@ Mogwai includes a user-systemd unit. Set the real public export directory in
 ```bash
 mkdir -p "$HOME/.config/mogwai" "$HOME/.config/systemd/user"
 cp "$HOME/mogwai/config-examples/bsv.env.example" "$HOME/.config/mogwai/bsv.env"
-# Edit BSV_EXPORT_DIR in that file to match the existing Apache alias.
+# Edit CHISEL_DATA_ROOT and BSV_EXPORT_DIR to match the existing Apache alias.
 cp "$HOME/mogwai/config-examples/systemd/mogwai-bsv.service" "$HOME/.config/systemd/user/"
 systemctl --user daemon-reload
 systemctl --user enable --now mogwai-bsv.service

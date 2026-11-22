@@ -24,6 +24,7 @@ from pathlib import Path
 p = argparse.ArgumentParser()
 p.add_argument('command')
 p.add_argument('--db')
+p.add_argument('--data-root')
 p.add_argument('--export-dir')
 p.add_argument('--interval')
 a = p.parse_args()
@@ -40,7 +41,8 @@ else:
         time.sleep(0.01)
 ''')
         self.env = dict(os.environ, HOME=str(self.root), XDG_STATE_HOME=str(self.root / 'state'),
-                        BSV_DB=str(self.root / 'scan.sqlite3'), BSV_EXPORT_DIR=str(self.root / 'public'))
+                        BSV_DB=str(self.root / 'scan.sqlite3'), BSV_EXPORT_DIR=str(self.root / 'public'),
+                        CHISEL_DATA_ROOT=str(self.root / 'chisel_data'))
         self.state = self.root / 'state/mogwai/bsv-daemon'
         self.pid_file = self.state / 'daemon.pid'
 
@@ -61,6 +63,8 @@ else:
         details = json.loads(Path(self.env['BSV_DB'] + '.started').read_text())
         self.assertEqual((details['db'], details['export_dir'], details['interval']),
                          (self.env['BSV_DB'], self.env['BSV_EXPORT_DIR'], '7'))
+        self.assertEqual(details['data_root'], self.env['CHISEL_DATA_ROOT'])
+        self.assertTrue((self.root / 'chisel_data/transactions/bsv').is_dir())
         self.assertIn('scanner started', (self.state / 'daemon.log').read_text())
         again = self.run_script('bsv-start.sh')
         self.assertEqual(again.returncode, 0, again.stderr)
@@ -108,6 +112,16 @@ else:
         details = json.loads(Path(self.env['BSV_DB'] + '.started').read_text())
         self.assertEqual(details['export_dir'], str(target))
         self.assertTrue(target.is_dir())
+
+    def test_defaults_put_transactions_and_feed_under_home_chisel_data(self):
+        self.env.pop('CHISEL_DATA_ROOT')
+        self.env.pop('BSV_EXPORT_DIR')
+        result = self.run_script('bsv-start.sh')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        details = json.loads(Path(self.env['BSV_DB'] + '.started').read_text())
+        self.assertEqual(details['data_root'], str(self.root / 'chisel_data'))
+        self.assertEqual(details['export_dir'], str(self.root / 'chisel_data/bsv'))
+        self.assertIn('Transactions: ' + str(self.root / 'chisel_data/transactions/bsv'), result.stdout)
 
 
 if __name__ == '__main__':

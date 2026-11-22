@@ -302,6 +302,9 @@ def record_error(db, name, message):
 def scan(db, provider, args, stop=None):
     direction = getattr(args, "direction", "backward")
     name = job_name(args)
+    data_root = getattr(args, "data_root", None)
+    if data_root:
+        (Path(data_root).expanduser() / "transactions/bsv").mkdir(parents=True, exist_ok=True)
     if direction not in ("forward", "backward") or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", name):
         raise ValueError("Invalid scan direction or job name")
     step = 1 if direction == "forward" else -1
@@ -377,12 +380,15 @@ def scan(db, provider, args, stop=None):
             batch = provider.transactions(block, cursor, min(20, args.max_transactions - checked, row["tx_count"] - cursor))
             if not batch or len(batch) > min(20, args.max_transactions - checked, row["tx_count"] - cursor):
                 raise ValueError("Invalid transaction batch length")
+            candidates = []
             with db:
                 for offset, tx in enumerate(batch):
                     if tx.get("blockhash") != block["hash"]:
                         raise ValueError("Transaction block hash does not match the scanned block")
                     info = inspect_transaction(tx, int(meta(db, "min_tx_bytes")), int(meta(db, "min_data_bytes")))
                     selected = bool(info["selectionReasons"])
+                    if selected:
+                        candidates.append(tx)
                     db.execute("INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?,?,?)", (
                         height, cursor + offset, tx["txid"], info["transactionBytes"], info["dataBytes"],
                         int(info["dataComplete"]), int(selected), json.dumps(info) if selected else None,
@@ -392,6 +398,11 @@ def scan(db, provider, args, stop=None):
                 db.execute("UPDATE blocks SET checked=?,updated_at=?,error='' WHERE height=?", (cursor, now(), height))
                 meta(db, "updated_at", now())
                 db.execute("UPDATE scan_jobs SET updated_at=?,error='' WHERE name=?", (now(), name))
+            # Publish only committed candidates, without waiting for the block
+            # or daemon pass to finish. TXID filenames deduplicate both jobs.
+            if data_root:
+                for tx in candidates:
+                    archive_transaction(data_root, tx)
         blocks_this_run.append({"height": height, "startTransactionIndex": start_cursor,
                                 "nextTransactionIndex": cursor, "transactionsTotal": row["tx_count"],
                                 "checkedThisRun": cursor - start_cursor,
@@ -490,11 +501,13 @@ def daemon_pass(db, provider, args, jobs, stop):
     with db:
         meta(db, "daemon_heartbeat", now())
     result = {"jobs": results, "heartbeatAt": meta(db, "daemon_heartbeat")}
-    result.update(export(db, args.export_dir, args.limit))
+    result.update(export(db, args.export_dir, args.limit, getattr(args, "data_root", None)))
     return result
 
 
 def daemon(db, provider, args, stop):
+    if getattr(args, "data_root", None):
+        archive_saved(db, args.data_root)
     jobs = daemon_jobs(db, provider, args)
     with db:
         meta(db, "daemon_state", "running")
@@ -509,7 +522,7 @@ def daemon(db, provider, args, stop):
     finally:
         with db:
             meta(db, "daemon_state", "stopped")
-        export(db, args.export_dir, args.limit)
+        export(db, args.export_dir, args.limit, getattr(args, "data_root", None))
     return 0
 
 
@@ -564,8 +577,10 @@ def status(db):
             "topBlocks": sorted(blocks, key=lambda b: (b["data_bytes"], b["largest_transaction"]), reverse=True)[:20]}
 
 
-def atomic_json(path, value):
+def atomic_json(path, value, overwrite=True):
     path.parent.mkdir(parents=True, exist_ok=True)
+    if not overwrite and path.is_file():
+        return None
     data = (json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n").encode()
     if path.is_file() and path.read_bytes() == data:
         return hashlib.sha256(data).hexdigest()
@@ -576,24 +591,55 @@ def atomic_json(path, value):
             handle.flush()
             os.fsync(handle.fileno())
             os.fchmod(handle.fileno(), 0o644)
-        os.replace(name, path)
+        if overwrite:
+            os.replace(name, path)
+        else:
+            # An exclusive atomic create also preserves a file concurrently
+            # written by FileProxy. Existing archive files keep their mtimes.
+            try:
+                os.link(name, path)
+            except FileExistsError:
+                pass
     finally:
         if os.path.exists(name):
             os.unlink(name)
     return hashlib.sha256(data).hexdigest()
 
 
-def export(db, directory, limit):
+def archive_transaction(data_root, raw):
+    path = Path(data_root).expanduser() / "transactions/bsv" / (checked_hash(raw.get("txid")) + ".json")
+    atomic_json(path, raw, overwrite=False)
+
+
+def archive_saved(db, data_root):
+    directory = Path(data_root).expanduser() / "transactions/bsv"
+    directory.mkdir(parents=True, exist_ok=True)
+    for row in db.execute("SELECT height,tx_index,txid FROM transactions WHERE selected=1"):
+        if not (directory / (row["txid"] + ".json")).is_file():
+            raw = db.execute("SELECT raw FROM transactions WHERE height=? AND tx_index=?", (row["height"], row["tx_index"])).fetchone()[0]
+            archive_transaction(data_root, json.loads(raw))
+
+
+def export(db, directory, limit, data_root=None):
     root = Path(directory).expanduser()
+    archive_root = Path(data_root).expanduser() if data_root else root
+    if data_root and root.resolve() == archive_root.resolve():
+        raise ValueError("Use a separate BSV feed directory such as <data-root>/bsv; the general data-root manifest is preserved")
+    archive_saved(db, archive_root)
+    # A feed under chisel_data references its sibling transaction archive.
+    # Exports outside that root remain self-contained for static/IPFS copies.
+    shared_archive = root.resolve().is_relative_to(archive_root.resolve())
+    raw_base = Path(os.path.relpath(archive_root / "transactions/bsv", root)).as_posix() if shared_archive else "transactions/bsv"
     report = status(db)
     records = []
     for row in db.execute("""SELECT t.*, b.hash, b.time FROM transactions t
         JOIN blocks b ON b.height=t.height WHERE selected=1
         ORDER BY t.bytes DESC, t.height DESC, t.tx_index LIMIT ?""", (limit,)):
         txid = row["txid"]
-        raw_path = "transactions/bsv/" + txid + ".json"
+        raw_path = raw_base + "/" + txid + ".json"
         raw = json.loads(row["raw"])
-        atomic_json(root / raw_path, raw)
+        if not shared_archive:
+            archive_transaction(root, raw)
         summary = json.loads(row["summary"])
         # Reclassify saved bytes so existing scan databases gain file search tags
         # without another network scan or any change to checked coverage.
@@ -615,13 +661,16 @@ def export(db, directory, limit):
     atomic_json(root / "manifest.json", {"version": 1, "title": "BSV public history scan",
                 "defaultIndex": index_path, "records": len(records), "generatedAt": report["generatedAt"],
                 "generatedBy": "mogwai/tools/bsv_indexer.py", "hashes": {index_path: "sha256-" + index_hash}})
-    return {"exported": len(records), "manifest": str(root / "manifest.json")}
+    return {"exported": len(records), "manifest": str(root / "manifest.json"),
+            "transactionDirectory": str(archive_root / "transactions/bsv")}
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["scan", "daemon", "status", "export", "note"])
     parser.add_argument("--db", default=DEFAULT_DB)
+    parser.add_argument("--data-root", default=os.environ.get("CHISEL_DATA_ROOT", "~/chisel_data"),
+                        help="Canonical Chisel data root; candidates are saved under transactions/bsv (default: ~/chisel_data)")
     parser.add_argument("--start-height", type=int, help="First block for scan; omit to resume")
     parser.add_argument("--stop-height", type=int, help="Inclusive last block; defaults to zero for backward scans")
     parser.add_argument("--direction", choices=["backward", "forward"], default="backward")
@@ -638,11 +687,13 @@ def main(argv=None):
     parser.add_argument("--min-data-bytes", type=int)
     parser.add_argument("--confirmations", type=int, default=6, help="Blocks behind the tip")
     parser.add_argument("--request-delay", type=float, default=0.5)
-    parser.add_argument("--export-dir", help="Separate public BSV dataset directory")
+    parser.add_argument("--export-dir", help="BSV feed directory (default: <data-root>/bsv); keeps the main data-root manifest intact")
     parser.add_argument("--limit", type=int, default=1000, help="Largest selected records to export")
     parser.add_argument("--height", type=int, help="Previously visited block to annotate")
     parser.add_argument("--text", help="Public scan note; exported with coverage")
     args = parser.parse_args(argv)
+    if args.command in ("scan", "daemon", "export") and not args.export_dir:
+        args.export_dir = str(Path(args.data_root).expanduser() / "bsv")
     for name in ["start_height", "stop_height", "anchor_height", "min_tx_bytes", "min_data_bytes", "confirmations"]:
         value = getattr(args, name)
         if value is not None and value < 0:
@@ -651,8 +702,6 @@ def main(argv=None):
         parser.error("Budgets must be positive, request-delay at least 0.34 seconds, and interval at least 1 second")
     if args.start_height is not None and args.stop_height is not None and (args.direction == "backward" and args.start_height < args.stop_height or args.direction == "forward" and args.start_height > args.stop_height):
         parser.error("start-height is outside the requested direction and stop-height")
-    if args.command == "daemon" and not args.export_dir:
-        parser.error("daemon needs --export-dir for its public Chisel feed")
     if args.command == "daemon" and (args.start_height is not None or args.stop_height is not None or args.job):
         parser.error("daemon manages recent/early cursors; use --anchor-tx or --anchor-height")
     path = Path(args.db).expanduser()
@@ -689,6 +738,7 @@ def main(argv=None):
                     previous_signals[signum] = signal.signal(signum, lambda *_: stop.set())
                 return daemon(db, provider, args, stop)
             if args.command == "scan":
+                archive_saved(db, args.data_root)
                 if args.anchor_height is not None:
                     if args.start_height is not None:
                         raise ValueError("Use either --start-height or --anchor-height")
@@ -705,10 +755,8 @@ def main(argv=None):
                     changed = db.execute("UPDATE blocks SET note=? WHERE height=?", (args.text, args.height)).rowcount
                 if not changed:
                     raise ValueError("That block has not been visited")
-            if args.command == "export" and not args.export_dir:
-                parser.error("export needs --export-dir")
             if args.export_dir:
-                result.update(export(db, args.export_dir, args.limit))
+                result.update(export(db, args.export_dir, args.limit, args.data_root))
             report = status(db)
             report.pop("blocks")
             result.update(report)
@@ -721,9 +769,13 @@ def main(argv=None):
         except (ValueError, sqlite3.Error, OSError, KeyError, TypeError) as exc:
             message = str(exc)
             record_error(db, job_name(args), message)
+            error_report = {"error": message, "checkpointRetained": True}
             if args.export_dir:
-                export(db, args.export_dir, args.limit)
-            print(json.dumps({"error": message, "checkpointRetained": True}), file=sys.stderr)
+                try:
+                    export(db, args.export_dir, args.limit, args.data_root)
+                except (ValueError, sqlite3.Error, OSError, KeyError, TypeError) as export_exc:
+                    error_report["exportError"] = str(export_exc)
+            print(json.dumps(error_report), file=sys.stderr)
             return 1
         finally:
             for signum, handler in previous_signals.items():

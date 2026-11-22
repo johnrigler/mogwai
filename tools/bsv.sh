@@ -12,7 +12,8 @@ if [[ -f "$config_file" ]]; then
     source "$config_file"
 fi
 db_file="${BSV_DB:-$HOME/.local/state/mogwai/bsv-index.sqlite3}"
-export_dir="${BSV_EXPORT_DIR:-$state_dir/public}"
+data_root="${CHISEL_DATA_ROOT:-$HOME/chisel_data}"
+export_dir="${BSV_EXPORT_DIR:-$data_root/bsv}"
 
 running() {
     local -a command=()
@@ -43,7 +44,7 @@ case "$action" in
             exit 0
         fi
         rm -f -- "$pid_file"
-        mkdir -p -- "$(dirname -- "$db_file")" "$export_dir"
+        mkdir -p -- "$(dirname -- "$db_file")" "$export_dir" "$data_root/transactions/bsv"
         # Covers a scanner started by hand, cron or systemd as well.
         exec 8>"$db_file.lock"
         if ! flock -n 8; then
@@ -52,7 +53,7 @@ case "$action" in
         fi
         flock -u 8
         exec 8>&-
-        PYTHONUNBUFFERED=1 nohup python3 "$scanner" daemon --db "$db_file" --export-dir "$export_dir" "$@" \
+        PYTHONUNBUFFERED=1 nohup python3 "$scanner" daemon --db "$db_file" --data-root "$data_root" --export-dir "$export_dir" "$@" \
             </dev/null >>"$log_file" 2>&1 9>&- &
         pid=$!
         printf '%s\n' "$pid" > "$pid_file"
@@ -65,6 +66,7 @@ case "$action" in
         fi
         echo "Started BSV scanner (PID $pid)."
         echo "Log: $log_file"
+        echo "Transactions: $data_root/transactions/bsv"
         echo "Export: $export_dir"
         ;;
     stop)
@@ -93,6 +95,7 @@ case "$action" in
             echo "No managed BSV scanner is running."
         fi
         echo "Log: $log_file"
-        python3 "$scanner" status --db "$db_file" 9>&-
+        echo "Transactions: $data_root/transactions/bsv"
+        python3 "$scanner" status --db "$db_file" --data-root "$data_root" 9>&-
         ;;
 esac
