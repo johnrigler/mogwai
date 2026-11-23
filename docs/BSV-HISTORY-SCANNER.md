@@ -346,7 +346,7 @@ not every Bitcoin SV transaction. The default root is \`~/chisel_data\`, or the
 
 \`\`\`bash
 cd "$HOME/mogwai"
-python3 tools/bsv_curator.py
+bash tools/bsv-curate.sh
 \`\`\`
 
 The JSON report gives candidate counts and on-disk byte totals by category:
@@ -370,7 +370,7 @@ database lock and refuses to modify a live scanner database:
 
 \`\`\`bash
 bash tools/bsv-stop.sh
-python3 tools/bsv_curator.py --apply
+bash tools/bsv-curate.sh --apply
 bash tools/bsv-start.sh
 \`\`\`
 
@@ -387,7 +387,7 @@ To restore all curator-pruned records:
 
 \`\`\`bash
 bash tools/bsv-stop.sh
-python3 tools/bsv_curator.py --restore
+bash tools/bsv-curate.sh --restore
 bash tools/bsv-start.sh
 \`\`\`
 
