@@ -341,8 +341,9 @@ Tests: `python3 -m unittest discover -s tools/tests -p 'test_bsv_indexer.py' -v`
 Run the curator against the **same SQLite database and data root** as the
 scanner. It performs no network requests, does not advance scan checkpoints,
 and defaults to a read-only audit. It examines existing selected JSON in SQLite,
-not every Bitcoin SV transaction. The default root is `~/chisel_data`, or the
-`CHISEL_DATA_ROOT` environment variable from the scanner setup.
+not every Bitcoin SV transaction. The `tools/bsv-curate.sh` wrapper loads
+`~/.config/mogwai/bsv.env` just like the scanner launcher. With no config,
+the default root is `~/chisel_data`.
 
 ```bash
 cd "$HOME/mogwai"
