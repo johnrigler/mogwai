@@ -192,9 +192,6 @@ def operate(db, root, directory, limit, restore=False):
         with db:
             for txid, detail in decisions:
                 kind = detail["classification"]
-                existing = db.execute("SELECT pruned FROM bsv_curation WHERE txid=?", (txid,)).fetchone()
-                if existing and existing["pruned"]:
-                    continue
                 db.execute("""INSERT INTO bsv_curation(txid,classification,details,pruned,classified_at)
                     VALUES(?,?,?,?,?) ON CONFLICT(txid) DO UPDATE SET
                     classification=excluded.classification, details=excluded.details,
