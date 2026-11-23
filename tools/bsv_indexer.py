@@ -632,6 +632,7 @@ def export(db, directory, limit, data_root=None):
     raw_base = Path(os.path.relpath(archive_root / "transactions/bsv", root)).as_posix() if shared_archive else "transactions/bsv"
     report = status(db)
     records = []
+    has_curation = bool(db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='bsv_curation'").fetchone())
     for row in db.execute("""SELECT t.*, b.hash, b.time FROM transactions t
         JOIN blocks b ON b.height=t.height WHERE selected=1
         ORDER BY t.bytes DESC, t.height DESC, t.tx_index LIMIT ?""", (limit,)):
@@ -644,6 +645,10 @@ def export(db, directory, limit, data_root=None):
         # Reclassify saved bytes so existing scan databases gain file search tags
         # without another network scan or any change to checked coverage.
         summary["files"] = inspect_files(raw)
+        if has_curation:
+            curated = db.execute("SELECT details FROM bsv_curation WHERE txid=?", (txid,)).fetchone()
+            if curated:
+                summary["curation"] = json.loads(curated["details"])
         summary.update({"txid": txid, "coin": "bsv", "ticker": "BSV",
                         "title": "BSV data output" if summary["dataOutputs"] else "BSV large transaction",
                         "blockHeight": row["height"], "blockTime": row["time"],
