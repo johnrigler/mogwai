@@ -176,7 +176,7 @@ def remove_safe(root, txid):
     return True
 
 
-def operate(db, root, directory, limit, restore=False):
+def operate(db, root, directory, limit, restore=False, prune=True):
     curation_table(db)
     if restore:
         rows = db.execute("SELECT txid FROM bsv_curation WHERE pruned=1").fetchall()
@@ -197,12 +197,12 @@ def operate(db, root, directory, limit, restore=False):
                     classification=excluded.classification, details=excluded.details,
                     classified_at=excluded.classified_at""",
                     (txid, kind, json.dumps(detail, separators=(",", ":")), 0, now()))
-                if kind == "discard":
+                if prune and kind == "discard":
                     db.execute("UPDATE transactions SET selected=0 WHERE txid=? AND selected=1", (txid,))
                     db.execute("UPDATE bsv_curation SET pruned=1 WHERE txid=?", (txid,))
                     pruned_ids.append(txid)
         removed = sum(remove_safe(root, txid) for txid in pruned_ids)
-        report.update({"mode": "apply", "prunedRecords": len(pruned_ids), "archiveFilesRemoved": removed})
+        report.update({"mode": "apply" if prune else "enrich", "prunedRecords": len(pruned_ids), "archiveFilesRemoved": removed})
     # Keep scanner's existing manifest/index publication and backfill semantics.
     export(db, directory, limit, root)
     atomic_json(directory / "curation.json", report)
@@ -217,6 +217,7 @@ def main(argv=None):
     parser.add_argument("--limit", type=int, default=1000)
     choice = parser.add_mutually_exclusive_group()
     choice.add_argument("--apply", action="store_true", help="Classify, suppress uninteresting files, and republish feed (stop scanner first)")
+    choice.add_argument("--enrich", action="store_true", help="Persist classifications and update feed without pruning")
     choice.add_argument("--restore", action="store_true", help="Restore records previously pruned by the curator")
     args = parser.parse_args(argv)
     if args.limit < 1:
@@ -226,7 +227,7 @@ def main(argv=None):
         parser.error("scanner database not found: " + str(db_path))
     root = Path(args.data_root or os.environ.get("CHISEL_DATA_ROOT", "~/chisel_data")).expanduser().resolve()
     directory = Path(args.export_dir or os.environ.get("BSV_EXPORT_DIR", str(root / "bsv"))).expanduser().resolve()
-    if args.apply or args.restore:
+    if args.apply or args.enrich or args.restore:
         # The same exclusive lock used by the BSV daemon. Never mutate a live scan.
         with open(str(db_path) + ".lock", "a") as lock:
             try:
@@ -235,7 +236,7 @@ def main(argv=None):
                 parser.error("BSV scanner holds the database lock; stop it before --apply or --restore")
             db = connect(db_path)
             try:
-                report = operate(db, root, directory, args.limit, restore=args.restore)
+                report = operate(db, root, directory, args.limit, restore=args.restore, prune=args.apply)
             finally:
                 db.close()
     else:
