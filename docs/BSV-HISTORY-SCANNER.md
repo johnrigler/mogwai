@@ -365,6 +365,18 @@ All matches are heuristic: a MIME signature in a provider preview is not proof
 that a complete file has been downloaded. The curator does not reconstruct BCAT
 or 1Sat multi-transaction files. No payload bytes are executed.
 
+To publish classification metadata without deleting any transaction files,
+stop the scanner, run the enrichment pass, and restart it:
+
+```bash
+bash tools/bsv-stop.sh
+bash tools/bsv-curate.sh --enrich
+bash tools/bsv-start.sh
+```
+
+This writes the `bsv_curation` table and adds `summary.curation` to the
+published BSV portal records, while preserving all selected archive files.
+
 To apply the classification and safely remove *only* the discard category,
 **stop the background scanner first**. The curator takes the scanner's exclusive
 database lock and refuses to modify a live scanner database:
