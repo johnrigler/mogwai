@@ -341,13 +341,13 @@ Tests: `python3 -m unittest discover -s tools/tests -p 'test_bsv_indexer.py' -v`
 Run the curator against the **same SQLite database and data root** as the
 scanner. It performs no network requests, does not advance scan checkpoints,
 and defaults to a read-only audit. It examines existing selected JSON in SQLite,
-not every Bitcoin SV transaction. The default root is \`~/chisel_data\`, or the
-\`CHISEL_DATA_ROOT\` environment variable from the scanner setup.
+not every Bitcoin SV transaction. The default root is `~/chisel_data`, or the
+`CHISEL_DATA_ROOT` environment variable from the scanner setup.
 
-\`\`\`bash
+```bash
 cd "$HOME/mogwai"
 bash tools/bsv-curate.sh
-\`\`\`
+```
 
 The JSON report gives candidate counts and on-disk byte totals by category:
 
@@ -368,28 +368,28 @@ To apply the classification and safely remove *only* the discard category,
 **stop the background scanner first**. The curator takes the scanner's exclusive
 database lock and refuses to modify a live scanner database:
 
-\`\`\`bash
+```bash
 bash tools/bsv-stop.sh
 bash tools/bsv-curate.sh --apply
 bash tools/bsv-start.sh
-\`\`\`
+```
 
-\`--apply\` stores metadata in the \`bsv_curation\` SQLite table, sets
-\`transactions.selected=0\` for discard records, and unlinks matching
-\`transactions/bsv/<txid>.json\` files only if the file itself contains the
+`--apply` stores metadata in the `bsv_curation` SQLite table, sets
+`transactions.selected=0` for discard records, and unlinks matching
+`transactions/bsv/<txid>.json` files only if the file itself contains the
 matching TXID. It preserves the raw JSON and scan history in SQLite so records
 can be restored without another network scan. The scanner's archive backfill
 will **not** recreate suppressed files because the selected flag has changed.
-It regenerates the BSV portal feed, adding \`summary.curation\` to retained
-records, and writes \`bsv/curation.json\` with the audit totals.
+It regenerates the BSV portal feed, adding `summary.curation` to retained
+records, and writes `bsv/curation.json` with the audit totals.
 
 To restore all curator-pruned records:
 
-\`\`\`bash
+```bash
 bash tools/bsv-stop.sh
 bash tools/bsv-curate.sh --restore
 bash tools/bsv-start.sh
-\`\`\`
+```
 
 Restore reselects the retained SQLite rows; the feed export backfills their
 JSON files. This is reversible only while the original SQLite database is
@@ -397,13 +397,13 @@ preserved. Back up that database before applying pruning. Existing immutable
 portal index snapshots may still point to removed archive JSON: clients should
 refresh the manifest after a prune. The curator does not delete older snapshots.
 
-Set \`--db\`, \`--data-root\`, and \`--export-dir\` consistently if using
+Set `--db`, `--data-root`, and `--export-dir` consistently if using
 custom paths. The dry run may be used while the scanner is running; application
 and restoration require an exclusive lock. If the scanner was started outside
-\`bsv-start.sh\`, stop that actual process before applying changes.
+`bsv-start.sh`, stop that actual process before applying changes.
 
 Test classification and reversible archive suppression with:
 
-\`\`\`bash
+```bash
 python3 -m unittest discover -s tools/tests -p 'test_bsv_curator.py' -v
-\`\`\`
+```
