@@ -420,3 +420,42 @@ Test classification and reversible archive suppression with:
 ```bash
 python3 -m unittest discover -s tools/tests -p 'test_bsv_curator.py' -v
 ```
+
+## Import targeted discoveries
+
+Recovered address and Thunderword trails use the existing FileProxy archive,
+independently of block-scan coverage. The
+[Secret Beach Solutions recovery](https://github.com/johnrigler/fileProxy/tree/main/data/bsv-secret-beach)
+contains complete transaction JSON, exact extracted payloads and a real
+FileProxy `catalog.sqlite3` with 32-byte SHA-256 BLOBs. Its subject-linked
+records include posts from other signing addresses; authorship stays
+unconfirmed unless separately established.
+
+After pulling both existing checkouts, import that root:
+
+```bash
+bash "$HOME/mogwai/tools/bsv-import.sh" "$HOME/fileProxy/data/bsv-secret-beach"
+```
+
+The wrapper reads `~/.config/mogwai/bsv.env` and uses `CHISEL_DATA_ROOT`, just
+like the scanner. If the running FileProxy has another canonical data root,
+pass its actual path to the Python command:
+
+```bash
+python3 "$HOME/mogwai/tools/bsv_recovery_import.py" \
+  "$HOME/fileProxy/data/bsv-secret-beach" --data-root /actual/fileproxy/data
+```
+
+The importer reads and verifies the published SQLite catalog, copies records
+under `transactions/bsv/` and payloads under `artifacts/bsv/<txid>/`, retains
+provenance under `bsv/discoveries/`, merges additive main-stream references,
+and rebuilds FileProxy's existing transaction index. It preserves local
+transaction extension fields and existing stream labels, rejects different
+artifact bytes at an occupied path, and can be repeated without duplicate
+records. Existing canonical JSON is upgraded with the recovered full output
+scripts. Scanner checkpoints and reported block coverage are unchanged.
+The block-scan ranked feed remains a projection of scanned blocks; the
+imported trails are available through FileProxy's transaction/main-stream
+catalogs rather than being presented as scanned coverage.
+
+Tests: `python3 -m unittest discover -s tools/tests -p 'test_bsv_recovery_import.py' -v`.

@@ -1,9 +1,9 @@
 name: BSV history scanner
 on:
   push:
-    paths: ['tools/bsv_indexer.py', 'tools/bsv_curator.py', 'tools/bsv-curate.sh', 'tools/tests/test_bsv_indexer.py', 'tools/tests/test_bsv_curator.py', '.github/workflows/bsv-indexer.yml']
+    paths: ['tools/bsv_indexer.py', 'tools/bsv_curator.py', 'tools/bsv-curate.sh', 'tools/bsv_recovery_import.py', 'tools/bsv-import.sh', 'tools/tests/test_bsv_indexer.py', 'tools/tests/test_bsv_curator.py', 'tools/tests/test_bsv_recovery_import.py', '.github/workflows/bsv-indexer.yml']
   pull_request:
-    paths: ['tools/bsv_indexer.py', 'tools/bsv_curator.py', 'tools/bsv-curate.sh', 'tools/tests/test_bsv_indexer.py', 'tools/tests/test_bsv_curator.py', '.github/workflows/bsv-indexer.yml']
+    paths: ['tools/bsv_indexer.py', 'tools/bsv_curator.py', 'tools/bsv-curate.sh', 'tools/bsv_recovery_import.py', 'tools/bsv-import.sh', 'tools/tests/test_bsv_indexer.py', 'tools/tests/test_bsv_curator.py', 'tools/tests/test_bsv_recovery_import.py', '.github/workflows/bsv-indexer.yml']
 permissions:
   contents: read
 jobs:
@@ -16,4 +16,6 @@ jobs:
           python-version: '3.12'
       - run: python3 -m unittest discover -s tools/tests -p 'test_bsv_indexer.py' -v
       - run: python3 -m unittest discover -s tools/tests -p 'test_bsv_curator.py' -v
+      - run: python3 -m unittest discover -s tools/tests -p 'test_bsv_recovery_import.py' -v
       - run: bash -n tools/bsv-curate.sh
+      - run: bash -n tools/bsv-import.sh
