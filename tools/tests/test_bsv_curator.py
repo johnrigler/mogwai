@@ -69,6 +69,19 @@ class ApplyTests(unittest.TestCase):
     def tearDown(self):
         self.db.close()
 
+    def test_enrich_does_not_prune(self):
+        original = curator.export
+        curator.export = lambda *args: None
+        try:
+            report = curator.operate(self.db, self.root, self.root / "bsv", 100, prune=False)
+            self.assertEqual(report["mode"], "enrich")
+            self.assertEqual(report["prunedRecords"], 0)
+            self.assertEqual(self.db.execute("SELECT SUM(selected) FROM transactions").fetchone()[0], 3)
+            self.assertEqual(self.db.execute("SELECT COUNT(*) FROM bsv_curation").fetchone()[0], 3)
+            self.assertEqual(len(list(self.archive.glob("*.json"))), 3)
+        finally:
+            curator.export = original
+
     def test_collect_and_prune_reversible(self):
         report, _ = curator.collect(self.db, self.root)
         self.assertEqual(report["byClass"], {"discard": 1, "metadata": 1, "artifact": 1})
