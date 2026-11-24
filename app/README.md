@@ -1,4 +1,8 @@
-# Mogwai share receiver · 0.4.4
+# Mogwai share receiver · 0.4.124
+
+## Bundled tools
+
+Open **Tools → Image Factory** from the installed Mogwai app, or use the direct launcher link. The standalone Dark Star Z factory lives in `app/tools/image-factory/index.html`, has no dependencies or ledger access, and supports local PNG and GIF downloads. The Mogwai service worker caches it during installation/update. Other bundled static tools can follow the same directory pattern and get a launcher entry and shell cache entry. Generated images and exported parameter JSON are downloaded to the device; they are not automatically uploaded or cataloged by FileProxy. Browser storage and installed-app behavior still require a device test.
 
 The shared item appears first, followed by a large **Send to Chisel** button.
 Received fields, metadata checks, and the TX portal JSON remain available in
