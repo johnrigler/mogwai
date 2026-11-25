@@ -1,0 +1,41 @@
+{
+  "schema": "mogwai.tool-catalog.v1",
+  "name": "Rigler.org",
+  "tools": [
+    {
+      "id": "chisel",
+      "name": "Chisel",
+      "url": "https://johnrigler.github.io/chisel/",
+      "recommended": true
+    },
+    {
+      "id": "chisel-v1",
+      "name": "Chisel v1",
+      "url": "https://johnrigler.github.io/chisel-v1/"
+    },
+    {
+      "id": "cue",
+      "name": "Peer-to-Peer Cue System",
+      "url": "https://johnrigler.github.io/Peer-to-Peer-Cue-System/"
+    },
+    {
+      "id": "recorder",
+      "name": "Recorder",
+      "url": "https://johnrigler.github.io/mogwai/app/recorder/",
+      "recommended": true
+    },
+    {
+      "id": "image-factory",
+      "name": "Image Factory",
+      "url": "https://johnrigler.github.io/mogwai/app/tools/image-factory/",
+      "recommended": true
+    },
+    {
+      "id": "lantern",
+      "name": "Lantern / Zork",
+      "url": "https://johnrigler.github.io/lantern/lantern.html",
+      "description": "Configure a Lantern backend before play.",
+      "recommended": true
+    }
+  ]
+}
