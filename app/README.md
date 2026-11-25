@@ -1,4 +1,26 @@
-# Mogwai share receiver · 0.4.124
+# Mogwai share receiver · 0.4.128
+
+## Home and targets
+
+The launcher groups Chisel (using the saved Chisel address), Recorder, Image
+Factory and Lantern. The homepage link opens the Mogwai GitHub repository.
+Mogwai checks the selected profile's Lantern `/health` and FileProxy
+`/ping` on launch and when Check servers is selected. Lantern's launch link
+appears only after a valid Lantern response. A reachable API does not prove
+that game files or Frotz are installed.
+
+Mogwai targets stores up to 30 named profiles locally, each with independent
+optional FileProxy and Lantern base URLs. The default is Rigler.org. To add
+localhost, enter a different profile name, e.g. Local Termux, and use
+`http://127.0.0.1:7788/` for Lantern and, if applicable,
+`http://127.0.0.1:7799/` for FileProxy, then Add profile.
+Select a saved profile to switch services. Chisel address is a separate
+frontend setting. The selected FileProxy receives only the video URL on a
+YouTube metadata lookup; no automatic failover is performed.
+Targets can be inspected/exported/imported as JSON or reset. Local HTTP is
+limited to loopback; remote endpoints must use HTTPS. Browser local-network
+permissions and CORS can still prevent access; status is not a proof of
+server identity or availability from other devices.
 
 ## Bundled tools
 

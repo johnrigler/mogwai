@@ -6,6 +6,18 @@ const CONSOLE = "mogwai.share-console.v1";
 const CONSOLE_LOG = "mogwai.share-console-log.v1";
 const DEFAULT_CHISEL = "https://johnrigler.github.io/chisel/?v=2.8.14";
 const METADATA_URL = "https://rigler.org/fileproxy/youtube-metadata";
+function metadataEndpoint() {
+  return window.MogwaiTargets ? window.MogwaiTargets.metadataURL() : METADATA_URL;
+}
+function updateChiselHome() {
+  const home = $("chisel-home");
+  if (!home) return;
+  try {
+    const url = new URL($("chisel-url").value);
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw Error("Invalid address");
+    home.href = url.href;
+  } catch { home.removeAttribute?.("href"); }
+}
 const SYSTEM_TEST = {title: "Mogwai sharing test", text: "Mogwai system-share test: this is plain text, with no YouTube link."};
 let selected = null, installPrompt = null, receiptText = "";
 let consoleEnabled = false, consoleEntries = [];
@@ -110,7 +122,7 @@ function renderPortal() {
   if (media.state !== "ready") return;
   $("metadata-title").textContent = media.metadata.title;
   $("metadata-author").textContent = media.metadata.authorName || "Channel not supplied";
-  $("metadata-source").textContent = "YouTube · " + media.metadata.videoId + " · fetched " + media.metadata.fetchedAt + " via rigler.org · " + (media.cached ? "cached lookup" : "fresh lookup");
+  $("metadata-source").textContent = "YouTube · " + media.metadata.videoId + " · fetched " + media.metadata.fetchedAt + " via " + (media.endpoint || METADATA_URL) + " · " + (media.cached ? "cached lookup" : "fresh lookup");
   try {
     const thumbnail = new URL(media.metadata.thumbnailUrl);
     if (thumbnail.protocol === "https:" && ["i.ytimg.com", "img.youtube.com"].includes(thumbnail.hostname) && !thumbnail.username && !thumbnail.password) {
@@ -137,15 +149,15 @@ function syncMetadata(force = false) {
   const timeout = setTimeout(() => abort.abort(), 12000);
   (async () => {
     try {
-      const endpoint = new URL(METADATA_URL);
+      const endpoint = new URL(metadataEndpoint());
       endpoint.searchParams.set("url", content);
       if (force) endpoint.searchParams.set("refresh", "1");
-      const response = await fetch(endpoint.href, {signal: abort.signal, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer"});
-      if (!response.ok) throw new Error("rigler.org returned HTTP " + response.status);
+      const response = await fetch(endpoint.href, {signal: abort.signal, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer", ...(window.MogwaiTargets?.fetchOptions(endpoint) || {})});
+      if (!response.ok) throw new Error(endpoint.hostname + " returned HTTP " + response.status);
       const data = await response.json();
       if (!data.ok || data.metadata?.videoId !== new URL(content).pathname.slice(1) || typeof data.metadata?.title !== "string" || !Array.isArray(data.mediaCards) || !data.mediaCards.every(card => card && typeof card === "object" && !Array.isArray(card))) throw new Error(data.error || "Invalid metadata response");
       if (serial !== metadataSerial) return;
-      media = {content, state: "ready", metadata: data.metadata, cards: data.mediaCards, cached: !!data.cached};
+      media = {content, state: "ready", metadata: data.metadata, cards: data.mediaCards, cached: !!data.cached, endpoint: endpoint.origin + endpoint.pathname};
     } catch (error) {
       if (serial !== metadataSerial) return;
       media = {content, state: "error", error: "Preview unavailable: " + (error.name === "AbortError" ? "request timed out" : error.message) + ". Send the link, or retry in Metadata details."};
@@ -260,7 +272,7 @@ function openChisel(event) {
 }
 $("share-form").addEventListener("submit", openChisel);
 $("shared-url").addEventListener("input", () => { status(); preview(); });
-$("chisel-url").addEventListener("input", preview);
+$("chisel-url").addEventListener("input", () => { updateChiselHome(); preview(); });
 $("chisel-url").addEventListener("change", () => {
   try { MogwaiShare.chiselURL($("chisel-url").value, "test"); localStorage.setItem(CHISEL, $("chisel-url").value); } catch {}
 });
@@ -364,8 +376,10 @@ function receiveFromLocation() {
   if (hasShare || fragment.has("share-error") || fragment.has("draft") || fragment.has("review")) history.replaceState(null, "", location.pathname);
   preview();
 }
+updateChiselHome();
 receiveFromLocation();
+window.addEventListener("mogwai-target-change", () => syncMetadata(true));
 window.addEventListener("hashchange", receiveFromLocation);
 if ("serviceWorker" in navigator && window.isSecureContext) {
-  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.4.127. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
+  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => { $("offline-status").textContent = "Share receiver ready · 0.4.128. Installed Mogwai can receive shared text and links."; }).catch(() => { $("offline-status").textContent = "Share setup failed. Reload this page online."; });
 } else $("offline-status").textContent = "Use HTTPS or localhost to install the share receiver.";
