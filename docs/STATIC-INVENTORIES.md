@@ -17,7 +17,11 @@ The script atomically writes transactions/.files (one direct currency
 directory name per line) and transactions/<currency>/.files (one recognized
 transaction JSON basename per line). No JSON body is read or altered. Symlinked
 directories and files are not included. Unchanged inventories are not rewritten.
-The transaction root is published last. This is not a database snapshot;
+A failed currency refresh preserves any previous inventory, reports a warning,
+and does not block other currencies. The root inventory lists every eligible
+currency directory, including failed ones, so readers can try the old inventory
+or HTTP listing. The script exits 1 for partial publication, after writing the
+root inventory, so cron can report errors. The transaction root is published last. This is not a database snapshot;
 concurrent producer changes appear on a subsequent run.
 
 Allow HTTP GET of these specific .files files on Apache with CORS for Chisel.
