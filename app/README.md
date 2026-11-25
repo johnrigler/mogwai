@@ -2,8 +2,19 @@
 
 ## Home and targets
 
+Opening Mogwai normally shows the launcher. A fresh YouTube share is classified
+by the built-in default-action table and opens the configured Chisel Send
+screen immediately, without waiting for metadata or a second button.
+The handoff carries only the normalized video URL and its locally generated
+display card; it cannot sign or broadcast. Back returns to the clean Mogwai
+launcher rather than redispatching the consumed share. Normal launches,
+manual pastes, update-restored drafts, unrecognized shares and other links
+do not automatically navigate. The share console continues to log incoming
+fields when enabled. Future recognized types can register their own built-in
+default action; no external tool can silently add one.
+
 The launcher groups Chisel (using the saved Chisel address), Recorder, Image
-Factory and Lantern. The homepage link opens the Mogwai GitHub repository.
+Factory and Lantern. The homepage link returns to the Mogwai launcher.
 Mogwai checks the selected profile's Lantern `/health` and FileProxy
 `/ping` on launch and when Check servers is selected. Lantern's launch link
 appears only after a valid Lantern response. A reachable API does not prove
@@ -26,7 +37,7 @@ server identity or availability from other devices.
 
 Open **Tools → Image Factory** from the installed Mogwai app, or use the direct launcher link. The standalone Dark Star Z factory lives in `app/tools/image-factory/index.html`, has no dependencies or ledger access, and supports local PNG and GIF downloads. The Mogwai service worker caches it during installation/update. Other bundled static tools can follow the same directory pattern and get a launcher entry and shell cache entry. Generated images and exported parameter JSON are downloaded to the device; they are not automatically uploaded or cataloged by FileProxy. Browser storage and installed-app behavior still require a device test.
 
-The shared item appears first, followed by a large **Send to Chisel** button.
+For manual review or an unhandled share, the shared item appears with a large **Send to Chisel** button.
 Received fields, metadata checks, and the TX portal JSON remain available in
 collapsed details below the main action. Sending opens Chisel's prepared record;
 the transaction is still reviewed and sent there.
@@ -39,8 +50,8 @@ defaults are migrated; custom Chisel hosts are retained.
 
 ## Metadata and TX Portal preview
 
-YouTube shares now stay in Mogwai for review. The URL still fills OP_RETURN
-when **Send to Chisel** is selected. The handoff also carries the reviewed
+Fresh YouTube shares bypass this manual review path. For manually pasted or
+restored YouTube drafts, the URL fills OP_RETURN when **Send to Chisel** is selected. The handoff also carries the reviewed
 Portal summary, media cards and retrieved metadata to Chisel 2.8.14's expanded
 record preview above **SEND**. Before that handoff, the app calls
 `https://rigler.org/fileproxy/youtube-metadata?url=...` with only the normalized
@@ -115,16 +126,15 @@ to 200,000 UTF-8 bytes, are held in this window's session storage so shares
 that navigate/reload the app do not erase the console. New fragment shares
 are also processed while the same page remains open. These receipts are not
 uploaded. **Clear console** erases its log; **Clear received data** also
-erases it; turning the console off erases its history. All shares still stay
-for review. Copying the console requires its own button.
+erases it; turning the console off erases its history. Fresh YouTube shares still dispatch automatically after recording the receipt. Copying the console requires its own button.
 Updating retains the log without appending the restored receipt a second time.
 
 If browser storage is blocked, the toggle and log work for the current page
 only. Cross-window history is not aggregated. The standard share fields still
 cannot identify which app sent a share.
 
-An installed receiver for shared **text and web links**. YouTube links,
-other links and plain text stay in Mogwai for review. Unrecognized shares show the fields
+An installed receiver for shared **text and web links**. Fresh YouTube links
+dispatch to Chisel; other links and plain text stay in Mogwai for review. Unrecognized shares show the fields
 received rather than disappearing into a URL error. This remains a small,
 vanilla-JavaScript web app with no build or package dependencies.
 
@@ -136,10 +146,9 @@ vanilla-JavaScript web app with no build or package dependencies.
    with a short plain-text message, independently of YouTube.
 3. Choose **Mogwai**, if the system lists it. The receiving window should show
    **What Mogwai received**, **Plain text**, and the test message.
-4. Share a YouTube video. Check the metadata and TX Portal preview, then choose
-   **Send to Chisel**. Share it again to check its saved SHA-256; change data
-   only through the explicit acceptance control. **Copy received fields**
-   retains the original receipt for troubleshooting.
+4. Share a YouTube video. Chisel should open directly with the video draft.
+   Press Back to return to Mogwai without another dispatch. Paste the URL
+   manually to test metadata, TX preview and saved SHA-256 checks.
 
 The sending side cannot verify which destination received a share. The receipt
 is the useful check. If this browser cannot open system sharing from a page,
@@ -165,8 +174,8 @@ updating are separate actions.
    **Share receiver ready** before trying the share flow.
 2. Use an app or page that opens the **system** share menu. YouTube's own
    social-network panel is not evidence that the system chooser was opened.
-3. Choose **Mogwai**. Review the receipt, metadata and TX preview, then choose
-   **Send to Chisel**.
+3. Choose **Mogwai**. A YouTube link opens Chisel immediately; other links
+   and notes remain for explicit review and handoff.
 4. Confirm the visible URL matches the chosen video. Normal funding, review,
    signing and sending remain in Chisel.
 

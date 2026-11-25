@@ -54,21 +54,23 @@ function controller(share, options = {}) {
   for (const name of ids) nodes.set(name, {value: "", textContent: "", disabled: false, hidden: false, listeners: {}, addEventListener(type, handler) {this.listeners[type] = handler;}});
   const storage = new Map(options.storage || []), session = new Map(options.session || []), navigations = [], events = {}, history = [];
   const makeStorage = map => ({getItem(key) {if (options.noStorage) throw Error("blocked"); return map.get(key) || null;}, setItem(key, value) {if (options.noStorage) throw Error("blocked"); map.set(key, value);}, removeItem(key) {if (options.noStorage) throw Error("blocked"); map.delete(key);}});
-  const location = {protocol: "https:", pathname: "/mogwai/app/", search: options.search || "", hash: options.hash ?? (share !== null && share !== undefined ? "#share=" + encodeURIComponent(JSON.stringify(share)) : ""), replace(target) {navigations.push(target);}};
+  const location = {protocol: "https:", pathname: "/mogwai/app/", search: options.search || "", hash: options.hash ?? (share !== null && share !== undefined ? (options.review ? "#review=1&share=" : "#share=") + encodeURIComponent(JSON.stringify(share)) : ""), replace(target) {navigations.push(target);}, assign(target) {navigations.push(target);}};
   location.href = "https://example.test" + location.pathname + location.search + location.hash;
-  const ctx = vm.createContext({document: {cookie: options.cookie || "", getElementById(id) {assert.ok(nodes.has(id), id); return nodes.get(id);}}, crypto: webcrypto, URL, URLSearchParams, TextEncoder, AbortController, setTimeout, clearTimeout, fetch: options.fetch || (async () => {throw Error("Offline");}), location, navigator: options.navigator || {}, history: {replaceState(...args) {history.push(args); location.href = new URL(args[2], location.href).href;}},
+  const ctx = vm.createContext({document: {cookie: options.cookie || "", getElementById(id) {assert.ok(nodes.has(id), id); return nodes.get(id);}}, crypto: webcrypto, URL, URLSearchParams, TextEncoder, AbortController, setTimeout, clearTimeout, fetch: options.fetch || (async () => {throw Error("Offline");}), location, navigator: options.navigator || {}, history: {replaceState(...args) {history.push(args); location.href = new URL(args[2], location.href).href; location.hash = new URL(location.href).hash; location.search = new URL(location.href).search;}},
     localStorage: makeStorage(storage), sessionStorage: makeStorage(session), addEventListener(type, handler) {events[type] = handler;}});
   ctx.window = ctx;
   vm.runInContext(core + "\n" + userData + "\n" + app, ctx);
   return {nodes, navigations, storage, session, history, events, location};
 }
-test("a received YouTube share stays for metadata and TX review before opening Chisel", () => {
-  const ui = controller({text: "Watch this " + short + "?si=tracking"});
-  assert.equal(ui.navigations.length, 0);
-  assert.equal(ui.nodes.get("youtube-preview").hidden, false);
-  assert.equal(ui.nodes.get("tx-preview").hidden, false);
-  ui.nodes.get("share-form").listeners.submit({preventDefault() {}});
+test("a fresh YouTube share dispatches directly, before metadata, and Back cannot redispatch", () => {
+  const ui = controller({text: "Watch this " + short + "?si=tracking"}, {fetch: () => assert.fail("Automatic dispatch must not wait for metadata")});
   assert.equal(ui.navigations.length, 1);
+  assert.deepEqual(ui.history[0], [null, "", "/mogwai/app/"]);
+  assert.equal(ui.nodes.get("shared-url").value, "");
+  assert.equal(ui.session.has("mogwai.shared-link.v1"), false);
+  ui.events.hashchange();
+  assert.equal(ui.navigations.length, 1);
+  assert.equal(controller(null, {session: [...ui.session]}).navigations.length, 0);
   const url = new URL(ui.navigations[0]);
   assert.equal(url.origin, "https://johnrigler.github.io"); assert.equal(url.pathname, "/chisel/");
   assert.equal(new URLSearchParams(url.hash.slice(1)).get("opreturn"), short);
@@ -84,7 +86,7 @@ test("metadata travels only through rigler.org and the portal preview retains ex
   const calls = [];
   let copied;
   const shared = {title: "Private receipt title", text: short + "?t=1m30s&si=tracking", custom: "Not uploaded"};
-  const ui = controller(shared, {navigator: {clipboard: {async writeText(value) {copied = value;}}}, fetch: async (url, options) => {
+  const ui = controller(shared, {review: true, navigator: {clipboard: {async writeText(value) {copied = value;}}}, fetch: async (url, options) => {
     calls.push({url, options});
     return {ok: true, json: async () => metadataFixture};
   }});
@@ -134,7 +136,7 @@ test("rich handoffs retain pictures and full text without enlarging OP_RETURN, r
 });
 test("a failed lookup leaves an explicit error, no invented metadata, and a working retry", async () => {
   let calls = 0;
-  const ui = controller({url: short}, {fetch: async () => ++calls === 1 ? {ok: false, status: 503} : {ok: true, json: async () => metadataFixture}});
+  const ui = controller({url: short}, {review: true, fetch: async () => ++calls === 1 ? {ok: false, status: 503} : {ok: true, json: async () => metadataFixture}});
   await settleMetadata();
   assert.match(ui.nodes.get("metadata-status").textContent, /HTTP 503/);
   assert.equal(ui.nodes.get("metadata-title").textContent, "");
@@ -149,7 +151,7 @@ test("a failed lookup leaves an explicit error, no invented metadata, and a work
 });
 test("late metadata cannot replace the preview after an edit or a new share", async () => {
   let finish;
-  const ui = controller({url: short}, {fetch: () => new Promise(resolve => {finish = resolve;})});
+  const ui = controller({url: short}, {review: true, fetch: () => new Promise(resolve => {finish = resolve;})});
   ui.nodes.get("shared-url").value = "A different note\n";
   ui.nodes.get("shared-url").listeners.input();
   finish({ok: true, json: async () => metadataFixture}); await settleMetadata();
@@ -167,7 +169,7 @@ test("plain text and other web links never trigger a metadata upload", () => {
 test("the visible data check preserves a changed baseline until the user accepts it", async () => {
   let changed = false;
   const calls = [];
-  const ui = controller({url: short}, {fetch: async url => {
+  const ui = controller({url: short}, {review: true, fetch: async url => {
     calls.push(url);
     return {ok: true, json: async () => ({...metadataFixture, metadata: {...metadataFixture.metadata, title: changed ? "Changed synthetic title" : metadataFixture.metadata.title}})};
   }});
@@ -189,16 +191,15 @@ test("the visible data check preserves a changed baseline until the user accepts
   assert.equal(ui.nodes.get("saved-count").textContent, "0");
   assert.equal(ui.storage.has("mogwai.user-data.v1"), false);
 });
-test("the share console dumps a YouTube receipt and waits for an explicit Chisel handoff", () => {
+test("the share console records a fresh YouTube receipt before automatic handoff", () => {
   const shared = {text: "Watch " + short, custom: "<script>synthetic</script>"};
   const ui = controller(shared, {storage: [["mogwai.share-console.v1", "1"]]});
   assert.equal(ui.nodes.get("share-console").hidden, false);
-  assert.equal(ui.navigations.length, 0);
+  assert.equal(ui.navigations.length, 1);
   const entries = JSON.parse(ui.session.get("mogwai.share-console-log.v1"));
   assert.deepEqual(entries[0].fields, shared);
   assert.match(ui.nodes.get("console-data").textContent, /synthetic/);
-  assert.doesNotMatch(ui.nodes.get("status").textContent, /Opening Chisel/);
-  ui.nodes.get("share-form").listeners.submit({preventDefault() {}});
+  assert.match(ui.nodes.get("status").textContent, /Opening Chisel/);
   assert.equal(ui.navigations.length, 1);
 });
 test("Tools enables the console, remembers the setting, and receives further shares in the same window", () => {
@@ -461,4 +462,19 @@ test("the worker caches the installable shell and leaves unrelated pages untouch
     const png = readFileSync(path.join(base, "icon-" + size + ".png"));
     assert.equal(png.readUInt32BE(16), size); assert.equal(png.readUInt32BE(20), size);
   }
+});
+
+test("default actions only route recognized fresh YouTube shares and respect the configured Chisel host", () => {
+  const custom = "https://gateway.example/ipfs/bafyfixture/index.html";
+  const ui = controller({url: short}, {storage: [["mogwai.chisel-url.v1", custom]]});
+  assert.equal(new URL(ui.navigations[0]).pathname, "/ipfs/bafyfixture/index.html");
+  assert.equal(C.defaultAction(C.describe({url: short})), "chisel");
+  assert.equal(C.defaultAction(C.describe({url:"https://youtube.com.attacker.test/watch?v="+id})), null);
+  assert.equal(C.defaultAction(C.describe({text:"hello"})), null);
+  assert.equal(controller({url:short}, {review:true}).navigations.length, 0);
+  assert.equal(controller(null, {session:[["mogwai.shared-link.v1", short]]}).navigations.length, 0);
+  const bad = controller({url:short}, {storage:[["mogwai.chisel-url.v1","javascript:alert(1)"]]});
+  assert.equal(bad.navigations.length,0);
+  assert.equal(bad.nodes.get("shared-url").value,short);
+  assert.match(bad.nodes.get("status").textContent,/Could not open Chisel automatically/);
 });
