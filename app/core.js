@@ -54,6 +54,13 @@
     }
     return unknown("Mogwai does not know what to open from these fields. Here is what it received.");
   }
+  // Built-in defaults for recognized share types. Unknown types stay in the
+  // receiver; external tool catalogs cannot silently register navigation.
+  const DEFAULT_ACTIONS = Object.freeze({youtube: "chisel"});
+  function defaultAction(description) {
+    return description && Object.hasOwn(DEFAULT_ACTIONS, description.kind)
+      ? DEFAULT_ACTIONS[description.kind] : null;
+  }
   function chiselURL(endpoint, value, record = null) {
     opReturnBytes(value);
     // Prefer Chisel-owned, browser-native handoff when the small shared module is online.
@@ -102,5 +109,5 @@
     if (typeof metadata.title === "string" && metadata.title) summary.title = metadata.title;
     return {schema: "chisel-shared-record-v1", opReturnText: description.content, summary, metadata};
   }
-  root.MogwaiShare = Object.freeze({fromShare, describe, link, chiselURL, portalPreview, integrityData, sharedRecord, opReturnBytes, MAX_OP_RETURN_BYTES});
+  root.MogwaiShare = Object.freeze({fromShare, describe, defaultAction, link, chiselURL, portalPreview, integrityData, sharedRecord, opReturnBytes, MAX_OP_RETURN_BYTES});
 })(typeof window === "object" ? window : globalThis);

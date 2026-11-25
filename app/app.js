@@ -267,7 +267,7 @@ function openChisel(event) {
     const target = MogwaiShare.chiselURL($("chisel-url").value, selected.content, record);
     try { localStorage.setItem(CHISEL, $("chisel-url").value); } catch {}
     status("Opening Chisel…");
-    location.replace(target);
+    location.assign(target);
   } catch (error) { status(error.message, true); }
 }
 $("share-form").addEventListener("submit", openChisel);
@@ -344,6 +344,27 @@ try {
   $("chisel-url").value = !savedChisel || ["https://johnrigler.github.io/chisel/", "https://johnrigler.github.io/chisel/?v=2.8.10", "https://johnrigler.github.io/chisel/?v=2.8.11", "https://johnrigler.github.io/chisel/?v=2.8.12", "https://johnrigler.github.io/chisel/?v=2.8.13"].includes(savedChisel) ? DEFAULT_CHISEL : savedChisel;
   $("shared-url").value = sessionStorage.getItem(LAST) || "";
 } catch {}
+// Dispatch only a fresh incoming share, never a restored draft, an ordinary
+// homepage launch, or a manual paste. No network lookup is required to route.
+function dispatchDefaultShare(description) {
+  if (MogwaiShare.defaultAction(description) !== "chisel") return false;
+  try {
+    const record = MogwaiShare.sharedRecord(description);
+    const target = MogwaiShare.chiselURL($("chisel-url").value, description.content, record);
+    // Clear the consumed draft, not the diagnostic receipt/console. History
+    // already contains a clean launcher URL, so Back does not dispatch again.
+    $("shared-url").value = "";
+    try { sessionStorage.removeItem(LAST); } catch {}
+    preview();
+    status("Opening Chisel…");
+    location.assign(target);
+    return true;
+  } catch (error) {
+    $("shared-url").value = description.content;
+    status("Could not open Chisel automatically: " + error.message, true);
+    return false;
+  }
+}
 function receiveFromLocation() {
   const fragment = new URLSearchParams(location.hash.slice(1));
   const query = new URLSearchParams(location.search);
@@ -374,6 +395,8 @@ function receiveFromLocation() {
   }
   if (fragment.has("draft")) $("shared-url").value = fragment.get("draft");
   if (hasShare || fragment.has("share-error") || fragment.has("draft") || fragment.has("review")) history.replaceState(null, "", location.pathname);
+  if (hasShare && received && !fragment.has("review") && !fragment.has("draft") &&
+      !fragment.has("share-error") && dispatchDefaultShare(received)) return;
   preview();
 }
 updateChiselHome();
