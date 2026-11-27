@@ -17,7 +17,7 @@ import tempfile
 import traceback
 from types import SimpleNamespace
 
-from base_probe import CHAIN, RPCError, rpc, scan
+from base_probe import CHAIN, DEFAULT_RPC_URL, RPCError, rpc, scan
 from ledger_config import load_ledger_config
 
 
@@ -47,7 +47,7 @@ def run(args):
         except BlockingIOError:
             print("Base scan already running")
             return 0
-        endpoint = {"url": "https://base.drpc.org"}
+        endpoint = {"url": DEFAULT_RPC_URL}
         if args.config:
             spec = load_ledger_config(args.config)["ledgers"]["base"]
             if spec.get("family") != "evm" or spec.get("chainId") != CHAIN:
