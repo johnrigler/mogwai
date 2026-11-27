@@ -4,7 +4,7 @@
 Run: python3 tools/base_probe.py --blocks 100 > base-probe.jsonl
 Optional: --config ~/.config/mogwai/ledgers.json (requires a Base entry)
 Optional: --end-block HEIGHT, --min-bytes 512, --net-logs
-Without --config, uses the public Base dRPC endpoint, subject to rate limits.
+Without --config, uses the official public Base RPC, subject to rate limits.
 """
 import argparse
 import collections
@@ -19,6 +19,7 @@ from evm_read import _NoRedirect
 from ledger_config import endpoint_key, load_ledger_config
 
 CHAIN = 8453
+DEFAULT_RPC_URL = "https://mainnet.base.org"
 NET = "0x00000000b24d62781db359b07880a105cd0b64e6"
 NET_STORAGE = "0x00000000db40fcb9f4466330982372e27fd7bbf5"
 KNOWN = {NET: "net", NET_STORAGE: "net-storage"}
@@ -184,7 +185,7 @@ def main():
     if not 1 <= args.blocks <= 10000 or args.min_bytes < 1 or args.delay < 0.1 or (args.end_block is not None and args.end_block < 0):
         parser.error("Use 1-10000 blocks, positive min-bytes, delay >= 0.1, and nonnegative end-block")
     try:
-        endpoint = {"url": "https://base.drpc.org"}
+        endpoint = {"url": DEFAULT_RPC_URL}
         if args.config:
             spec = load_ledger_config(args.config)["ledgers"]["base"]
             if spec.get("family") != "evm" or spec.get("chainId") != CHAIN:
