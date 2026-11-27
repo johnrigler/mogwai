@@ -33,6 +33,33 @@ limited to loopback; remote endpoints must use HTTPS. Browser local-network
 permissions and CORS can still prevent access; status is not a proof of
 server identity or availability from other devices.
 
+## Daisy 2026 (no PHP)
+
+The launcher links to the private archive on the established local port
+39692. On the machine with the archive checkout, run:
+
+```bash
+git -C ~/mogwai pull
+git -C ~/daisy_2026 pull
+python3 ~/mogwai/tools/daisy_browser.py ~/daisy_2026
+```
+
+Open http://127.0.0.1:39692/ or choose **Daisy 2026 → Browse local archive**.
+Stop any existing listener on that port first; the new server will not
+terminate another process. Directory navigation and numbered HTML records
+work without PHP. This is a read-only, loopback-only browser; it does not
+modify Daisy, execute archive scripts, fetch GitHub, publish IPFS content,
+or cache private records in the Mogwai PWA. Hidden files and symlinks are
+excluded. It does not yet reproduce all legacy SB Shell features.
+
+The **Open private GitHub repository** link works on devices without a
+local checkout after signing in with repository access; GitHub displays
+source rather than rendered HTML. A remote rendered viewer requires a
+separate authenticated private connection, not a public web root.
+Loopback on a phone means the phone, not the Chromebook or rigler.org.
+Do not expose this server publicly or reverse proxy it without a separate
+authentication and security review.
+
 ## Bundled tools
 
 Open **Tools → Image Factory** from the installed Mogwai app, or use the direct launcher link. The standalone Dark Star Z factory lives in `app/tools/image-factory/index.html`, has no dependencies or ledger access, and supports local PNG and GIF downloads. The Mogwai service worker caches it during installation/update. Other bundled static tools can follow the same directory pattern and get a launcher entry and shell cache entry. Generated images and exported parameter JSON are downloaded to the device; they are not automatically uploaded or cataloged by FileProxy. Browser storage and installed-app behavior still require a device test.
