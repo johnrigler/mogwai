@@ -17,6 +17,8 @@ from urllib.request import Request, build_opener
 
 from evm_read import _NoRedirect
 from ledger_config import endpoint_key, load_ledger_config
+from drpc_status import _private_config, _safe_endpoint
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 CHAIN = 8453
 DEFAULT_RPC_URL = "https://mainnet.base.org"
@@ -39,6 +41,37 @@ def emit(record):
 
 class RPCError(ValueError):
     """Safe diagnostic: never includes endpoint URL or provider error text."""
+
+
+def base_endpoint(config=None, drpc=False):
+    if config and drpc:
+        raise RPCError("Select either --config or --drpc, not both")
+    if config:
+        spec = load_ledger_config(config)["ledgers"]["base"]
+        if spec.get("family") != "evm" or spec.get("chainId") != CHAIN:
+            raise RPCError("Config base entry must be EVM chain 8453")
+        return spec["read"]
+    if drpc:
+        try:
+            private = _private_config()
+            polygon, mode = _safe_endpoint(private)
+            parsed = urlsplit(polygon["url"])
+            parts = parsed.path.strip("/").split("/")
+            query = parse_qs(parsed.query)
+            key = None
+            if mode == "url":
+                if parsed.hostname in ("lb.drpc.live", "lb.drpc.org") and len(parts) == 2 and parts[0].lower() == "polygon":
+                    key = unquote(parts[1])
+                elif query.get("dkey"):
+                    key = query["dkey"][0]
+            elif mode == "header":
+                key = polygon.get("apiKey")
+            if not key or any(ord(ch) < 33 or ord(ch) == 127 for ch in key):
+                raise ValueError("Missing usable dRPC key")
+            return {"url": "https://lb.drpc.live/base/" + quote(key, safe="")}
+        except (ValueError, OSError, KeyError, TypeError):
+            raise RPCError("Cannot load a usable key from private drpc.json") from None
+    return {"url": DEFAULT_RPC_URL}
 
 
 def rpc(endpoint, method, params):
@@ -180,17 +213,13 @@ def main():
     parser.add_argument("--min-bytes", type=int, default=512)
     parser.add_argument("--delay", type=float, default=0.2)
     parser.add_argument("--config")
+    parser.add_argument("--drpc", action="store_true", help="Use the existing private dRPC key for Base")
     parser.add_argument("--net-logs", action="store_true")
     args = parser.parse_args()
     if not 1 <= args.blocks <= 10000 or args.min_bytes < 1 or args.delay < 0.1 or (args.end_block is not None and args.end_block < 0):
         parser.error("Use 1-10000 blocks, positive min-bytes, delay >= 0.1, and nonnegative end-block")
     try:
-        endpoint = {"url": DEFAULT_RPC_URL}
-        if args.config:
-            spec = load_ledger_config(args.config)["ledgers"]["base"]
-            if spec.get("family") != "evm" or spec.get("chainId") != CHAIN:
-                raise ValueError("Config base entry must be EVM chain 8453")
-            endpoint = spec["read"]
+        endpoint = base_endpoint(args.config, args.drpc)
         scan(args, endpoint)
     except (ValueError, KeyError, TypeError, OSError) as exc:
         # Never echo provider URLs or credentials.
