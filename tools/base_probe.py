@@ -36,7 +36,16 @@ def emit(record):
     print(json.dumps(record, ensure_ascii=True, separators=(",", ":")), flush=True)
 
 
+class RPCError(ValueError):
+    """Safe diagnostic: never includes endpoint URL or provider error text."""
+
+
 def rpc(endpoint, method, params):
+    context = method
+    if method == "eth_getBlockByNumber" and params:
+        context += " block=" + str(params[0])
+    elif method == "eth_getLogs" and params:
+        context += " blocks=" + str(params[0].get("fromBlock")) + ".." + str(params[0].get("toBlock"))
     if method not in {"eth_chainId", "eth_blockNumber", "eth_getBlockByNumber", "eth_getLogs"}:
         raise ValueError("Disallowed RPC method")
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
@@ -57,16 +66,27 @@ def rpc(endpoint, method, params):
             break
         except HTTPError as exc:
             if exc.code not in (429, 500, 502, 503, 504) or attempt == 2:
-                raise ValueError("RPC HTTP status " + str(exc.code)) from None
+                raise RPCError(context + ": HTTP " + str(exc.code)) from None
         except (URLError, TimeoutError, OSError):
             if attempt == 2:
-                raise ValueError("RPC network request failed") from None
+                raise RPCError(context + ": network request failed") from None
         time.sleep(2 ** attempt)
     if len(raw) > MAX_RESPONSE:
-        raise ValueError("RPC response too large")
-    response = json.loads(raw)
+        raise RPCError(context + ": response too large")
+    try:
+        response = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise RPCError(context + ": invalid JSON response") from None
+    if not isinstance(response, dict):
+        raise RPCError(context + ": invalid JSON-RPC envelope")
+    if "error" in response:
+        error = response["error"]
+        code = error.get("code") if isinstance(error, dict) else None
+        raise RPCError(context + ": JSON-RPC error code " + (str(code) if type(code) is int else "unknown"))
     if response.get("jsonrpc") != "2.0" or response.get("id") != 1 or "result" not in response:
-        raise ValueError("RPC returned an error or invalid response")
+        raise RPCError(context + ": invalid JSON-RPC envelope")
+    if response["result"] is None:
+        raise RPCError(context + ": null result")
     return response["result"]
 
 
