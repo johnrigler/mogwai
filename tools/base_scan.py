@@ -14,9 +14,10 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import traceback
 from types import SimpleNamespace
 
-from base_probe import CHAIN, rpc, scan
+from base_probe import CHAIN, RPCError, rpc, scan
 from ledger_config import load_ledger_config
 
 
@@ -106,7 +107,9 @@ def main():
     try:
         return run(args)
     except (ValueError, TypeError, KeyError, OSError) as exc:
-        print("Base scan failed: " + type(exc).__name__ + "; checkpoint not advanced for an incomplete batch", file=sys.stderr)
+        frame = traceback.extract_tb(exc.__traceback__)[-1]
+        detail = str(exc) if isinstance(exc, RPCError) else type(exc).__name__
+        print(f"Base scan failed: {detail} ({Path(frame.filename).name}:{frame.lineno}, {frame.name}); checkpoint not advanced for an incomplete batch", file=sys.stderr)
         return 1
 
 
