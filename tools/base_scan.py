@@ -17,8 +17,7 @@ import tempfile
 import traceback
 from types import SimpleNamespace
 
-from base_probe import CHAIN, DEFAULT_RPC_URL, RPCError, rpc, scan
-from ledger_config import load_ledger_config
+from base_probe import CHAIN, RPCError, base_endpoint, rpc, scan
 
 
 def atomic_json(path, value):
@@ -47,12 +46,7 @@ def run(args):
         except BlockingIOError:
             print("Base scan already running")
             return 0
-        endpoint = {"url": DEFAULT_RPC_URL}
-        if args.config:
-            spec = load_ledger_config(args.config)["ledgers"]["base"]
-            if spec.get("family") != "evm" or spec.get("chainId") != CHAIN:
-                raise ValueError("Base config must specify chain 8453")
-            endpoint = spec["read"]
+        endpoint = base_endpoint(args.config, args.drpc)
         if int(rpc(endpoint, "eth_chainId", []), 16) != CHAIN:
             raise ValueError("Wrong RPC chain")
         # Prefer the provider's finalized head; do not silently substitute latest.
@@ -94,6 +88,7 @@ def run(args):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--config")
+    p.add_argument("--drpc", action="store_true", help="Use the existing private dRPC key for Base")
     p.add_argument("--state-dir", default="~/.local/state/mogwai/base-scan")
     p.add_argument("--output")
     p.add_argument("--blocks", type=int, default=100)
