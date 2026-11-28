@@ -152,7 +152,7 @@ health and the separately published BSV scanner feed appear independently in
 the record panel. A missing `/chisel-data/bsv/scan.json` means Chisel cannot
 observe scanner coverage, even when FileProxy is connected.
 
-## Continuous two-cursor daemon
+## Continuous four-cursor daemon
 
 The BSV daemon is separate from FileProxy and can run with no browser open:
 
@@ -164,7 +164,7 @@ The default feed is `~/chisel_data/bsv/`; set `--data-root` if Apache exposes
 another filesystem directory at `/chisel-data/`. No host path is inferred from a URL.
 A missing feed is not evidence that the process is running or stopped.
 
-One process alternates two independently saved jobs using one rate-limited
+One process alternates four independently saved jobs using one rate-limited
 provider and one SQLite transaction store:
 
 - `recent`: starts six blocks behind the current tip and walks backward toward
@@ -173,6 +173,18 @@ provider and one SQLite transaction store:
   and walks forward. After reaching the confirmed head it waits and resumes
   when new confirmed blocks become available.
 
+- `apollo-forward`: begins at the confirmed block containing the recovered
+  February 2022 Apollo JPEG (`269fd1238dca49c491a723c5bcce89b3dc3cf92e6f4b73c32d8538821643cea2`)
+  and walks toward the confirmed head.
+- `apollo-backward`: starts at the same block and walks toward block zero.
+
+The Apollo block is resolved from the transaction on the first pass and saved
+in the same database. Resolution errors are reported and retried without
+stopping the original jobs. Restarting after pulling the update adds the new
+cursors without resetting the original ones. The shared block/transaction
+rows prevent rescanning transactions when cursors meet. These are four
+alternating jobs, not four independent processes.
+
 Each job gets its own budget of 200 transactions / 5 completed blocks per pass.
 The process waits 60 seconds between passes by default (`--interval`). Existing
 complete/partial block rows are shared, so overlap cannot duplicate transaction
@@ -180,7 +192,7 @@ rows or reported coverage. When both ranges meet and every block between their
 anchors is complete, the daemon joins them and the forward job follows new
 blocks. It does not infer complete coverage across a gap.
 
-Both cursors survive restarts. A legacy single cursor migrates to a named
+All four cursors survive restarts. A legacy single cursor migrates to a named
 `history` job and retains its records; the daemon adds `recent` and `early`.
 Provider failures retain the partial transaction offset, report the affected
 job, and allow the other job to proceed. SIGTERM/SIGINT stop between batches,
@@ -205,7 +217,7 @@ bash tools/bsv.sh status
 bash tools/bsv-stop.sh
 ```
 
-Start detaches the two-cursor daemon with `nohup`, so it continues after the
+Start detaches the four-cursor daemon with `nohup`, so it continues after the
 terminal disconnects. Start is idempotent; it refuses a second scanner using
 the same database. Stop sends SIGTERM and waits up to 45 seconds for the
 current request and final export. It does not force-kill the process. Starting

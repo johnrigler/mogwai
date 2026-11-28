@@ -30,6 +30,8 @@ HASH = re.compile(r"^[0-9a-f]{64}$")
 # Its raw transaction hash and block were checked before adding this anchor.
 ALICE_TXID = "b742886801560f57b4dc824ce3a1719613d8b2d38530909fe988c1ca04cc82af"
 ALICE_HEIGHT = 566492
+# Recovered apollo.jpeg, published 2022-02-02 UTC.
+APOLLO_TXID = "269fd1238dca49c491a723c5bcce89b3dc3cf92e6f4b73c32d8538821643cea2"
 
 
 def now():
@@ -467,6 +469,33 @@ def daemon_jobs(db, provider, args):
     return jobs
 
 
+def apollo_jobs(db, provider, args):
+    """Add two cursors without changing the original Alice/recent anchors."""
+    txid = getattr(args, "apollo_anchor_tx", None)
+    if not txid:
+        return []
+    txid = checked_hash(txid)
+    specs = [("apollo-forward", "forward", None), ("apollo-backward", "backward", 0)]
+    saved = [db.execute("SELECT * FROM scan_jobs WHERE name=?", (name,)).fetchone()
+             for name, _, _ in specs]
+    existing = [row for row in saved if row is not None]
+    anchor = existing[0]["anchor_height"] if existing else resolve_anchor(provider, txid)
+    for row, (_, direction, boundary) in zip(saved, specs):
+        if row is not None and (row["anchor_txid"] != txid or row["anchor_height"] != anchor
+                                or row["direction"] != direction or row["stop_height"] != boundary):
+            raise ValueError("Apollo cursor anchor or direction changed; existing checkpoints retained")
+    if not all(row is not None for row in saved) and anchor > provider.tip() - args.confirmations:
+        raise ValueError("Apollo anchor exceeds the confirmed scan head")
+    with db:
+        for row, (name, direction, boundary) in zip(saved, specs):
+            if row is None:
+                db.execute("INSERT INTO scan_jobs(name,direction,anchor_height,next_height,stop_height,anchor_txid) VALUES (?,?,?,?,?,?)",
+                           (name, direction, anchor, anchor, boundary, txid))
+    return [SimpleNamespace(**dict(vars(args), job=name, direction=direction, start_height=anchor,
+                                  stop_height=boundary, anchor_tx=txid))
+            for name, direction, boundary in specs]
+
+
 def join_completed_ranges(db):
     recent = db.execute("SELECT * FROM scan_jobs WHERE name='recent'").fetchone()
     early = db.execute("SELECT * FROM scan_jobs WHERE name='early'").fetchone()
@@ -486,7 +515,20 @@ def join_completed_ranges(db):
 
 def daemon_pass(db, provider, args, jobs, stop):
     results = []
-    for job in jobs:
+    supplemental = []
+    if not stop.is_set():
+        try:
+            supplemental = apollo_jobs(db, provider, args)
+            with db:
+                meta(db, "apollo_error", "")
+        except InterruptedError:
+            if not stop.is_set():
+                raise
+        except (ValueError, sqlite3.Error, OSError, KeyError, TypeError) as exc:
+            with db:
+                meta(db, "apollo_error", str(exc))
+            results.append({"job": "apollo-anchor", "error": str(exc), "checkpointRetained": True})
+    for job in [*jobs, *supplemental]:
         if stop.is_set():
             break
         try:
@@ -562,6 +604,8 @@ def status(db):
                      "currentBlock": current_block, "progress": progress,
                      "lastCheckedAt": saved["updated_at"], "lastError": saved["error"], "phase": phase})
     errors = "; ".join(j["name"] + ": " + j["lastError"] for j in jobs if j["lastError"])
+    if meta(db, "apollo_error"):
+        errors = "; ".join(filter(None, [errors, "apollo-anchor: " + meta(db, "apollo_error")]))
     return {"kind": "bsv-block-scan", "version": 1, "coin": "bsv", "network": "mainnet",
             "provider": API, "generatedAt": now(), "lastCheckedAt": meta(db, "updated_at"),
             "nextHeight": int(meta(db, "next_height")) if meta(db, "next_height") is not None else None,
@@ -683,6 +727,8 @@ def main(argv=None):
     anchor = parser.add_mutually_exclusive_group()
     anchor.add_argument("--anchor-tx", help="Confirmed transaction defining the historical starting block")
     anchor.add_argument("--anchor-height", type=int, help="Override the daemon's historical anchor block")
+    parser.add_argument("--apollo-anchor-tx", default=APOLLO_TXID,
+                        help="Supplemental bidirectional daemon anchor (default: recovered Apollo JPEG)")
     parser.add_argument("--interval", type=float, default=60, help="Seconds between bounded daemon passes")
     parser.add_argument("--once", action="store_true", help="Run one daemon pass and export, then exit")
     parser.add_argument("--blocks", type=int, default=5, help="Completed blocks per run, at most")

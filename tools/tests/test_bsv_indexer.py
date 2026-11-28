@@ -473,6 +473,42 @@ class DaemonTests(unittest.TestCase):
         self.assertEqual(restarted[1].start_height, bsv.ALICE_HEIGHT)
         self.assertEqual(len(calls), 2)
 
+    def test_apollo_cursors_share_blocks_and_resume_without_reresolving(self):
+        provider = ChainProvider(8)
+        options = runner_args(self.temp.name, apollo_anchor_tx=bsv.APOLLO_TXID)
+        calls = []
+        blockhash = h(10005)
+        def request(path):
+            calls.append(path)
+            if path.startswith('/tx/hash/'):
+                return {'txid': bsv.APOLLO_TXID, 'blockhash': blockhash}
+            return {'hash': blockhash, 'height': 5, 'txcount': 2, 'tx': [h(1), bsv.APOLLO_TXID]}
+        provider.request = request
+        jobs = bsv.daemon_jobs(self.db, provider, options)
+        bsv.daemon_pass(self.db, provider, options, jobs, self.stop)
+        report = bsv.status(self.db)
+        self.assertEqual({j['name']: j['nextHeight'] for j in report['jobs']},
+                         {'early': 3, 'recent': 7, 'apollo-forward': 6, 'apollo-backward': 4})
+        self.assertEqual(report['transactionsChecked'], 6)
+        self.assertEqual(provider.reads.count((5, 0)), 1)
+        restarted = bsv.daemon_jobs(self.db, provider, options)
+        bsv.daemon_pass(self.db, provider, options, restarted, self.stop)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual({j['name']: j['nextHeight'] for j in bsv.status(self.db)['jobs']},
+                         {'early': 4, 'recent': 6, 'apollo-forward': 7, 'apollo-backward': 3})
+
+    def test_apollo_lookup_failure_does_not_stop_existing_cursors(self):
+        provider = ChainProvider(8)
+        options = runner_args(self.temp.name, apollo_anchor_tx=bsv.APOLLO_TXID)
+        def fail(path):
+            raise ValueError("provider temporarily unavailable")
+        provider.request = fail
+        jobs = bsv.daemon_jobs(self.db, provider, options)
+        bsv.daemon_pass(self.db, provider, options, jobs, self.stop)
+        report = bsv.status(self.db)
+        self.assertEqual(report['transactionsChecked'], 4)
+        self.assertIn('apollo-anchor:', report['lastError'])
+
     def test_daemon_once_exports_stopped_state_and_heartbeat(self):
         import contextlib
         import io
