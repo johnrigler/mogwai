@@ -315,7 +315,7 @@ def send_json(handler, obj, status=200):
     handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     handler.send_header("Access-Control-Allow-Headers", "Content-Type")
     handler.send_header("Content-Length", str(len(data)))
-    if urllib.parse.urlparse(handler.path).path.startswith("/interactions") or urllib.parse.urlparse(handler.path).path == "/notes":
+    if urllib.parse.urlparse(handler.path).path.startswith("/interactions") or urllib.parse.urlparse(handler.path).path in ("/notes", "/notepad-status"):
         handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
     handler.wfile.write(data)
@@ -2868,6 +2868,28 @@ class Handler(BaseHTTPRequestHandler):
                     "streams": list_main_streams(),
                     "data_root": str(active_data_root()),
                 })
+                return
+
+            if parsed.path == "/notepad-status":
+                # Read only the requested marker state, not private note text.
+                checkout = os.environ.get("CHISEL_NOTEPAD_REPO", "").strip()
+                identifier = query.get("id", [""])[0]
+                if not re.fullmatch(r"chisel:(?:[a-zA-Z0-9]+:)(?:[0-9]{1,15}:[a-zA-Z0-9_-]{1,80}:)?[0-9a-f]{64}", identifier):
+                    send_json(self, {"ok": False, "error": "Invalid Notepad identity"}, 400)
+                    return
+                if not checkout:
+                    send_json(self, {"ok": True, "available": False})
+                    return
+                try:
+                    inbox = json.loads((Path(checkout).expanduser() / "inbox.json").read_text(encoding="utf-8"))
+                    if inbox.get("schema") != "notepad-inbox-v1":
+                        raise ValueError("Unexpected inbox schema")
+                    row = next((n for n in inbox["notes"] if n.get("id") == identifier), None)
+                    send_json(self, {"ok": True, "available": True,
+                                     "status": row.get("status") if row else None,
+                                     "sourceUpdatedAt": row.get("sourceUpdatedAt") if row else None})
+                except (OSError, ValueError, TypeError, KeyError):
+                    send_json(self, {"ok": True, "available": False})
                 return
 
             if parsed.path == "/notes":
