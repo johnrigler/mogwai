@@ -231,6 +231,80 @@ def data_path(*parts):
     return safe_path(str(Path("data") / rel))
 
 
+def list_transaction_notes(query):
+    """Inventory only Chisel annotation documents, never arbitrary files."""
+    limit = int(query.get("limit", ["100"])[0])
+    offset = int(query.get("offset", ["0"])[0])
+    coin = query.get("coin", [""])[0].strip().lower()
+    if not 1 <= limit <= 1000 or offset < 0:
+        raise ValueError("limit must be 1..1000 and offset nonnegative")
+    if query.get("sort", ["updatedAt"])[0] != "updatedAt":
+        raise ValueError("Only updatedAt sorting is supported")
+    if coin and coin not in KNOWN_COINS:
+        raise ValueError("Unknown currency")
+    roots = set()
+    for candidate in (active_data_root() / "annotations", ROOT / "data" / "annotations"):
+        resolved = candidate.resolve()
+        if is_allowed_path(resolved) and resolved.is_dir():
+            roots.add(resolved)
+    notes = {}
+    skipped = 0
+    for root in sorted(roots):
+        for directory, subdirs, filenames in os.walk(root, followlinks=False):
+            folder = Path(directory)
+            subdirs[:] = [name for name in subdirs if not (folder / name).is_symlink()]
+            for name in filenames:
+                if not re.fullmatch(r"[0-9a-f]{64}\.json", name):
+                    continue
+                path = folder / name
+                try:
+                    if path.is_symlink() or not _is_under(path, root) or path.stat().st_size > 1024 * 1024:
+                        skipped += 1
+                        continue
+                    parts = path.relative_to(root).parts
+                    if len(parts) not in (2, 4):
+                        continue
+                    currency = parts[0]
+                    if currency not in KNOWN_COINS or (coin and currency != coin):
+                        continue
+                    if currency == "evm":
+                        if len(parts) != 4 or not re.fullmatch(r"[0-9]{1,15}", parts[1]) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", parts[2]):
+                            continue
+                    elif len(parts) != 2:
+                        continue
+                    with path.open(encoding="utf-8") as handle:
+                        doc = json.load(handle)
+                    if not isinstance(doc, dict) or doc.get("schema") != "chisel-transaction-notes-v1":
+                        raise ValueError("Invalid note schema")
+                    if doc.get("coin") != currency or doc.get("txid") != path.stem:
+                        raise ValueError("Note identity mismatch")
+                    if currency == "evm" and (str(doc.get("chainId")) != parts[1] or doc.get("sourceId") != parts[2]):
+                        raise ValueError("EVM identity mismatch")
+                    stamp = doc.get("updatedAt")
+                    note = doc.get("note", "")
+                    metadata = doc.get("metadata", {})
+                    if isinstance(stamp, bool) or not isinstance(stamp, (int, float)) or not 0 < stamp < 10**15:
+                        raise ValueError("Invalid note timestamp")
+                    if not isinstance(note, str) or not isinstance(metadata, dict):
+                        raise ValueError("Invalid note content")
+                    if not note.strip() and not metadata:
+                        continue
+                    key = "/".join(parts)
+                    row = {"schema": doc["schema"], "coin": currency, "txid": path.stem,
+                           "updatedAt": stamp, "note": note, "metadata": metadata}
+                    if currency == "evm":
+                        row.update(chainId=parts[1], sourceId=parts[2])
+                    if key not in notes or notes[key]["updatedAt"] < stamp:
+                        notes[key] = row
+                except (OSError, UnicodeError, ValueError, TypeError):
+                    skipped += 1
+    rows = sorted(notes.values(), key=lambda row: (-row["updatedAt"], row["coin"], row.get("chainId", ""), row.get("sourceId", ""), row["txid"]))
+    return {"ok": True, "schema": "chisel-notes-list-v1", "total": len(rows),
+            "offset": offset, "limit": limit, "sort": "updatedAt", "order": "desc",
+            "nextOffset": offset + limit if offset + limit < len(rows) else None,
+            "skipped": skipped, "notes": rows[offset:offset + limit]}
+
+
 def send_json(handler, obj, status=200):
     data = json.dumps(obj, indent=2).encode("utf-8")
     handler.send_response(status)
@@ -239,7 +313,7 @@ def send_json(handler, obj, status=200):
     handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     handler.send_header("Access-Control-Allow-Headers", "Content-Type")
     handler.send_header("Content-Length", str(len(data)))
-    if urllib.parse.urlparse(handler.path).path.startswith("/interactions"):
+    if urllib.parse.urlparse(handler.path).path.startswith("/interactions") or urllib.parse.urlparse(handler.path).path == "/notes":
         handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
     handler.wfile.write(data)
@@ -2792,6 +2866,18 @@ class Handler(BaseHTTPRequestHandler):
                     "streams": list_main_streams(),
                     "data_root": str(active_data_root()),
                 })
+                return
+
+            if parsed.path == "/notes":
+                # Bulk note retrieval is explicitly enabled by the operator.
+                # Apply any remote access policy at the reverse proxy too.
+                if os.environ.get("CHISEL_NOTES_LIST", "").strip().lower() not in {"1", "true", "yes", "on"}:
+                    send_json(self, {"ok": False, "error": "Notes inventory is disabled; set CHISEL_NOTES_LIST=1"}, 403)
+                    return
+                try:
+                    send_json(self, list_transaction_notes(query))
+                except (ValueError, TypeError) as error:
+                    send_json(self, {"ok": False, "error": str(error)}, 400)
                 return
 
             if parsed.path == "/list":
