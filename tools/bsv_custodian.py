@@ -31,7 +31,7 @@ def atomic_json(path, value):
     return hashlib.sha256(data).hexdigest()
 
 
-def audit(db, root, feed, limit=5000, verify=200):
+def audit(db, root, feed, limit=None, verify=200, page_size=5000, on_page=None):
     db.row_factory = sqlite3.Row
     db.execute("BEGIN")
     counts = dict(db.execute("""
@@ -59,15 +59,30 @@ def audit(db, root, feed, limit=5000, verify=200):
         (SELECT 1 FROM bsv_curation c WHERE c.txid=t.txid)
     """).fetchone()[0] if has_curation else 0
     records, seen = [], set()
+    catalog_count = page_count = 0
+    newest = oldest = None
+    repair_queue = []
+    for row in db.execute("""
+        SELECT txid,height,tx_index,data_complete,raw IS NULL AS missing_raw,
+               summary IS NULL AS missing_summary FROM transactions
+        WHERE selected=1 AND (data_complete=0 OR data_complete IS NULL OR raw IS NULL OR summary IS NULL)
+        ORDER BY height DESC,tx_index DESC,txid ASC
+    """):
+        repair_queue.append({"txid": row["txid"], "height": row["height"],
+                             "transactionIndex": row["tx_index"],
+                             "reasons": [reason for condition, reason in (
+                                 (not row["data_complete"], "incomplete_payload"),
+                                 (row["missing_raw"], "missing_raw"),
+                                 (row["missing_summary"], "missing_summary")) if condition]})
     missing_files = invalid_files = invalid_summaries = sampled = 0
     raw_dir = root / "transactions" / "bsv"
     raw_base = Path(os.path.relpath(raw_dir, feed)).as_posix()
     for row in db.execute("""
         SELECT t.txid,t.height,t.tx_index,t.bytes,t.data_bytes,t.data_complete,
                t.summary,b.time FROM transactions t JOIN blocks b ON b.height=t.height
-        WHERE t.selected=1 ORDER BY t.height DESC,t.tx_index DESC
+        WHERE t.selected=1 ORDER BY t.height DESC,t.tx_index DESC,t.txid ASC
     """):
-        if len(records) >= limit:
+        if limit is not None and catalog_count >= limit:
             break
         txid = row["txid"]
         if not isinstance(txid, str) or not TXID.fullmatch(txid) or txid in seen:
@@ -107,17 +122,31 @@ def audit(db, root, feed, limit=5000, verify=200):
         records.append({"txid": txid, "coin": "bsv", "ticker": "BSV", "sourceId": "bsv",
                         "rawPath": raw_base + "/" + txid + ".json", "summary": summary,
                         "streamLabel": "BSV Custodian", "discoverySource": "custodian"})
+        catalog_count += 1
+        newest = row["height"] if newest is None else newest
+        oldest = row["height"]
+        if len(records) == page_size:
+            if on_page is not None:
+                on_page(records)
+            page_count += 1
+            records = []
+    if records:
+        if on_page is not None:
+            on_page(records)
+        page_count += 1
     db.rollback()
     report = {"kind": "bsv-custodian", "version": 1,
               "generatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
-              **counts, "catalog_records": len(records), "catalog_limit": limit,
+              **counts, "catalog_records": catalog_count, "catalog_limit": limit,
+              "catalog_page_size": page_size, "catalog_pages": page_count,
+              "repair_queue_records": len(repair_queue),
               "archive_files_missing_in_examined_rows": missing_files,
               "archive_files_verified": sampled,
               "archive_files_invalid_in_sample": invalid_files,
               "invalid_summaries_in_examined_rows": invalid_summaries,
-              "catalog_newest_block": records[0]["summary"]["blockHeight"] if records else None,
-              "catalog_oldest_block": records[-1]["summary"]["blockHeight"] if records else None}
-    return report, records
+              "catalog_newest_block": newest,
+              "catalog_oldest_block": oldest}
+    return report, repair_queue
 
 
 def main(argv=None):
@@ -126,11 +155,12 @@ def main(argv=None):
     parser.add_argument("--db", default=os.environ.get("BSV_DB", "~/.local/state/mogwai/bsv-index.sqlite3"))
     parser.add_argument("--data-root", default=os.environ.get("CHISEL_DATA_ROOT", "~/chisel_data"))
     parser.add_argument("--feed-dir", help="Default: <data-root>/bsv/custodian")
-    parser.add_argument("--limit", type=int, default=5000)
+    parser.add_argument("--limit", type=int, help="Optional diagnostic cap; default scans all selected records")
+    parser.add_argument("--page-size", type=int, default=5000)
     parser.add_argument("--verify", type=int, default=200)
     args = parser.parse_args(argv)
-    if args.limit < 1 or args.limit > 100000 or args.verify < 0:
-        parser.error("limit must be 1..100000; verify must be nonnegative")
+    if (args.limit is not None and args.limit < 1) or not 1 <= args.page_size <= 10000 or args.verify < 0:
+        parser.error("limit must be positive; page-size 1..10000; verify nonnegative")
     root = Path(args.data_root).expanduser().resolve()
     feed = Path(args.feed_dir).expanduser().resolve() if args.feed_dir else root / "bsv" / "custodian"
     if args.command == "status":
@@ -142,20 +172,40 @@ def main(argv=None):
         feed.mkdir(parents=True, exist_ok=True)
     dbpath = Path(args.db).expanduser().resolve()
     def run():
-        with sqlite3.connect(dbpath.as_uri() + "?mode=ro", uri=True, timeout=5) as db:
-            db.execute("PRAGMA query_only=ON")
-            report, records = audit(db, root, feed, args.limit, args.verify)
-        if args.command == "publish":
-            if report["selected"] and not records:
-                raise RuntimeError("No selected records could be published; prior catalog preserved")
+        pages, hashes = [], {}
+        def publish_page(records):
             index = {"version": 1, "transactions": records}
             digest = hashlib.sha256((json.dumps(index, ensure_ascii=True, separators=(",", ":")) + "\n").encode()).hexdigest()
             relative = "index/portal-" + digest + ".json"
-            checksum = atomic_json(feed / relative, index)
+            path = feed / relative
+            if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                atomic_json(path, index)
+            hashes[relative] = "sha256-" + digest
+            pages.append({"path": relative, "records": len(records),
+                          "newestBlock": records[0]["summary"]["blockHeight"],
+                          "oldestBlock": records[-1]["summary"]["blockHeight"]})
+        with sqlite3.connect(dbpath.as_uri() + "?mode=ro", uri=True, timeout=5) as db:
+            db.execute("PRAGMA query_only=ON")
+            report, repairs = audit(db, root, feed, args.limit, args.verify, args.page_size,
+                                    publish_page if args.command == "publish" else None)
+        if args.command == "publish":
+            if report["selected"] and not pages:
+                raise RuntimeError("No selected records could be published; prior catalog preserved")
+            if not pages:
+                index = {"version": 1, "transactions": []}
+                relative = "index/portal-empty.json"
+                hashes[relative] = "sha256-" + atomic_json(feed / relative, index)
+                default_index = relative
+            else:
+                default_index = pages[0]["path"]
+            atomic_json(feed / "repair-queue.json", {"version": 1, "generatedAt": report["generatedAt"],
+                        "records": repairs})
             atomic_json(feed / "manifest.json", {"version": 1, "title": "BSV Custodian",
-                        "defaultIndex": relative, "records": len(records),
+                        "defaultIndex": default_index, "records": report["catalog_records"],
+                        "pageSize": args.page_size, "pages": pages,
+                        "repairQueue": "repair-queue.json",
                         "generatedAt": report["generatedAt"], "generatedBy": "mogwai/tools/bsv_custodian.py",
-                        "hashes": {relative: "sha256-" + checksum}})
+                        "hashes": hashes})
             atomic_json(feed / "status.json", report)
         print(json.dumps(report, indent=2))
     if args.command == "publish":
