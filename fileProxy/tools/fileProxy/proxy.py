@@ -240,7 +240,9 @@ def list_transaction_notes(query):
         raise ValueError("limit must be 1..1000 and offset nonnegative")
     if query.get("sort", ["updatedAt"])[0] != "updatedAt":
         raise ValueError("Only updatedAt sorting is supported")
-    if coin and coin not in KNOWN_COINS:
+    annotation_coins = {"digibyte", "ravencoin", "litecoin", "litecoinTestnet",
+                        "bitcoin", "bsv", "bsvTestnet", "dogecoin", "ecash", "evm"}
+    if coin and coin not in {value.lower() for value in annotation_coins}:
         raise ValueError("Unknown currency")
     roots = set()
     for candidate in (active_data_root() / "annotations", ROOT / "data" / "annotations"):
@@ -265,7 +267,7 @@ def list_transaction_notes(query):
                     if len(parts) not in (2, 4):
                         continue
                     currency = parts[0]
-                    if currency not in KNOWN_COINS or (coin and currency != coin):
+                    if currency not in annotation_coins or (coin and currency.lower() != coin):
                         continue
                     if currency == "evm":
                         if len(parts) != 4 or not re.fullmatch(r"[0-9]{1,15}", parts[1]) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", parts[2]):
