@@ -471,3 +471,7 @@ imported trails are available through FileProxy's transaction/main-stream
 catalogs rather than being presented as scanned coverage.
 
 Tests: `python3 -m unittest discover -s tools/tests -p 'test_bsv_recovery_import.py' -v`.
+
+### Per-Skulker discoveries
+
+Each job now publishes up to 20 recently selected records in `jobs[].recentRecords`, newest discovery first, with TXID, block height and check time. Attribution begins when this version runs; previously scanned blocks are not retroactively assigned to a cursor. Shared blocks do not generate duplicate discoveries for the second job. Reorg deletion removes the affected discovery entries and curator-suppressed records are omitted. Chisel can use these IDs to open a Skulker's recent finds independently of the ranked feed limit.

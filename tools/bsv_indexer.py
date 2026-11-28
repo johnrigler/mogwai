@@ -271,6 +271,12 @@ def connect(path):
             anchor_height INTEGER NOT NULL, next_height INTEGER NOT NULL,
             stop_height INTEGER, anchor_txid TEXT NOT NULL DEFAULT '',
             updated_at TEXT, error TEXT NOT NULL DEFAULT '');
+        CREATE TABLE IF NOT EXISTS scan_discoveries (
+            seq INTEGER PRIMARY KEY AUTOINCREMENT,
+            job TEXT NOT NULL REFERENCES scan_jobs(name) ON DELETE CASCADE,
+            height INTEGER NOT NULL, tx_index INTEGER NOT NULL,
+            FOREIGN KEY(height,tx_index) REFERENCES transactions(height,tx_index) ON DELETE CASCADE);
+        CREATE INDEX IF NOT EXISTS scan_discoveries_job_seq ON scan_discoveries(job,seq DESC);
     """)
     # Upgrade an existing single-cursor database without dropping its history.
     if not db.execute("SELECT 1 FROM scan_jobs LIMIT 1").fetchone() and meta(db, "next_height") is not None:
@@ -395,6 +401,12 @@ def scan(db, provider, args, stop=None):
                         height, cursor + offset, tx["txid"], info["transactionBytes"], info["dataBytes"],
                         int(info["dataComplete"]), int(selected), json.dumps(info) if selected else None,
                         json.dumps(tx, separators=(",", ":")) if selected else None, now()))
+                    if selected:
+                        db.execute("INSERT INTO scan_discoveries(job,height,tx_index) VALUES (?,?,?)",
+                                   (name, height, cursor + offset))
+                if candidates:
+                    db.execute("""DELETE FROM scan_discoveries WHERE job=? AND seq NOT IN
+                        (SELECT seq FROM scan_discoveries WHERE job=? ORDER BY seq DESC LIMIT 20)""", (name, name))
                 cursor += len(batch)
                 checked += len(batch)
                 db.execute("UPDATE blocks SET checked=?,updated_at=?,error='' WHERE height=?", (cursor, now(), height))
@@ -577,6 +589,7 @@ def status(db):
         GROUP BY b.height ORDER BY b.height DESC
     """)]
     jobs = []
+    has_discoveries = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='scan_discoveries'").fetchone()
     confirmations = meta(db, "confirmations")
     safe = int(meta(db, "tip") or 0) - int(confirmations if confirmations is not None else 6)
     saved_jobs = db.execute("SELECT * FROM scan_jobs ORDER BY name") if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='scan_jobs'").fetchone() else []
@@ -603,6 +616,12 @@ def status(db):
                      "nextHeight": height, "stopHeight": boundary, "anchorTxid": saved["anchor_txid"],
                      "currentBlock": current_block, "progress": progress,
                      "lastCheckedAt": saved["updated_at"], "lastError": saved["error"], "phase": phase})
+        if has_discoveries:
+            jobs[-1]["recentRecords"] = [
+                {"txid": row["txid"], "blockHeight": row["height"], "checkedAt": row["checked_at"]}
+                for row in db.execute("""SELECT t.txid,t.height,t.checked_at FROM scan_discoveries d
+                    JOIN transactions t ON t.height=d.height AND t.tx_index=d.tx_index
+                    WHERE d.job=? AND t.selected=1 ORDER BY d.seq DESC LIMIT 20""", (saved["name"],))]
     errors = "; ".join(j["name"] + ": " + j["lastError"] for j in jobs if j["lastError"])
     if meta(db, "apollo_error"):
         errors = "; ".join(filter(None, [errors, "apollo-anchor: " + meta(db, "apollo_error")]))

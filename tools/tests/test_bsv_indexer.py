@@ -82,6 +82,21 @@ class ScanTests(unittest.TestCase):
         self.db.close()
         self.temp.cleanup()
 
+    def test_recent_discoveries_are_attributed_once_and_persist(self):
+        provider = Provider()
+        bsv.scan(self.db, provider, args(max_transactions=4, job="first"))
+        bsv.scan(self.db, provider, args(max_transactions=4, job="second"))
+        jobs = {j["name"]: j for j in bsv.status(self.db)["jobs"]}
+        self.assertEqual([r["txid"] for r in jobs["first"]["recentRecords"]], [h(3), h(2)])
+        self.assertEqual(jobs["second"]["recentRecords"], [])
+        self.assertEqual(jobs["first"]["recentRecords"][0]["blockHeight"], 100)
+        self.db.close()
+        self.db = bsv.connect(Path(self.temp.name) / "index.sqlite3")
+        self.assertEqual(len(bsv.status(self.db)["jobs"][0]["recentRecords"]), 2)
+        with self.db:
+            self.db.execute("DELETE FROM blocks WHERE height=100")
+        self.assertEqual(bsv.status(self.db)["jobs"][0]["recentRecords"], [])
+
     def test_partial_resume_sizes_candidates_and_export(self):
         provider = Provider()
         bsv.scan(self.db, provider, args())
